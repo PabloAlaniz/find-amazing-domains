@@ -1,0 +1,14 @@
+.venv/
+.idea/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.DS_Store
+data/words_*.txt
+data/[0-9]*.txt
+
+# Coverage
+.coverage
+htmlcov/

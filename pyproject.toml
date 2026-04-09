@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "domainhack"
+version = "0.1.0"
+description = "Find domain hacks hiding in real words"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = [
+    "httpx>=0.27",
+    "beautifulsoup4>=4.12",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "ruff>=0.9",
+    "mypy>=1.14",
+    "pre-commit>=4.0",
+]
+
+[project.scripts]
+domainhack = "domainhack.cli.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=domainhack --cov-report=term-missing -m 'not integration'"
+markers = [
+    "integration: tests that hit external services (Tonic.to registrar)",
+]
+
+# ── ruff ────────────────────────────────────────────────
+[tool.ruff]
+target-version = "py310"
+src = ["src", "tests"]
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific rules
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["domainhack"]
+
+# ── mypy ────────────────────────────────────────────────
+[tool.mypy]
+python_version = "3.10"
+mypy_path = "src"
+packages = ["domainhack"]
+strict = true
+warn_return_any = true
+warn_unused_configs = true

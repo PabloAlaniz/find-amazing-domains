@@ -8,7 +8,9 @@ from domainhack.adapters.csv_writer import CsvResultWriter
 from domainhack.adapters.file_word_source import FileWordSource
 from domainhack.adapters.json_writer import JsonResultWriter
 from domainhack.adapters.tonic_registrar import TonicRegistrarClient
+from domainhack.adapters.tqdm_progress import TqdmProgressReporter
 from domainhack.domain.entities import TLD, DomainHack
+from domainhack.ports.progress import NullProgressReporter, ProgressReporter
 from domainhack.ports.result_writer import ResultWriter
 from domainhack.usecases.check_domains import CheckDomainsUseCase
 from domainhack.usecases.filter_words import FilterWordsUseCase
@@ -43,6 +45,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     chk.add_argument("--show-taken", action="store_true", help="Also print taken domains")
     chk.add_argument("--dry-run", action="store_true", help="List domains without checking")
+    chk.add_argument(
+        "--no-progress",
+        action="store_true",
+        help="Hide the progress bar (auto-hidden when stderr is not a TTY)",
+    )
 
     source_group = chk.add_mutually_exclusive_group(required=True)
     source_group.add_argument("--file", type=Path, help="Word list file (list mode)")
@@ -100,6 +107,19 @@ def _build_writer(args: argparse.Namespace) -> ResultWriter:
     return CompositeResultWriter([console, file_writer])
 
 
+def _progress_total(args: argparse.Namespace) -> int | None:
+    """Exact total in range mode; None (indeterminate bar) in file mode."""
+    if args.file:
+        return None
+    return RangeWordSource(args.range_max, end_at=args.range_end).total()
+
+
+def _build_progress(args: argparse.Namespace) -> ProgressReporter:
+    if getattr(args, "no_progress", False):
+        return NullProgressReporter()
+    return TqdmProgressReporter()
+
+
 def cmd_check(args: argparse.Namespace) -> None:
     tld = TLD(args.tld)
     domains = _build_domains(args, tld)
@@ -115,7 +135,10 @@ def cmd_check(args: argparse.Namespace) -> None:
 
     with TonicRegistrarClient(delay=args.delay) as registrar:
         writer = _build_writer(args)
-        CheckDomainsUseCase(registrar, writer).execute(domains)
+        progress = _build_progress(args)
+        CheckDomainsUseCase(registrar, writer, progress).execute(
+            domains, total=_progress_total(args)
+        )
 
 
 def main() -> None:

@@ -15,6 +15,7 @@ from domainhack.adapters.console_writer import ConsoleResultWriter
 from domainhack.adapters.csv_writer import CsvResultWriter
 from domainhack.adapters.file_word_source import DEFAULT_ENCODING, FileWordSource, WordListError
 from domainhack.adapters.json_writer import JsonResultWriter
+from domainhack.adapters.pacing import pacing_for
 from domainhack.adapters.registrar_catalog import build_registrar_for
 from domainhack.adapters.registrar_router import RegistrarFactory, RegistrarRouter
 from domainhack.adapters.tqdm_progress import TqdmProgressReporter
@@ -23,12 +24,20 @@ from domainhack.ports.progress import NullProgressReporter, ProgressReporter
 from domainhack.ports.registrar import RegistrarClient
 from domainhack.ports.result_writer import ResultWriter
 from domainhack.usecases.check_domains import CheckDomainsUseCase, CheckSummary
+from domainhack.usecases.estimate_run import (
+    GUARDRAIL_MAX_QUERIES,
+    Pacing,
+    RunEstimate,
+    estimate_run,
+    format_duration,
+)
 from domainhack.usecases.filter_words import FilterWordsUseCase
 from domainhack.usecases.generate_range import (
     MAX_RANGE_LENGTH,
     RangeCandidatesUseCase,
     RangeWordSource,
 )
+from domainhack.usecases.rank_candidates import CandidateOrder, RankCandidatesUseCase
 
 OUTPUT_FORMATS = ("csv", "json")
 _FORMAT_BY_SUFFIX = {".csv": "csv", ".json": "json", ".jsonl": "json"}
@@ -132,6 +141,13 @@ def _non_negative_int(value: str) -> int:
     return number
 
 
+def _positive_int(value: str) -> int:
+    number = _non_negative_int(value)
+    if number < 1:
+        raise argparse.ArgumentTypeError(f"must be >= 1, got {value!r}")
+    return number
+
+
 def _range_max(value: str) -> int:
     try:
         number = int(value)
@@ -224,6 +240,26 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Max combination length, 1-{MAX_RANGE_LENGTH} (range mode)",
     )
     chk.add_argument("--range-end", type=_range_end, default=None, help="Stop at this combination")
+    chk.add_argument(
+        "--order",
+        choices=[o.value for o in CandidateOrder],
+        default=None,
+        help="Check order in list mode: score = shortest SLD, then shortest word, then "
+        "alphabetical (default); alpha = alphabetical; input = word-list order. "
+        "Range mode is always generated shortest-first (input)",
+    )
+    chk.add_argument(
+        "--limit",
+        type=_positive_int,
+        default=None,
+        metavar="N",
+        help="Check at most N domains per TLD, taken in --order",
+    )
+    chk.add_argument(
+        "--yes",
+        action="store_true",
+        help=f"Run a brute-force check estimated at more than {GUARDRAIL_MAX_QUERIES:,} queries",
+    )
     _add_encoding_option(chk)
     chk.add_argument("--output", type=Path, default=None, help="Also save results to FILE")
     chk.add_argument(
@@ -260,7 +296,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     """Cross-option checks argparse cannot express; exits with status 2 on error."""
-    if args.command != "check" or args.range_end is None:
+    if args.command != "check":
+        return
+    if args.range_max is not None and args.order not in (None, CandidateOrder.INPUT.value):
+        parser.error(
+            f"--order {args.order} needs --file; range mode is generated shortest-first "
+            "and too large to sort"
+        )
+    if args.range_end is None:
         return
     if args.range_max is None:
         parser.error("--range-end requires --range-max")
@@ -310,12 +353,26 @@ def _build_candidates(
     return RangeCandidatesUseCase(range_source, tld_list)
 
 
-def _build_domains(args: argparse.Namespace, tlds: TLD | Sequence[TLD]) -> Iterable[DomainHack]:
-    """Domains to check: every (word, TLD) match in list mode, every SLD x TLD in range mode.
+def _order(args: argparse.Namespace) -> CandidateOrder:
+    """``--order``; by default ``score`` in list mode and ``input`` in range mode."""
+    value: str | None = getattr(args, "order", None)
+    if value is not None:
+        return CandidateOrder(value)
+    return CandidateOrder.SCORE if args.file else CandidateOrder.INPUT
 
-    Range mode is SLD-major (a.to, a.io, b.to, b.io, ...).
+
+def _build_ranker(args: argparse.Namespace, tlds: Sequence[TLD]) -> RankCandidatesUseCase:
+    return RankCandidatesUseCase(_order(args), limit=getattr(args, "limit", None), tlds=tlds)
+
+
+def _build_domains(args: argparse.Namespace, tlds: TLD | Sequence[TLD]) -> Iterable[DomainHack]:
+    """Domains to check, in check order and capped by ``--limit`` per TLD.
+
+    List mode yields every (word, TLD) match, best first by default. Range
+    mode is lazy and SLD-major (a.to, a.io, b.to, b.io, ...).
     """
-    return _build_candidates(args, tlds).execute()
+    tld_list: tuple[TLD, ...] = (tlds,) if isinstance(tlds, TLD) else tuple(tlds)
+    return _build_ranker(args, tld_list).execute(_build_candidates(args, tld_list).execute())
 
 
 def _resolve_output_format(output: Path, fmt: str | None) -> str:
@@ -346,13 +403,26 @@ def _build_writer(args: argparse.Namespace) -> ResultWriter:
     return CompositeResultWriter([console, file_writer])
 
 
+def _range_totals(args: argparse.Namespace, tlds: Sequence[TLD]) -> dict[TLD, int]:
+    """Range mode: exact candidates per TLD, capped by ``--limit``."""
+    range_source = RangeWordSource(args.range_max, end_at=args.range_end)
+    totals = RangeCandidatesUseCase(range_source, tlds).totals_by_tld()
+    limit: int | None = getattr(args, "limit", None)
+    if limit is not None:
+        totals = {tld: min(count, limit) for tld, count in totals.items()}
+    return totals
+
+
 def _progress_total(args: argparse.Namespace, tlds: Sequence[TLD] | None = None) -> int | None:
-    """Exact total in range mode (valid SLD x TLD pairs); None (indeterminate bar) in file mode."""
+    """Exact total in range mode (valid SLD x TLD pairs, capped by ``--limit``).
+
+    None (indeterminate bar) in file mode: the total is only known once the
+    list has been read (``cmd_check`` counts it when ``--order`` sorts it).
+    """
     if args.file:
         return None
     tld_list = list(tlds) if tlds is not None else _selected_tlds(args)
-    range_source = RangeWordSource(args.range_max, end_at=args.range_end)
-    return RangeCandidatesUseCase(range_source, tld_list).total()
+    return sum(_range_totals(args, tld_list).values())
 
 
 def _build_progress(args: argparse.Namespace) -> ProgressReporter:
@@ -403,6 +473,41 @@ def _build_registrar(
     )
 
 
+def _estimate_range_run(
+    args: argparse.Namespace, router: RegistrarRouter, tlds: Sequence[TLD]
+) -> RunEstimate:
+    delay: float = args.delay
+
+    def pacing(tld: TLD) -> Pacing:
+        return pacing_for(router.client_for(tld), tld, delay)
+
+    return estimate_run(_range_totals(args, tlds), pacing)
+
+
+def _range_guardrail(
+    args: argparse.Namespace, router: RegistrarRouter, tlds: Sequence[TLD]
+) -> int | None:
+    """Print the cost of a brute-force run; refuse a large one without ``--yes``.
+
+    Returns EXIT_USAGE when the run is refused, None when it may go ahead.
+    """
+    estimate = _estimate_range_run(args, router, tlds)
+    hosts = ", ".join(h.host for h in estimate.hosts)
+    count = len(estimate.hosts)
+    _stderr(
+        f"Estimated {estimate.queries:,} queries to {count} host{'s' if count != 1 else ''} "
+        f"({hosts}): at least {format_duration(estimate.seconds)} at the current pacing."
+    )
+    if not estimate.exceeds() or getattr(args, "yes", False):
+        return None
+    _stderr(
+        f"error: refusing to send more than {GUARDRAIL_MAX_QUERIES:,} queries without --yes; "
+        "registries' terms of use forbid bulk querying. Narrow the run with --range-end "
+        "or --limit, preview it with --dry-run, or pass --yes."
+    )
+    return EXIT_USAGE
+
+
 def _supported_tlds(router: RegistrarRouter, tlds: Sequence[TLD]) -> list[TLD]:
     """Keep TLDs the router can check; warn on stderr about the others.
 
@@ -426,8 +531,9 @@ def cmd_check(args: argparse.Namespace, *, catalog: RegistrarCatalog | None = No
     tlds = _selected_tlds(args)
 
     if args.dry_run:
+        # The same candidates, order and limit as a real run.
         candidates = _build_candidates(args, tlds)
-        for domain in candidates.execute():
+        for domain in _build_ranker(args, tlds).execute(candidates.execute()):
             print(f"  {domain.display}  (word: {domain.word!r})")
         _warn_skipped(candidates.skipped)
         return EXIT_OK
@@ -441,17 +547,27 @@ def cmd_check(args: argparse.Namespace, *, catalog: RegistrarCatalog | None = No
     router = _build_router(args, catalog)
     tlds = _supported_tlds(router, tlds)
     try:
+        refused = None if args.file else _range_guardrail(args, router, tlds)
+        if refused is not None:
+            router.close()
+            return refused
+        candidates = _build_candidates(args, tlds)
+        ranker = _build_ranker(args, tlds)
+        domains: Iterable[DomainHack] = ranker.execute(candidates.execute())
+        total = _progress_total(args, tlds)
+        if ranker.materializes:
+            # Sorting reads the whole list anyway (before any output file is
+            # opened); counting it gives the progress bar an exact total.
+            domains = list(domains)
+            total = len(domains)
         writer = _build_writer(args)
     except BaseException:
         router.close()
         raise
-    candidates = _build_candidates(args, tlds)
 
     with _build_registrar(args, router) as registrar:
         progress = _build_progress(args)
-        summary = CheckDomainsUseCase(registrar, writer, progress).execute(
-            candidates.execute(), total=_progress_total(args, tlds)
-        )
+        summary = CheckDomainsUseCase(registrar, writer, progress).execute(domains, total=total)
     _warn_skipped(candidates.skipped)
     return _report(summary)
 

@@ -6,7 +6,6 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from domainhack.adapters._throttle import HostThrottle
 from domainhack.adapters.cached_registrar import (
     CACHE_RAW_TITLE,
     DEFAULT_TTL_SECONDS,
@@ -17,7 +16,7 @@ from domainhack.adapters.rdap_registrar import RdapRegistrarClient
 from domainhack.adapters.registrar_router import RegistrarRouter
 from domainhack.cli.app import _build_registrar, build_parser
 from domainhack.domain.entities import Availability
-from tests.fakes import FakeCatalog, FakeClock, ScriptedRegistrar, hack
+from tests.fakes import FakeCatalog, FakeClock, ScriptedRegistrar, fake_throttle, hack
 
 NOW = 1_000_000.0
 
@@ -107,7 +106,7 @@ class TestCachedRegistrarClient:
             "https://rdap.example.test/",
             delay=5.0,
             client=httpx.Client(transport=httpx.MockTransport(handler)),
-            throttle=HostThrottle(clock=clock.time, sleep=clock.sleep),
+            throttle=fake_throttle(clock),
         )
         with CachedRegistrarClient(inner, path=db_path, clock=clock) as cached:
             assert cached.check_availability(hack("aa")).raw_title == CACHE_RAW_TITLE

@@ -41,6 +41,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PEP 561 `py.typed` marker, full project metadata, and this changelog.
 - CI runs on Python 3.10 to 3.14, with pre-commit lint and type-check, a coverage
   floor, a wheel build smoke test, a weekly live-registry check and Dependabot.
+- Best candidates are checked first. `check --order {score,alpha,input}` sets the
+  order; the default in word-list mode is `score`: shortest SLD, then shortest full
+  word, then alphabetical (deterministic). Range mode keeps its lazy shortest-first
+  generation. A `Scorer` hook in `RankCandidatesUseCase` leaves room for
+  frequency-based ranking.
+- `check --limit N` checks at most N domains per TLD, after ordering. The progress
+  total and `--dry-run` reflect it. Sorted word lists now get an exact progress
+  total.
+- Brute-force guardrail. A `--range-max` run first prints its estimated query count
+  and minimum duration per host. Runs over 10,000 queries exit with status 2 unless
+  `--yes` is given. `--dry-run` is exempt.
+- Adaptive per-host throttling (RFC 7480 §5.5). A 429, 503, timeout or WHOIS
+  rate-limit reply doubles the host's interval (cap 60 s); each real answer shrinks
+  it by 10% back toward `--delay`. Every wait gets ±20% jitter.
 
 ### Changed
 
@@ -51,6 +65,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `.to` domains are checked through the official Tonic RDAP endpoint.
 - The ruff and mypy versions are pinned in the `dev` extra and match
   `.pre-commit-config.yaml`.
+- RDAP retries a 429 (with or without `Retry-After`), a 5xx, a timeout or a dropped
+  connection up to 2 times. Without `Retry-After` it waits a full-jitter
+  exponential backoff (`random(0, min(30, 2·2^n))` s). `Retry-After` defers the
+  whole host, including other TLDs that share it. WHOIS retries a timeout or a
+  rate-limited reply once at most.
+- A check counts once for the circuit breaker and slows its host down at most once,
+  however many retries it makes.
 
 ### Removed
 

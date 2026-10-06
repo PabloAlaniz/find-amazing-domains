@@ -3,7 +3,6 @@ from collections.abc import Mapping
 import pytest
 
 from domainhack.adapters._circuit import HostCircuitBreaker
-from domainhack.adapters._throttle import HostThrottle
 from domainhack.adapters.rdap_bootstrap import RDAP_OVERRIDES
 from domainhack.adapters.whois_registrar import (
     ALL_WHOIS_SERVERS,
@@ -17,7 +16,7 @@ from domainhack.adapters.whois_registrar import (
     whois_query,
 )
 from domainhack.domain.entities import TLD, Availability, DomainHack
-from tests.fakes import FakeClock
+from tests.fakes import FakeClock, fake_throttle
 
 
 class FakeConn:
@@ -72,7 +71,7 @@ def _client(
         timeout=5.0,
         servers=servers,
         connect=connector,
-        throttle=HostThrottle(clock=clock.time, sleep=clock.sleep),
+        throttle=fake_throttle(clock),
     )
     return client, connector, clock
 
@@ -230,7 +229,7 @@ def _timeout_client(timeout: float, **kwargs: float) -> tuple[WhoisRegistrarClie
         delay=0.0,
         timeout=timeout,
         connect=connector,
-        throttle=HostThrottle(clock=clock.time, sleep=clock.sleep),
+        throttle=fake_throttle(clock),
         **kwargs,
     )
     return client, connector
@@ -279,26 +278,32 @@ def _breaker_client(
         delay=0.0,
         timeout=5.0,
         connect=connector,
-        throttle=HostThrottle(clock=clock.time, sleep=clock.sleep),
+        throttle=fake_throttle(clock),
         breaker=HostCircuitBreaker(threshold=3, clock=clock.time, on_open=warnings.append),
     )
     return client, connector, clock
 
 
+_TIMEOUT = TimeoutError("timed out")
+_SLOW_DOWN_REPLIES = (_TIMEOUT, b"Too many queries\n")
+
+
 @pytest.mark.parametrize(
     "reply",
-    [TimeoutError("timed out"), ConnectionResetError("reset"), b"", b"Too many queries\n"],
+    [_TIMEOUT, ConnectionResetError("reset"), b"", b"Too many queries\n"],
 )
 def test_breaker_skips_host_after_three_failures(reply: bytes | Exception) -> None:
     warnings: list[str] = []
     client, connector, _ = _breaker_client(reply, warnings)
     for sld in ("a", "b", "c"):
         assert client.check_availability(_hack(sld, "it")).availability == Availability.ERROR
-    assert len(connector.addresses) == 3
+    # Timeouts and rate-limit text are retried once; still one failure per check.
+    queries = 6 if reply in _SLOW_DOWN_REPLIES else 3
+    assert len(connector.addresses) == queries
     assert len(warnings) == 1
 
     skipped = [client.check_availability(_hack(sld, "it")) for sld in ("d", "e", "f")]
-    assert len(connector.addresses) == 3  # no network call while open
+    assert len(connector.addresses) == queries  # no network call while open
     for result in skipped:
         assert result.availability == Availability.ERROR
         assert result.error_message == "skipped: whois.nic.it unresponsive (circuit open)"

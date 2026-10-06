@@ -90,7 +90,21 @@ domainhack --tld to check --file data/words_es.txt --dry-run
 
 # Also show taken domains in the output
 domainhack --tld to check --file data/words_es.txt --show-taken
+
+# Only the 50 best candidates per TLD (shortest names first)
+domainhack --tld to,it check --file data/words_es.txt --limit 50
+
+# Check in word-list order instead
+domainhack --tld to check --file data/words_es.txt --order input
 ```
+
+Registries throttle hard (whois.nic.it stopped answering after about 50 queries in a test run), so the best candidates are checked first. `--order` picks the order:
+
+- `score` (default): shortest SLD first, then shortest full word, then alphabetical. The order is deterministic.
+- `alpha`: alphabetical by domain name.
+- `input`: the order of the word list.
+
+`--limit N` checks at most N domains per TLD, taken in that order. `--dry-run` lists exactly what a run with the same options would check, and the progress bar total accounts for the limit.
 
 ### Check availability -- brute-force mode
 
@@ -105,7 +119,20 @@ domainhack --tld to check --range-max 3 --range-end "ba"
 
 # Preview combinations without checking
 domainhack --tld to check --range-max 2 --dry-run
+
+# Only the first 500 combinations per TLD
+domainhack --tld to,io check --range-max 3 --limit 500
 ```
+
+Combinations are generated shortest first, lazily (`--range-max 6` is over 300 million names), so range mode is never sorted and `--order` only accepts `input` there.
+
+Before a brute-force run, domainhack prints the estimated number of queries and the minimum run time. The estimate accounts for TLDs that share a host and for each host's pacing:
+
+```
+Estimated 36,556 queries to 2 hosts (rdap.tonicregistry.to, rdap.identitydigital.services): at least 5 h 4 min at the current pacing.
+```
+
+Runs over 10,000 queries are refused with exit status 2 unless you pass `--yes`. Narrow the run with `--range-end` or `--limit` instead where you can: registry terms of use forbid bulk querying. `--dry-run` never queries anything, so it is exempt.
 
 ### Multiple TLDs
 
@@ -162,7 +189,11 @@ Note: "available" means *not registered*. Premium or reserved names may still sh
 ### Being a good citizen
 
 - Requests identify the tool: `User-Agent: domainhack/<version> (+repo URL)`. Add `--contact you@example.com` (or `DOMAINHACK_CONTACT`) to include a `From` header.
-- Requests to each host are spaced (`--delay`, with stricter per-server minimums, e.g. 4 s for `whois.nic.it`).
+- Requests to each host are spaced (`--delay`, with stricter per-server minimums, e.g. 4 s for `whois.nic.it`). Each wait gets ±20% random jitter.
+- The spacing adapts to each host (RFC 7480 §5.5). A 429, a 503, a timeout or WHOIS rate-limit text doubles that host's interval, up to 60 s. Each real answer shrinks it by 10%, back down to `--delay`.
+- RDAP retries a 429, a 5xx, a timeout or a dropped connection at most twice. It waits for `Retry-After` when the server sends one (a 429 asking for more than 30 s is not retried, but the host is still held back, for up to 60 s). Otherwise it waits a "full jitter" exponential backoff, `random(0, min(30, 2 × 2^n))` seconds. WHOIS retries a timeout or a rate-limited reply only once.
+- A check counts once, however many retries it takes: it slows its host down at most once and counts as at most one failure for the circuit breaker below.
+- Checks go best-first, `--limit` caps them per TLD, and large brute-force runs need `--yes` (see above).
 - If a host stops responding (3 consecutive failures), its domains are skipped for 60 s instead of waiting on timeouts; skipped checks are reported as errors and re-checked on the next run.
 
 ### Exit codes
@@ -190,7 +221,8 @@ Built with **Clean Architecture** and **SOLID principles**:
 ```
 domain/       Pure entities: TLD, DomainHack, Availability
 ports/        Abstract interfaces: WordSource, RegistrarClient, ResultWriter
-usecases/     Business logic: FilterWords, CheckDomains
+usecases/     Business logic: FilterWords, RangeCandidates, RankCandidates,
+              EstimateRun, CheckDomains
 adapters/     Implementations: FileWordSource, RDAP/WHOIS registrars,
               RegistrarRouter, CachedRegistrar, Console/CSV/JSON writers, tqdm progress
 cli/          Composition root: argparse + dependency injection
@@ -239,6 +271,9 @@ A separate weekly workflow runs the live `integration` tests against real regist
 | Progress bar (tqdm) | Done |
 | RDAP + WHOIS registrar adapters | Done |
 | Result caching (decorator pattern) | Done |
+| Best-first ordering (`--order`, `--limit`) | Done |
+| Adaptive per-host backoff with jitter | Done |
+| Word-frequency scoring (`Scorer` hook) | Planned |
 | DNS pre-filter (skip domains with NS records) | Planned |
 | Porkbun API adapter (confirm hits, premium pricing) | Planned |
 | Async HTTP (`httpx.AsyncClient`) | Planned |

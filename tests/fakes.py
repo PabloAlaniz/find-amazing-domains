@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from domainhack.adapters._circuit import HostCircuitBreaker
+from domainhack.adapters._throttle import HostThrottle
 from domainhack.domain.entities import TLD, Availability, DomainCheckResult, DomainHack
 from domainhack.ports.registrar import RegistrarClient
 from domainhack.ports.result_writer import ResultWriter
@@ -112,6 +113,31 @@ class FakeClock:
     def sleep(self, seconds: float) -> None:
         self.sleeps.append(seconds)
         self.now += seconds
+
+
+class FakeRandom:
+    """A scripted ``random.random``: returns ``values`` in turn, then repeats the last.
+
+    The default 0.5 is the midpoint, i.e. no jitter in ``HostThrottle``.
+    """
+
+    def __init__(self, *values: float) -> None:
+        self._values = list(values) or [0.5]
+        self.calls = 0
+
+    def __call__(self) -> float:
+        value = self._values[min(self.calls, len(self._values) - 1)]
+        self.calls += 1
+        return value
+
+
+def fake_throttle(
+    clock: FakeClock, random: FakeRandom | None = None, **kwargs: Any
+) -> HostThrottle:
+    """A HostThrottle on ``clock``; without ``random`` its jitter is neutral (0.5)."""
+    return HostThrottle(
+        clock=clock.time, sleep=clock.sleep, random=random or FakeRandom(), **kwargs
+    )
 
 
 @dataclass(frozen=True)

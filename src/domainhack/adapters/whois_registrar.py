@@ -250,11 +250,16 @@ class WhoisRegistrarClient(RegistrarClient):
         self._random = random
 
     def supports(self, tld: str) -> bool:
-        return tld.lower() in self._servers
+        return self.server_for(tld) is not None
 
     def server_for(self, tld: str) -> WhoisServer | None:
-        """The server that answers for ``tld``, or None if it is not configured."""
-        return self._servers.get(tld.lower())
+        """The server that answers for ``tld``, or None if it is not configured.
+
+        A multi-label suffix (``com.mx``) falls back to its top-level
+        domain's server (``mx``), which answers for the whole zone.
+        """
+        key = tld.lower()
+        return self._servers.get(key) or self._servers.get(key.rsplit(".", 1)[-1])
 
     def check_availability(self, domain: DomainHack) -> DomainCheckResult:
         server = self.server_for(domain.tld.suffix)

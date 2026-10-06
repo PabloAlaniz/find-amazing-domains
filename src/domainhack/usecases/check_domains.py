@@ -29,28 +29,58 @@ def _one_lane(domain: DomainHack) -> Hashable:
 
 
 @dataclass(frozen=True)
+class TldTally:
+    """How many domains under one TLD (suffix) were checked, and how many errored."""
+
+    suffix: str
+    checked: int = 0
+    errors: int = 0
+
+    @property
+    def unreachable(self) -> bool:
+        """Every check errored: the registry did not answer (timeouts, open circuit...)."""
+        return self.checked > 0 and self.errors == self.checked
+
+
+@dataclass(frozen=True)
 class CheckSummary:
-    """Outcome of a run: how many domains were checked and how they came out."""
+    """Outcome of a run: how many domains were checked and how they came out.
+
+    ``tlds`` breaks the checks down per TLD, in first-seen order.
+    """
 
     available: int = 0
     taken: int = 0
     errors: int = 0
     interrupted: bool = False
     dropping: int = 0  # TAKEN names in redemption or pending delete (included in ``taken``)
+    # A breakdown of the counts above, so not part of equality.
+    tlds: tuple[TldTally, ...] = field(default=(), compare=False)
 
     @property
     def checked(self) -> int:
         return self.available + self.taken + self.errors
+
+    @property
+    def tlds_with_errors(self) -> tuple[TldTally, ...]:
+        """TLDs with at least one ERROR, unreachable ones first (then first-seen order)."""
+        failed = [t for t in self.tlds if t.errors]
+        return tuple(sorted(failed, key=lambda t: not t.unreachable))
 
 
 @dataclass
 class _Tally:
     counts: dict[Availability, int] = field(default_factory=lambda: dict.fromkeys(Availability, 0))
     dropping: int = 0
+    # suffix -> [checked, errors], in first-seen order
+    by_tld: dict[str, list[int]] = field(default_factory=dict)
 
     def add(self, result: DomainCheckResult) -> None:
         self.counts[result.availability] += 1
         self.dropping += result.is_dropping
+        tld = self.by_tld.setdefault(result.domain.tld.suffix, [0, 0])
+        tld[0] += 1
+        tld[1] += result.availability is Availability.ERROR
 
     def summary(self, interrupted: bool) -> CheckSummary:
         return CheckSummary(
@@ -59,6 +89,7 @@ class _Tally:
             errors=self.counts[Availability.ERROR],
             interrupted=interrupted,
             dropping=self.dropping,
+            tlds=tuple(TldTally(s, c, e) for s, (c, e) in self.by_tld.items()),
         )
 
 

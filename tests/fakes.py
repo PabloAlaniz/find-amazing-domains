@@ -14,7 +14,14 @@ from typing import Any
 
 from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters._throttle import HostThrottle
-from domainhack.domain.entities import TLD, Availability, DomainCheckResult, DomainHack
+from domainhack.domain.entities import (
+    TLD,
+    Availability,
+    DnsEvidence,
+    DomainCheckResult,
+    DomainHack,
+)
+from domainhack.ports.dns_lookup import DnsLookup
 from domainhack.ports.registrar import RegistrarClient
 from domainhack.ports.result_cache import ResultCache
 from domainhack.ports.result_writer import ResultWriter
@@ -347,3 +354,63 @@ def run_cli(*args: str, **kwargs: Any) -> subprocess.CompletedProcess[str]:
         env=guarded_env(),
         **kwargs,
     )
+
+
+class FakeDnsLookup(DnsLookup):
+    """A ``DnsLookup`` answering from a dict keyed by fqdn; unknown names get ``default``.
+
+    Records every queried fqdn (thread-safe). ``raises`` makes it break the
+    port contract by raising, to test that callers survive it.
+    """
+
+    def __init__(
+        self,
+        answers: Mapping[str, DnsEvidence] | None = None,
+        *,
+        default: DnsEvidence | None = None,
+        raises: type[Exception] | None = None,
+    ) -> None:
+        self._answers = dict(answers or {})
+        self._default = default if default is not None else DnsEvidence()
+        self._raises = raises
+        self._lock = threading.Lock()
+        self.calls: list[str] = []
+        self.threads: set[str] = set()
+
+    def lookup(self, fqdn: str) -> DnsEvidence:
+        with self._lock:
+            self.calls.append(fqdn)
+            self.threads.add(threading.current_thread().name)
+        if self._raises is not None:
+            raise self._raises("resolver exploded")
+        return self._answers.get(fqdn, self._default)
+
+
+@dataclass(frozen=True)
+class FakeNsRecord:
+    """Stands in for a dnspython NS rdata: only ``target`` is read."""
+
+    target: str
+
+
+DnsScript = list[Any] | type[BaseException] | BaseException
+
+
+class FakeDnsResolver:
+    """Stands in for ``dns.resolver.Resolver``: answers ``(qname, rdtype)`` from a script.
+
+    A script value is the list of records to return, or an exception (class
+    or instance) to raise. Unscripted queries return no records (NODATA).
+    Every call is recorded with its keyword arguments.
+    """
+
+    def __init__(self, script: Mapping[tuple[str, str], DnsScript] | None = None) -> None:
+        self._script = dict(script or {})
+        self.calls: list[tuple[str, str, dict[str, Any]]] = []
+
+    def resolve(self, qname: str, rdtype: str, **kwargs: Any) -> list[Any]:
+        self.calls.append((qname, rdtype, kwargs))
+        outcome = self._script.get((qname, rdtype), [])
+        if isinstance(outcome, list):
+            return outcome
+        raise outcome

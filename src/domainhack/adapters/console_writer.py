@@ -12,7 +12,9 @@ class ConsoleResultWriter(ResultWriter):
     output can be piped; ERROR lines are diagnostics and go to stderr. TAKEN
     names in redemption or pending delete ("dropping") are printed with their
     status and expiry date, and ``show_dropping`` prints them even without
-    ``show_taken``. The run summary is printed by the CLI, from the use case's
+    ``show_taken``. An AVAILABLE name that DNS shows as delegated
+    (``dns_conflict``, see ``--confirm-dns``) prints as ``AVAILABLE?`` with a
+    warning instead. The run summary is printed by the CLI, from the use case's
     ``CheckSummary``.
     """
 
@@ -26,7 +28,13 @@ class ConsoleResultWriter(ResultWriter):
     def write_result(self, result: DomainCheckResult) -> None:
         match result.availability:
             case Availability.AVAILABLE:
-                print(f"  AVAILABLE: {_name(result.domain)} (word: {result.domain.word!r})")
+                if result.dns_conflict:
+                    print(
+                        f"  AVAILABLE? {_name(result.domain)} -- registry says free "
+                        "but DNS has NS records"
+                    )
+                else:
+                    print(f"  AVAILABLE: {_name(result.domain)} (word: {result.domain.word!r})")
             case Availability.TAKEN:
                 if result.is_dropping:
                     if self._show_taken or self._show_dropping:

@@ -17,6 +17,8 @@ from domainhack.adapters.cached_registrar import (
 from domainhack.adapters.composite_writer import CompositeResultWriter
 from domainhack.adapters.console_writer import ConsoleResultWriter
 from domainhack.adapters.csv_writer import CsvResultWriter
+from domainhack.adapters.dns_confirming_writer import DnsConfirmingWriter
+from domainhack.adapters.dns_resolver import DnsPythonLookup
 from domainhack.adapters.file_word_source import DEFAULT_ENCODING, FileWordSource, WordListError
 from domainhack.adapters.json_writer import JsonResultWriter
 from domainhack.adapters.pacing import lane_for, pacing_for
@@ -24,6 +26,7 @@ from domainhack.adapters.registrar_catalog import build_registrar_for
 from domainhack.adapters.registrar_router import RegistrarFactory, RegistrarRouter
 from domainhack.adapters.tqdm_progress import TqdmProgressReporter
 from domainhack.domain.entities import TLD, DomainHack
+from domainhack.ports.dns_lookup import DnsLookup
 from domainhack.ports.progress import NullProgressReporter, ProgressReporter
 from domainhack.ports.registrar import RegistrarClient
 from domainhack.ports.result_writer import ResultWriter
@@ -33,6 +36,7 @@ from domainhack.usecases.check_domains import (
     CheckSummary,
     LaneKey,
 )
+from domainhack.usecases.confirm_dns import ConfirmWithDns
 from domainhack.usecases.estimate_run import (
     GUARDRAIL_MAX_QUERIES,
     Pacing,
@@ -103,7 +107,7 @@ class NoSupportedTLDError(CliError):
 
 
 def parse_tld_list(value: str) -> list[TLD]:
-    """Parse ``"to,io,in"`` into TLDs: lowercased, deduplicated, order preserved.
+    """Parse ``"to,io,com.ar"`` into TLDs: lowercased, deduplicated, order preserved.
 
     Raises ``argparse.ArgumentTypeError`` (an argparse usage error) when the list
     is empty or any suffix is not a valid TLD.
@@ -209,7 +213,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=parse_tld_list,
         default="to",
         metavar="TLD[,TLD...]",
-        help="TLD suffix, or a comma-separated list like to,io,in (default: to)",
+        help="TLD suffix, or a comma-separated list like to,io,com.ar (default: to)",
     )
 
     sub = parser.add_subparsers(dest="command", required=True)
@@ -297,6 +301,12 @@ def build_parser() -> argparse.ArgumentParser:
         choices=OUTPUT_FORMATS,
         default=None,
         help="Output file format (default: inferred from --output extension)",
+    )
+    chk.add_argument(
+        "--confirm-dns",
+        action="store_true",
+        help="Also look up each available or taken name in public DNS (NS, A/AAAA). "
+        "An available name with NS records prints as 'AVAILABLE?': do not trust it as free",
     )
     chk.add_argument("--no-cache", action="store_true", help="Disable the result cache")
     chk.add_argument(
@@ -594,8 +604,26 @@ def _supported_tlds(router: RegistrarRouter, tlds: Sequence[TLD]) -> list[TLD]:
     return supported
 
 
-def cmd_check(args: argparse.Namespace, *, catalog: RegistrarCatalog | None = None) -> int:
-    """Check availability; ``catalog`` defaults to ``build_registrar_for``."""
+def _confirming_writer(
+    args: argparse.Namespace, writer: ResultWriter, dns_lookup: DnsLookup | None
+) -> ResultWriter:
+    """With ``--confirm-dns``, wrap ``writer`` so results get DNS evidence as they stream."""
+    if not getattr(args, "confirm_dns", False):
+        return writer
+    lookup = dns_lookup if dns_lookup is not None else DnsPythonLookup()
+    return DnsConfirmingWriter(writer, ConfirmWithDns(lookup))
+
+
+def cmd_check(
+    args: argparse.Namespace,
+    *,
+    catalog: RegistrarCatalog | None = None,
+    dns_lookup: DnsLookup | None = None,
+) -> int:
+    """Check availability; ``catalog`` defaults to ``build_registrar_for``.
+
+    ``dns_lookup`` (for ``--confirm-dns``) defaults to ``DnsPythonLookup``.
+    """
     tlds = _selected_tlds(args)
 
     if args.dry_run:
@@ -628,7 +656,7 @@ def cmd_check(args: argparse.Namespace, *, catalog: RegistrarCatalog | None = No
             # opened); counting it gives the progress bar an exact total.
             domains = list(domains)
             total = len(domains)
-        writer = _build_writer(args)
+        writer = _confirming_writer(args, _build_writer(args), dns_lookup)
     except BaseException:
         router.close()
         raise
@@ -649,11 +677,19 @@ def cmd_check(args: argparse.Namespace, *, catalog: RegistrarCatalog | None = No
         )
         summary = use_case.execute(domains, total=total)
     _warn_skipped(candidates.skipped)
-    return _report(summary)
+    conflicts = writer.conflicts if isinstance(writer, DnsConfirmingWriter) else 0
+    return _report(summary, dns_conflicts=conflicts)
 
 
-def _report(summary: CheckSummary) -> int:
+def _report(summary: CheckSummary, *, dns_conflicts: int = 0) -> int:
     """Print the run summary on stderr and map it to an exit status."""
+    _report_registries(summary)
+    if dns_conflicts:
+        names, verb = ("name", "has") if dns_conflicts == 1 else ("names", "have")
+        _stderr(
+            f"warning: {dns_conflicts} {names} the registry reported available {verb} "
+            "NS records in DNS (marked 'AVAILABLE?'); do not count on them being free"
+        )
     if summary.interrupted:
         _stderr(
             f"Interrupted after {summary.checked} checks "
@@ -666,6 +702,19 @@ def _report(summary: CheckSummary) -> int:
         f"{summary.taken} taken{dropping}, {summary.errors} errors."
     )
     return EXIT_FAILURE if summary.errors else EXIT_OK
+
+
+def _report_registries(summary: CheckSummary) -> None:
+    """Name every TLD whose checks failed, so an unreachable registry is never silent."""
+    for tld in summary.tlds_with_errors:
+        errors = f"{tld.errors} error{'s' if tld.errors != 1 else ''}"
+        if tld.unreachable:
+            _stderr(f"warning: registry for .{tld.suffix} did not respond ({errors}); re-run later")
+        else:
+            _stderr(
+                f"warning: registry for .{tld.suffix} failed {tld.errors} of {tld.checked} "
+                "checks; re-run later for the rest"
+            )
 
 
 def _stderr(message: str) -> None:
@@ -681,10 +730,16 @@ def _silence_stdout() -> None:
         pass
 
 
-def main(argv: Sequence[str] | None = None, *, catalog: RegistrarCatalog | None = None) -> int:
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    catalog: RegistrarCatalog | None = None,
+    dns_lookup: DnsLookup | None = None,
+) -> int:
     """Run the CLI and return its exit status (see the ``--help`` epilog).
 
-    ``catalog`` replaces ``build_registrar_for`` (the registrar catalog) for ``check``.
+    ``catalog`` replaces ``build_registrar_for`` (the registrar catalog) and
+    ``dns_lookup`` replaces ``DnsPythonLookup`` (for ``--confirm-dns``) in ``check``.
     """
     parser = build_parser()
     try:
@@ -696,7 +751,7 @@ def main(argv: Sequence[str] | None = None, *, catalog: RegistrarCatalog | None 
     try:
         if args.command == "filter":
             return cmd_filter(args)
-        return cmd_check(args, catalog=catalog)
+        return cmd_check(args, catalog=catalog, dns_lookup=dns_lookup)
     except OutputFormatError as exc:
         parser.print_usage(sys.stderr)
         _stderr(f"{parser.prog}: error: {exc}")

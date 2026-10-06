@@ -18,15 +18,56 @@ class InvalidLabelError(ValueError):
     """A candidate SLD is not a label the TLD's registry could hold."""
 
 
+# Most labels a public suffix may have here: "to" (1) or "com.ar" (2).
+_MAX_SUFFIX_LABELS = 2
+
+
+def _is_ascii_letters(label: str, min_length: int, max_length: int | None = None) -> bool:
+    if not (label.isascii() and label.isalpha()) or len(label) < min_length:
+        return False
+    return max_length is None or len(label) <= max_length
+
+
 @dataclass(frozen=True)
 class TLD:
-    """A top-level domain like 'to', 'in', 'io'."""
+    """A public suffix a name is registered under: ``'to'``, ``'io'``, ``'com.ar'``.
+
+    Multi-label suffixes are registrable second-level zones such as
+    ``com.ar``, ``com.mx`` or ``co.uk``. Every label is ASCII letters: the
+    last one (the real top-level domain) has 2 or more, a second-level label
+    2 or 3 (``co``, ``com``, ``net``, ``org``...). At most two labels.
+    """
 
     suffix: str
 
     def __post_init__(self) -> None:
-        if not (self.suffix.isascii() and self.suffix.isalpha()) or len(self.suffix) < 2:
+        labels = self.suffix.split(".")
+        valid = (
+            len(labels) <= _MAX_SUFFIX_LABELS
+            and _is_ascii_letters(labels[-1], 2)
+            and all(_is_ascii_letters(label, 2, 3) for label in labels[:-1])
+        )
+        if not valid:
             raise ValueError(f"Invalid TLD suffix: {self.suffix!r}")
+
+    @property
+    def labels(self) -> tuple[str, ...]:
+        """``("com", "ar")`` for ``com.ar``; ``("to",)`` for ``to``."""
+        return tuple(self.suffix.split("."))
+
+    @property
+    def top_level(self) -> str:
+        """The real top-level domain: ``"ar"`` for ``com.ar``, ``"to"`` for ``to``."""
+        return self.labels[-1]
+
+    @property
+    def is_multi_label(self) -> bool:
+        return len(self.labels) > 1
+
+    @property
+    def joined(self) -> str:
+        """The suffix without dots, as it appears at the end of a word: ``"comar"``."""
+        return self.suffix.replace(".", "")
 
 
 def _check_ldh(ascii_label: str, original: str) -> None:
@@ -134,13 +175,17 @@ class DomainHack:
     def from_word(word: str, tld: TLD) -> DomainHack | None:
         """Split ``word`` into SLD + ``tld``.
 
+        A multi-label suffix matches by plain concatenation, ignoring its
+        dots: ``fotocomar`` + ``com.ar`` -> ``foto.com.ar``.
+
         Returns None when the word does not end with the TLD suffix or leaves
         an empty SLD; raises InvalidLabelError when it does but the SLD is
         not a valid label for that TLD.
         """
         lower = DomainHack._normalize(word)
-        if lower.endswith(tld.suffix) and len(lower) > len(tld.suffix):
-            sld = lower[: -len(tld.suffix)]
+        ending = tld.joined
+        if lower.endswith(ending) and len(lower) > len(ending):
+            sld = lower[: -len(ending)]
             return DomainHack(word=lower, sld=sld, tld=tld)
         return None
 
@@ -148,10 +193,13 @@ class DomainHack:
     def from_sld(sld: str, tld: TLD) -> DomainHack:
         """Create a DomainHack directly from an SLD (for brute-force range mode).
 
+        ``word`` is the SLD joined to the suffix without dots (``sumandacomar``
+        for ``sumanda`` + ``com.ar``), the same form ``from_word`` splits.
+
         Raises InvalidLabelError when ``sld`` is not a valid label for ``tld``.
         """
         lower = DomainHack._normalize(sld)
-        return DomainHack(word=f"{lower}{tld.suffix}", sld=lower, tld=tld)
+        return DomainHack(word=f"{lower}{tld.joined}", sld=lower, tld=tld)
 
 
 class Availability(Enum):

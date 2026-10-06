@@ -1,0 +1,28 @@
+{
+  "description": "Common registrable second-level public suffixes, Latin America first. Curated by hand: every entry is in the ICANN section of the Public Suffix List. Restricted zones (gob, gov, edu, mil...) are left out on purpose; some listed zones have eligibility rules (e.g. org.ar for non-profits).",
+  "source": "https://publicsuffix.org/list/public_suffix_list.dat",
+  "source_version": "2026-10-06_16-13-12_UTC (commit 4018bd98001399ebff682f401664d469787ed7eb)",
+  "registry_sources": {
+    "ar": "https://www.boletinoficial.gob.ar/detalleAviso/primera/255797/20220106"
+  },
+  "suffixes": [
+    "com.ar", "net.ar", "org.ar",
+    "com.mx", "net.mx", "org.mx",
+    "com.br", "net.br", "org.br",
+    "com.co", "net.co", "org.co",
+    "com.pe", "net.pe", "org.pe",
+    "com.uy", "net.uy", "org.uy",
+    "com.ve", "net.ve", "org.ve", "co.ve",
+    "com.ec", "net.ec", "org.ec",
+    "com.bo", "net.bo", "org.bo",
+    "com.py", "net.py", "org.py",
+    "com.gt", "com.sv", "com.hn", "com.ni", "com.pa", "com.do", "com.pr", "co.cr",
+    "co.uk", "org.uk", "me.uk",
+    "com.au", "net.au", "org.au",
+    "co.nz", "net.nz", "org.nz",
+    "co.jp", "ne.jp", "or.jp",
+    "co.in", "net.in", "org.in",
+    "co.za", "com.tr", "com.cn", "com.hk", "com.sg", "com.tw", "co.kr",
+    "com.es", "com.ph", "co.id", "com.my", "co.il", "com.ua", "com.pl"
+  ]
+}

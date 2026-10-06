@@ -49,7 +49,9 @@ def build_registrar_for(
 
     Pass one ``breaker`` to every call of a run so clients that share a host
     (e.g. .io/.sh/.ac/.me) also share its circuit. ``contact`` (an email) is
-    sent as the ``From`` header on RDAP requests. ``bootstrap`` replaces the
+    sent as the ``From`` header on RDAP requests. A multi-label ``tld``
+    (``com.ar``) is routed to the registry of its top-level domain (``ar``).
+    ``bootstrap`` replaces the
     process-wide default RDAP bootstrap (tests pass one with a fake fetcher).
     """
     rdap = bootstrap if bootstrap is not None else _default_bootstrap()
@@ -58,7 +60,8 @@ def build_registrar_for(
         return RdapRegistrarClient(
             base_url, delay=delay, timeout=timeout, breaker=breaker, contact=contact
         )
-    suffix = tld.suffix.lower()
+    # Multi-label suffixes (com.mx) are served by their top-level registry.
+    suffix = tld.top_level.lower()
     if suffix in WHOIS_SERVERS:
         return WhoisRegistrarClient(
             delay=delay, timeout=timeout, servers=WHOIS_SERVERS, breaker=breaker
@@ -66,7 +69,7 @@ def build_registrar_for(
     if suffix in WHOIS_FALLBACK_SERVERS:
         host = WHOIS_FALLBACK_SERVERS[suffix].host
         print(
-            f"warning: no RDAP server found for .{suffix}; falling back to WHOIS ({host})",
+            f"warning: no RDAP server found for .{tld.suffix}; falling back to WHOIS ({host})",
             file=sys.stderr,
         )
         return WhoisRegistrarClient(

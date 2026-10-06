@@ -12,3 +12,6 @@ data/[0-9]*.txt
 # Coverage
 .coverage
 htmlcov/
+
+# Claude Code local state and agent worktrees
+.claude/

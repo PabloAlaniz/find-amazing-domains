@@ -100,7 +100,7 @@ Generate all letter combinations up to a given length (max 6) and check each one
 # Try all 1-2 letter .to domains (26 + 676 = 702 combinations)
 domainhack --tld to check --range-max 2
 
-# Try up to 3 letters, but stop at "ba" (useful to resume interrupted runs)
+# Try up to 3 letters, but stop at "ba"
 domainhack --tld to check --range-max 3 --range-end "ba"
 
 # Preview combinations without checking
@@ -129,7 +129,15 @@ domainhack --tld to check --file data/words_es.txt --output results.csv
 domainhack --tld to check --file data/words_es.txt --output results.jsonl
 ```
 
-Rows are written as they are checked, so an interrupted run keeps everything checked so far.
+Rows are written as they are checked, so an interrupted run (Ctrl-C) keeps everything checked so far. Columns: `fqdn` (ASCII, what was queried), `display` (as written, e.g. `ñandú.de`), `word`, `sld`, `tld`, `availability`, `error_message`.
+
+Only results go to stdout; warnings, errors and the final summary go to stderr, so stdout can be piped.
+
+### Name validation and international names
+
+Candidates are validated before any query: letters, digits and hyphens only, 1-63 characters, plus per-TLD rules (e.g. `.it` requires at least 3 characters). Names with accents or `ñ` are converted to their IDN form (`ñandú.de` -> `xn--and-6ma2c.de`) only for TLDs that accept IDNs; elsewhere they are skipped. Skipped candidates are counted on stderr.
+
+Word lists are read as UTF-8; use `--encoding latin-1` for older lists.
 
 ### Progress and caching
 
@@ -147,7 +155,24 @@ Availability is checked against the registry directly, with no captchas or API k
 | WHOIS (port 43) | it, am, at, be, gg, im, la, ma, mx, nu, pe, st |
 | Not supported | es, al |
 
+A snapshot of the IANA RDAP bootstrap ships with the package, so the backend chosen for each TLD is the same online and offline.
+
 Note: "available" means *not registered*. Premium or reserved names may still show as available; confirm with a registrar before buying.
+
+### Being a good citizen
+
+- Requests identify the tool: `User-Agent: domainhack/<version> (+repo URL)`. Add `--contact you@example.com` (or `DOMAINHACK_CONTACT`) to include a `From` header.
+- Requests to each host are spaced (`--delay`, with stricter per-server minimums, e.g. 4 s for `whois.nic.it`).
+- If a host stops responding (3 consecutive failures), its domains are skipped for 60 s instead of waiting on timeouts; skipped checks are reported as errors and re-checked on the next run.
+
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Completed, no errors |
+| 1 | Completed with some failed checks, or a runtime error |
+| 2 | Usage error |
+| 130 | Interrupted (Ctrl-C) |
 
 ## Word Lists
 
@@ -166,7 +191,7 @@ Built with **Clean Architecture** and **SOLID principles**:
 domain/       Pure entities: TLD, DomainHack, Availability
 ports/        Abstract interfaces: WordSource, RegistrarClient, ResultWriter
 usecases/     Business logic: FilterWords, CheckDomains
-adapters/     Implementations: FileWordSource, RDAP/WHOIS/Tonic registrars,
+adapters/     Implementations: FileWordSource, RDAP/WHOIS registrars,
               RegistrarRouter, CachedRegistrar, Console/CSV/JSON writers, tqdm progress
 cli/          Composition root: argparse + dependency injection
 ```
@@ -187,7 +212,7 @@ pre-commit install              # enable git hooks
 ```
 
 ```bash
-pytest                          # 285 tests, 99% coverage
+pytest                          # unit tests (hermetic, no network)
 pytest -m integration           # live registry tests (network)
 ruff check src tests            # linting
 ruff format --check src tests   # formatting

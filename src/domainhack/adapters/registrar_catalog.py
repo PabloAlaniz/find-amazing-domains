@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import functools
 
+from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters.rdap_bootstrap import RdapBootstrap
 from domainhack.adapters.rdap_registrar import RdapRegistrarClient
 from domainhack.adapters.whois_registrar import WHOIS_SERVERS, WhoisRegistrarClient
@@ -24,13 +25,22 @@ def _default_bootstrap() -> RdapBootstrap:
     return RdapBootstrap()
 
 
-def build_registrar_for(tld: TLD, delay: float, timeout: float = 10.0) -> RegistrarClient | None:
-    """Return a new client able to check domains under ``tld``, or None if unsupported."""
+def build_registrar_for(
+    tld: TLD,
+    delay: float,
+    timeout: float = 10.0,
+    breaker: HostCircuitBreaker | None = None,
+) -> RegistrarClient | None:
+    """Return a new client able to check domains under ``tld``, or None if unsupported.
+
+    Pass one ``breaker`` to every call of a run so clients that share a host
+    (e.g. .io/.sh/.ac/.me) also share its circuit.
+    """
     base_url = _default_bootstrap().base_url_for(tld.suffix)
     if base_url is not None:
-        return RdapRegistrarClient(base_url, delay=delay, timeout=timeout)
+        return RdapRegistrarClient(base_url, delay=delay, timeout=timeout, breaker=breaker)
     if tld.suffix.lower() in WHOIS_SERVERS:
-        return WhoisRegistrarClient(delay=delay, timeout=timeout)
+        return WhoisRegistrarClient(delay=delay, timeout=timeout, breaker=breaker)
     return None
 
 

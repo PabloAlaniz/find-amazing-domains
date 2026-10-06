@@ -4,10 +4,11 @@ import argparse
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
+from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters.registrar_router import RegistrarRouter
 from domainhack.cli.app import (
     _build_domains,
@@ -141,7 +142,16 @@ class TestRegistrarFactory:
         with patch("domainhack.cli.app.build_registrar_for", return_value=sentinel) as catalog:
             client = _registrar_factory(argparse.Namespace(delay=2.5))(IN)
         assert client is sentinel
-        catalog.assert_called_once_with(IN, delay=2.5)
+        catalog.assert_called_once_with(IN, delay=2.5, breaker=ANY)
+        assert isinstance(catalog.call_args.kwargs["breaker"], HostCircuitBreaker)
+
+    def test_one_breaker_is_shared_across_tlds(self) -> None:
+        with patch("domainhack.cli.app.build_registrar_for") as catalog:
+            factory = _registrar_factory(argparse.Namespace(delay=0.0))
+            factory(IN)
+            factory(IO)
+        first, second = (c.kwargs["breaker"] for c in catalog.call_args_list)
+        assert first is second
 
     def test_unsupported_tld_is_none(self) -> None:
         with patch("domainhack.cli.app.build_registrar_for", return_value=None):

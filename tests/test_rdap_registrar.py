@@ -3,6 +3,7 @@ from collections.abc import Callable
 import httpx
 import pytest
 
+from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters._throttle import HostThrottle
 from domainhack.adapters.rdap_registrar import RdapRegistrarClient, parse_retry_after
 from domainhack.domain.entities import TLD, Availability, DomainHack
@@ -228,3 +229,92 @@ class TestRdapLifecycle:
             pass
         assert not http.is_closed
         http.close()
+
+    def test_owned_client_has_a_short_connect_timeout(self) -> None:
+        client = RdapRegistrarClient(BASE, delay=0.0, timeout=10.0)
+        assert client._client.timeout.connect == 5.0
+        assert client._client.timeout.read == 10.0
+        client.close()
+
+
+class TestRdapCircuitBreaker:
+    @staticmethod
+    def _counting(response: Callable[[httpx.Request], httpx.Response]) -> tuple[Handler, list[str]]:
+        calls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(str(request.url))
+            return response(request)
+
+        return handler, calls
+
+    def _breaker_client(
+        self, handler: Handler, warnings: list[str]
+    ) -> tuple[RdapRegistrarClient, FakeClock]:
+        clock = FakeClock()
+        breaker = HostCircuitBreaker(threshold=3, clock=clock.time, on_open=warnings.append)
+        return _client(handler, clock=clock, breaker=breaker)
+
+    @staticmethod
+    def _timeout(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectTimeout("timed out", request=request)
+
+    @pytest.mark.parametrize(
+        "response",
+        [
+            _timeout,
+            lambda r: httpx.Response(429),
+            lambda r: httpx.Response(503),
+        ],
+    )
+    def test_opens_after_three_failures_and_skips_without_network(
+        self, response: Callable[[httpx.Request], httpx.Response]
+    ) -> None:
+        handler, calls = self._counting(response)
+        warnings: list[str] = []
+        client, _ = self._breaker_client(handler, warnings)
+        for sld in ("a", "b", "c"):
+            assert client.check_availability(_hack(sld)).availability == Availability.ERROR
+        result = client.check_availability(_hack("d"))
+        assert len(calls) == 3
+        assert result.availability == Availability.ERROR
+        assert result.error_message == "skipped: rdap.example.test unresponsive (circuit open)"
+        assert len(warnings) == 1
+
+    def test_non_failure_errors_do_not_count(self) -> None:
+        handler, calls = self._counting(lambda r: httpx.Response(400))
+        warnings: list[str] = []
+        client, _ = self._breaker_client(handler, warnings)
+        for sld in ("a", "b", "c", "d"):
+            client.check_availability(_hack(sld))
+        assert len(calls) == 4
+        assert warnings == []
+
+    def test_half_open_trial_recovers(self) -> None:
+        state = {"fail": True}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if state["fail"]:
+                raise httpx.ReadTimeout("timed out", request=request)
+            return httpx.Response(404)
+
+        client, clock = self._breaker_client(handler, [])
+        for sld in ("a", "b", "c"):
+            client.check_availability(_hack(sld))
+        state["fail"] = False
+        assert client.check_availability(_hack("d")).availability == Availability.ERROR
+        clock.now += 60.0
+        assert client.check_availability(_hack("e")).availability == Availability.AVAILABLE
+        assert client.check_availability(_hack("f")).availability == Availability.AVAILABLE
+
+    def test_clients_sharing_a_breaker_share_the_circuit(self) -> None:
+        clock = FakeClock()
+        warnings: list[str] = []
+        breaker = HostCircuitBreaker(threshold=3, clock=clock.time, on_open=warnings.append)
+        handler, calls = self._counting(self._timeout)
+        a, _ = _client(handler, clock=clock, breaker=breaker)
+        b, _ = _client(handler, clock=clock, breaker=breaker)
+        for sld in ("a", "b", "c"):
+            a.check_availability(_hack(sld, "io"))
+        assert "circuit open" in b.check_availability(_hack("x", "sh")).error_message
+        assert len(calls) == 3

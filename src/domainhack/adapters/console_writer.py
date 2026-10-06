@@ -1,7 +1,7 @@
 import sys
 
 from domainhack.adapters._stderr import write_stderr
-from domainhack.domain.entities import Availability, DomainCheckResult
+from domainhack.domain.entities import Availability, DomainCheckResult, DomainHack
 from domainhack.ports.result_writer import ResultWriter
 
 
@@ -20,13 +20,18 @@ class ConsoleResultWriter(ResultWriter):
     def write_result(self, result: DomainCheckResult) -> None:
         match result.availability:
             case Availability.AVAILABLE:
-                print(f"  AVAILABLE: {result.domain.fqdn} (word: {result.domain.word!r})")
+                print(f"  AVAILABLE: {_name(result.domain)} (word: {result.domain.word!r})")
             case Availability.TAKEN:
                 if self._show_taken:
-                    print(f"  TAKEN:     {result.domain.fqdn}")
+                    print(f"  TAKEN:     {_name(result.domain)}")
             case Availability.ERROR:
                 if self._show_errors:
-                    write_stderr(f"  ERROR:     {result.domain.fqdn} -- {result.error_message}")
+                    write_stderr(f"  ERROR:     {_name(result.domain)} -- {result.error_message}")
 
     def flush(self) -> None:
         sys.stdout.flush()
+
+
+def _name(domain: DomainHack) -> str:
+    """The name as written, plus the queried A-label for IDNs: ``ñandú.de (xn--and-6ma2c.de)``."""
+    return f"{domain.display} ({domain.fqdn})" if domain.is_idn else domain.fqdn

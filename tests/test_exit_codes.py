@@ -134,9 +134,9 @@ class TestInterrupt:
         assert registrar.calls == ["a.to", "b.to", "c.to"]
         assert registrar.closed
         assert out.read_text(encoding="utf-8").splitlines() == [
-            "fqdn,word,sld,tld,availability,error_message",
-            "a.to,ato,a,to,available,",
-            "b.to,bto,b,to,taken,",
+            "fqdn,display,word,sld,tld,availability,error_message",
+            "a.to,a.to,ato,a,to,available,",
+            "b.to,b.to,bto,b,to,taken,",
         ]
         captured = capsys.readouterr()
         assert "Done" not in captured.out + captured.err
@@ -192,9 +192,10 @@ class TestRuntimeErrors:
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         words = tmp_path / "es.txt"
-        words.write_bytes("mañanato\nplato\n".encode("latin-1"))
-        assert main(["filter", "--encoding", "latin-1", str(words)]) == EXIT_OK
-        assert capsys.readouterr().out.splitlines() == ["mañanato", "plato"]
+        words.write_bytes("piñait\nbandit\n".encode("latin-1"))
+        args = ["--tld", "it", "filter", "--encoding", "latin-1", str(words)]
+        assert main(args) == EXIT_OK
+        assert capsys.readouterr().out.splitlines() == ["piñait", "bandit"]
 
     def test_bad_output_dir(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         out = tmp_path / "missing" / "r.csv"

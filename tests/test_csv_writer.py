@@ -6,8 +6,10 @@ from domainhack.adapters.csv_writer import CSV_FIELDS, CsvResultWriter
 from domainhack.domain.entities import TLD, Availability, DomainCheckResult, DomainHack
 
 
-def _result(availability: Availability, word: str = "plato", error: str = "") -> DomainCheckResult:
-    hack = DomainHack.from_word(word, TLD("to"))
+def _result(
+    availability: Availability, word: str = "plato", error: str = "", tld: str = "to"
+) -> DomainCheckResult:
+    hack = DomainHack.from_word(word, TLD(tld))
     assert hack is not None
     return DomainCheckResult(domain=hack, availability=availability, error_message=error)
 
@@ -35,6 +37,7 @@ class TestCsvResultWriter:
         assert rows == [
             {
                 "fqdn": "pla.to",
+                "display": "pla.to",
                 "word": "plato",
                 "sld": "pla",
                 "tld": "to",
@@ -43,6 +46,7 @@ class TestCsvResultWriter:
             },
             {
                 "fqdn": "gra.to",
+                "display": "gra.to",
                 "word": "grato",
                 "sld": "gra",
                 "tld": "to",
@@ -51,6 +55,7 @@ class TestCsvResultWriter:
             },
             {
                 "fqdn": "abe.to",
+                "display": "abe.to",
                 "word": "abeto",
                 "sld": "abe",
                 "tld": "to",
@@ -89,4 +94,4 @@ class TestCsvResultWriter:
         assert not buf.closed
         lines = buf.getvalue().splitlines()
         assert lines[0] == ",".join(CSV_FIELDS)
-        assert lines[1] == "pla.to,plato,pla,to,available,"
+        assert lines[1] == "pla.to,pla.to,plato,pla,to,available,"

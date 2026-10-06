@@ -7,6 +7,7 @@ import time
 from collections.abc import Callable
 from email.utils import parsedate_to_datetime
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -90,7 +91,9 @@ class RdapRegistrarClient(RegistrarClient):
     def check_availability(self, domain: DomainHack) -> DomainCheckResult:
         if not self._breaker.allow(self._host):
             return _error(domain, self._breaker.skip_message(self._host))
-        url = f"{self._base_url}domain/{domain.fqdn}"
+        # fqdn is already a validated ASCII name; quoting the path segment is
+        # defence in depth so no name can add path segments or a query string.
+        url = f"{self._base_url}domain/{quote(domain.fqdn, safe='')}"
         attempt = 0
         while True:
             self._throttle.wait(self._host, self._delay)

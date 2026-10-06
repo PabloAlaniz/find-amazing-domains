@@ -4,11 +4,14 @@ from domainhack.adapters._text_sink import TextSink, TextTarget
 from domainhack.domain.entities import DomainCheckResult
 from domainhack.ports.result_writer import ResultWriter
 
-CSV_FIELDS = ("fqdn", "word", "sld", "tld", "availability", "error_message")
+CSV_FIELDS = ("fqdn", "display", "word", "sld", "tld", "availability", "error_message")
 
 
 class CsvResultWriter(ResultWriter):
     """Streams domain check results to a CSV file, one row per result.
+
+    ``fqdn`` is the ASCII name that was queried (A-label for IDNs); ``display``
+    is the name as written (U-label), and equals ``fqdn`` for ASCII names.
 
     The header is written immediately and each row is flushed as it is written,
     so an interrupted run keeps every result checked so far.
@@ -25,6 +28,7 @@ class CsvResultWriter(ResultWriter):
         self._writer.writerow(
             (
                 domain.fqdn,
+                domain.display,
                 domain.word,
                 domain.sld,
                 domain.tld.suffix,

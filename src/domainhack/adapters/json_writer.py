@@ -9,7 +9,8 @@ class JsonResultWriter(ResultWriter):
     """Streams domain check results as JSON Lines (one JSON object per line).
 
     Each line is flushed as it is written, so an interrupted run leaves a valid
-    file containing every result checked so far.
+    file containing every result checked so far. ``fqdn`` is the queried ASCII
+    name (A-label for IDNs) and ``display`` the name as written.
     """
 
     def __init__(self, target: TextTarget) -> None:
@@ -19,6 +20,7 @@ class JsonResultWriter(ResultWriter):
         domain = result.domain
         record = {
             "fqdn": domain.fqdn,
+            "display": domain.display,
             "word": domain.word,
             "sld": domain.sld,
             "tld": domain.tld.suffix,

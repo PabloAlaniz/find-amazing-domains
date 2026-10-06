@@ -1,12 +1,19 @@
+from collections.abc import Mapping
+
 import pytest
 
 from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters._throttle import HostThrottle
+from domainhack.adapters.rdap_bootstrap import RDAP_OVERRIDES
 from domainhack.adapters.whois_registrar import (
+    ALL_WHOIS_SERVERS,
     DEFAULT_MIN_INTERVAL,
+    WHOIS_FALLBACK_SERVERS,
     WHOIS_PORT,
     WHOIS_SERVERS,
     WhoisRegistrarClient,
+    WhoisServer,
+    _server,
     whois_query,
 )
 from domainhack.domain.entities import TLD, Availability, DomainHack
@@ -65,13 +72,17 @@ class FakeClock:
 
 
 def _client(
-    reply: bytes | Exception, delay: float = 0.0, clock: FakeClock | None = None
+    reply: bytes | Exception,
+    delay: float = 0.0,
+    clock: FakeClock | None = None,
+    servers: Mapping[str, WhoisServer] = ALL_WHOIS_SERVERS,
 ) -> tuple[WhoisRegistrarClient, FakeConnector, FakeClock]:
     clock = clock or FakeClock()
     connector = FakeConnector(reply)
     client = WhoisRegistrarClient(
         delay=delay,
         timeout=5.0,
+        servers=servers,
         connect=connector,
         throttle=HostThrottle(clock=clock.time, sleep=clock.sleep),
     )
@@ -79,10 +90,12 @@ def _client(
 
 
 def _hack(sld: str, tld: str) -> DomainHack:
+    if tld == "it":
+        sld = sld.ljust(3, "x")  # .it requires >= 3 characters
     return DomainHack.from_sld(sld, TLD(tld))
 
 
-# One realistic "unregistered" reply per TLD in the table.
+# One realistic "unregistered" reply per TLD in the primary and fallback tables.
 NOT_FOUND_SAMPLES = {
     "it": "Domain:             zq.it\nStatus:             AVAILABLE\n",
     "am": "No match\n",
@@ -100,22 +113,20 @@ NOT_FOUND_SAMPLES = {
     "re": "%% NOT FOUND\n",
     "tv": "No Data Found\n",
     "ly": "No Object Found\n",
-    "so": "No Object Found\n",
     "is": "% No entries found for query 'zq.is'.\n",
     "in": "Domain zq.in is available for registration\n",
     "ar": "El dominio no se encuentra registrado en NIC Argentina\n",
-    "co": "DOMAIN NOT FOUND\n",
-    "io": "Domain not found.\n",
-    "sh": "Domain not found.\n",
-    "ac": "Domain not found.\n",
-    "me": "Domain not found.\n",
-    "de": "Domain: zq.de\nStatus: free\n",
-    "to": "zq.to is available for registration\n",
 }
 
 
 def test_every_server_has_a_sample() -> None:
-    assert set(NOT_FOUND_SAMPLES) == set(WHOIS_SERVERS)
+    assert set(NOT_FOUND_SAMPLES) == set(ALL_WHOIS_SERVERS)
+
+
+def test_tables_are_disjoint_and_skip_rdap_overrides() -> None:
+    # An RDAP override always wins, so a WHOIS entry for it could never be used.
+    assert not set(WHOIS_SERVERS) & set(WHOIS_FALLBACK_SERVERS)
+    assert not set(ALL_WHOIS_SERVERS) & set(RDAP_OVERRIDES)
 
 
 @pytest.mark.parametrize("tld", sorted(NOT_FOUND_SAMPLES))
@@ -123,8 +134,8 @@ def test_not_found_pattern_means_available(tld: str) -> None:
     client, connector, _ = _client(NOT_FOUND_SAMPLES[tld].encode())
     result = client.check_availability(_hack("zq", tld))
     assert result.availability == Availability.AVAILABLE, tld
-    assert connector.addresses == [(WHOIS_SERVERS[tld].host, WHOIS_PORT)]
-    assert result.raw_title == f"whois {WHOIS_SERVERS[tld].host}"
+    assert connector.addresses == [(ALL_WHOIS_SERVERS[tld].host, WHOIS_PORT)]
+    assert result.raw_title == f"whois {ALL_WHOIS_SERVERS[tld].host}"
 
 
 def test_registered_reply_is_taken() -> None:
@@ -149,10 +160,12 @@ def test_sends_fqdn_with_crlf_and_closes() -> None:
     assert connector.conns[0].read_timeout == 5.0
 
 
-def test_de_requires_connect_status_for_taken() -> None:
-    client, _, _ = _client(b"Domain: google.de\nStatus: connect\n")
+def test_taken_pattern_is_required_when_set() -> None:
+    # DENIC-style server: "Status: connect" is the only TAKEN answer.
+    servers = {"de": _server("whois.denic.de", r"Status:\s*free", taken=r"Status:\s*connect")}
+    client, _, _ = _client(b"Domain: google.de\nStatus: connect\n", servers=servers)
     assert client.check_availability(_hack("google", "de")).availability == Availability.TAKEN
-    client, _, _ = _client(b"Something unexpected\n")
+    client, _, _ = _client(b"Something unexpected\n", servers=servers)
     assert client.check_availability(_hack("google", "de")).availability == Availability.ERROR
 
 
@@ -180,12 +193,12 @@ def test_rate_limit_text_is_error(reply: bytes) -> None:
 def test_throttling_boilerplate_in_a_record_is_still_taken() -> None:
     # Identity Digital / CentralNic append throttling notes to every reply.
     reply = (
-        b"Domain Name: google.io\r\nRegistrar: MarkMonitor\r\n"
+        b"Domain Name: google.tv\r\nRegistrar: MarkMonitor\r\n"
         b"Queries to the Whois services are throttled. If too many queries are received...\r\n"
         b"Access to the whois service is rate limited.\r\n"
     )
     client, _, _ = _client(reply)
-    assert client.check_availability(_hack("google", "io")).availability == Availability.TAKEN
+    assert client.check_availability(_hack("google", "tv")).availability == Availability.TAKEN
 
 
 @pytest.mark.parametrize("exc", [TimeoutError("timed out"), ConnectionRefusedError("refused")])

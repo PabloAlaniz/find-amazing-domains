@@ -231,8 +231,8 @@ class TestCmdCheckOutput:
         with patch("domainhack.cli.app.build_registrar_for", return_value=self._fake_registrar()):
             cmd_check(self._args(out))
         lines = out.read_text(encoding="utf-8").splitlines()
-        assert lines[0] == "fqdn,word,sld,tld,availability,error_message"
-        assert lines[1:] == ["a.to,ato,a,to,available,", "b.to,bto,b,to,available,"]
+        assert lines[0] == "fqdn,display,word,sld,tld,availability,error_message"
+        assert lines[1:] == ["a.to,a.to,ato,a,to,available,", "b.to,b.to,bto,b,to,available,"]
         # Console output is still produced alongside the file.
         assert "AVAILABLE: a.to" in capsys.readouterr().out
 

@@ -2,6 +2,7 @@ import argparse
 from collections.abc import Iterable
 from pathlib import Path
 
+from domainhack.adapters.cached_registrar import CachedRegistrarClient
 from domainhack.adapters.composite_writer import CompositeResultWriter
 from domainhack.adapters.console_writer import ConsoleResultWriter
 from domainhack.adapters.csv_writer import CsvResultWriter
@@ -11,6 +12,7 @@ from domainhack.adapters.tonic_registrar import TonicRegistrarClient
 from domainhack.adapters.tqdm_progress import TqdmProgressReporter
 from domainhack.domain.entities import TLD, DomainHack
 from domainhack.ports.progress import NullProgressReporter, ProgressReporter
+from domainhack.ports.registrar import RegistrarClient
 from domainhack.ports.result_writer import ResultWriter
 from domainhack.usecases.check_domains import CheckDomainsUseCase
 from domainhack.usecases.filter_words import FilterWordsUseCase
@@ -61,6 +63,20 @@ def build_parser() -> argparse.ArgumentParser:
         choices=OUTPUT_FORMATS,
         default=None,
         help="Output file format (default: inferred from --output extension)",
+    )
+    chk.add_argument("--no-cache", action="store_true", help="Disable the result cache")
+    chk.add_argument(
+        "--cache-ttl",
+        type=float,
+        default=168.0,
+        metavar="HOURS",
+        help="Reuse cached results younger than HOURS (default: 168 = 7 days)",
+    )
+    chk.add_argument(
+        "--cache-path",
+        type=Path,
+        default=None,
+        help="SQLite cache file (default: $XDG_CACHE_HOME/domainhack/results.sqlite3)",
     )
 
     return parser
@@ -120,6 +136,17 @@ def _build_progress(args: argparse.Namespace) -> ProgressReporter:
     return TqdmProgressReporter()
 
 
+def _build_registrar(args: argparse.Namespace) -> RegistrarClient:
+    registrar: RegistrarClient = TonicRegistrarClient(delay=args.delay)
+    if getattr(args, "no_cache", False):
+        return registrar
+    return CachedRegistrarClient(
+        registrar,
+        path=getattr(args, "cache_path", None),
+        ttl_seconds=getattr(args, "cache_ttl", 168.0) * 3600,
+    )
+
+
 def cmd_check(args: argparse.Namespace) -> None:
     tld = TLD(args.tld)
     domains = _build_domains(args, tld)
@@ -133,7 +160,7 @@ def cmd_check(args: argparse.Namespace) -> None:
         # Validate the output format before any network work starts.
         _resolve_output_format(args.output, getattr(args, "format", None))
 
-    with TonicRegistrarClient(delay=args.delay) as registrar:
+    with _build_registrar(args) as registrar:
         writer = _build_writer(args)
         progress = _build_progress(args)
         CheckDomainsUseCase(registrar, writer, progress).execute(

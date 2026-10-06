@@ -191,4 +191,3 @@ class LaneScheduler:
             self._release(lane, stop=fatal is not None)
             if fatal is not None:
                 return
-

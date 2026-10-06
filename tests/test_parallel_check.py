@@ -37,6 +37,7 @@ from domainhack.usecases.check_domains import (
 )
 from domainhack.usecases.lanes import LaneOutcome, LaneScheduler, unexpected_error
 from tests.fakes import (
+    TESTS_DIR,
     WAIT_TIMEOUT,
     CollectingWriter,
     ConcurrencyProbe,
@@ -45,7 +46,6 @@ from tests.fakes import (
     FakeResultCache,
     GatedRegistrar,
     ScriptedRegistrar,
-    TESTS_DIR,
     SignallingWriter,
     guarded_env,
     hack,
@@ -378,9 +378,9 @@ class TestErrorsAndInterrupts:
 
         writer = CollectingWriter()
         try:
-            summary = CheckDomainsUseCase(
-                to, writer, parallel=2, shutdown_grace=0.01
-            ).execute(source())
+            summary = CheckDomainsUseCase(to, writer, parallel=2, shutdown_grace=0.01).execute(
+                source()
+            )
         finally:
             gate.set()
         assert summary == CheckSummary(interrupted=True)
@@ -601,9 +601,7 @@ class TestCli:
         out = capsys.readouterr().out.split()
         assert [w for w in out if "." in w] == ["a.to", "a.io", "b.to", "b.io", "c.to", "c.io"]
 
-    def test_default_parallel_checks_every_domain(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_default_parallel_checks_every_domain(self, capsys: pytest.CaptureFixture[str]) -> None:
         to, io = ScriptedRegistrar(raw_title="to"), ScriptedRegistrar(raw_title="io")
         catalog = FakeCatalog(by_tld={"to": to, "io": io})
         assert main(_check(), catalog=catalog) == EXIT_OK

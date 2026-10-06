@@ -30,7 +30,7 @@ class TestBuildParser:
         assert args.command == "filter"
         assert args.file == Path("words.txt")
         assert args.min_length == 0
-        assert args.tld == "to"
+        assert args.tld == [TLD("to")]
 
     def test_check_file_command(self) -> None:
         args = build_parser().parse_args(["check", "--file", "w.txt"])

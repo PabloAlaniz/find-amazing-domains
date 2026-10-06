@@ -6,7 +6,7 @@ import os
 import subprocess
 import sys
 import threading
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -14,7 +14,9 @@ from typing import Any
 
 from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters._throttle import HostThrottle
-from domainhack.domain.entities import TLD, Availability, DomainCheckResult, DomainHack
+from domainhack.domain.entities import TLD, Availability, DnsEvidence, DomainCheckResult, DomainHack
+from domainhack.ports.dns_lookup import DnsLookup
+from domainhack.ports.known_tlds import KnownTlds
 from domainhack.ports.registrar import RegistrarClient
 from domainhack.ports.result_cache import ResultCache
 from domainhack.ports.result_writer import ResultWriter
@@ -323,6 +325,33 @@ class FakeCatalog:
         if self.by_tld is not None:
             return self.by_tld.get(tld.suffix)
         return self.default
+
+
+class FakeKnownTlds(KnownTlds):
+    """A fixed set of suffixes (multi-label ones allowed: ``"com.ar"``)."""
+
+    def __init__(self, suffixes: Iterable[str]) -> None:
+        self._suffixes = frozenset(s.lower() for s in suffixes)
+        self._by_letters = {s.replace(".", ""): s for s in self._suffixes}
+
+    def is_known(self, suffix: str) -> bool:
+        return suffix.lower().lstrip(".") in self._suffixes
+
+    def suffixes_of(self, name: str) -> list[str]:
+        name = name.lower()
+        return [s for i in range(1, len(name)) if (s := self._by_letters.get(name[i:]))]
+
+
+class FakeDnsLookup(DnsLookup):
+    """Scripted DNS evidence by fqdn; anything else is not delegated. Records lookups."""
+
+    def __init__(self, answers: Mapping[str, DnsEvidence] | None = None) -> None:
+        self._answers = dict(answers or {})
+        self.lookups: list[str] = []
+
+    def lookup(self, fqdn: str) -> DnsEvidence:
+        self.lookups.append(fqdn)
+        return self._answers.get(fqdn, DnsEvidence())
 
 
 def guarded_env() -> dict[str, str]:

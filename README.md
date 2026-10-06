@@ -6,6 +6,57 @@
 
 Some words have a secret: they end in a top-level domain. The Spanish word *plato* (plate) becomes `pla.to`. *Abasto* (supply) becomes `abas.to`. *Grato* (pleasant) becomes `gra.to`. This tool finds those words and checks if the domains are actually available.
 
+## Find a domain for a name
+
+You have a name and want a domain for it. One command checks the exact name under a set of TLDs, looks for domain hacks that spell it, optionally tries brand variants, and recommends what to register:
+
+```bash
+domainhack name sumanda
+domainhack name sumanda --tlds startup,latam --variants --format markdown --output sumanda.csv
+```
+
+```
+Domains for 'sumanda'
+TLDs: com, app, io, ai, co, dev, so, xyz
+
+Exact name
+  sumanda.com  taken      since 2015-11-12, expires 2026-11-12, parked: domainrecover
+  sumanda.app  available
+  ...
+
+Domain hacks
+  no TLD is a suffix of 'sumanda'
+  sumandastud.io  available  sumanda studio: a creative or production studio
+  ...
+
+Recommendation
+  1.  sumanda.ai   exact name, strong TLD .ai
+  ...
+  - sumanda.com is taken (expires 2026-11-12); parked at domainrecover: may be purchasable from the owner
+```
+
+What it checks:
+
+- **Exact name** under every TLD of `--tlds`. It takes presets and TLDs, mixed: `--tlds startup,com.ar,la`. The presets are `startup` (the default: com, app, io, ai, co, dev, so, xyz), `latam` (com.ar, ar, com.mx, mx, com.co, co, com.br, cl, pe), `classic` (com, net, org) and `all-supported` (every TLD the tool can check). A suffix this version cannot check yet (e.g. two-level `com.ar`) is skipped with a warning.
+- **Domain hacks**: the name split at a TLD it ends with (`plato` -> `pla.to`), and the name plus a curated word ending in a TLD (`sumanda` + studio -> `sumandastud.io`, or `sumanda.studio` where the word is itself a TLD). The words and their meanings live in `src/domainhack/data/hack_words.json`. When the name ends in no TLD, the report says so.
+- **Brand variants** (`--variants`): `get`/`use`/`try`/`hola`/`my` + name and name + `hq`/`app`/`labs`/`studio`. They are checked under `.com` and the first 3 other requested TLDs only, so there are at most 36 of them.
+
+The report lists the exact names by TLD, the hacks, the available variants and the taken names. Taken names come with their details (registration and expiry dates, parking service, dropping status). It also names everything it could not verify (registry error or unreachable, no registrar for the TLD) and every DNS conflict (the registry says available, but DNS has nameservers). `--format` picks `text` (default), `markdown` (to share) or `json`. `--output FILE` also saves the raw results as CSV or JSON Lines, like `check`.
+
+The recommendation ranks available names only:
+
+- an exact name under `.com`;
+- then an exact name under `.app`/`.io`/`.ai`/`.co`;
+- then an exact name under another TLD;
+- then a `.com` variant;
+- then a hack that spells the name;
+- then other variants;
+- then hacks with an extra word.
+
+Shorter names win within a tier. Taken, dropping, DNS-conflict and unverifiable names are never recommended.
+
+`--confirm-dns` / `--no-confirm-dns` turns the DNS cross-check on or off (on by default when a resolver is available). The registry check uses the same options as `check`: `--delay`, `--parallel`, `--no-cache`, `--cache-*`, `--contact` and `--no-progress`. The exit status follows `check`: it is 1 when some check ended in an error, and the report is still printed.
+
 ## Examples
 
 | Word | Language | Domain | Meaning |
@@ -258,10 +309,10 @@ Built with **Clean Architecture** and **SOLID principles**:
 ```
 domain/       Pure entities: TLD, DomainHack, Availability
 ports/        Abstract interfaces: WordSource, RegistrarClient, ResultWriter,
-              ResultCache
+              ResultCache, KnownTlds, DnsLookup
 usecases/     Business logic: FilterWords, RangeCandidates, RankCandidates,
               EstimateRun, CheckDomains (sequential, or parallel lanes
-              per registry host)
+              per registry host), BrandCandidates + BrandReport (`name`)
 adapters/     Implementations: FileWordSource, RDAP/WHOIS registrars,
               RegistrarRouter, CachedRegistrar, Console/CSV/JSON writers, tqdm progress
 cli/          Composition root: argparse + dependency injection

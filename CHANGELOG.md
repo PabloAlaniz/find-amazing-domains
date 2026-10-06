@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `domainhack name NAME`: find a domain for a name in one command. It checks
+  the exact name under a set of TLDs (`--tlds` mixes presets `startup`,
+  `latam`, `classic`, `all-supported` and raw suffixes; default `startup`).
+  It also checks domain hacks: the name split at a TLD it ends with
+  (`pla.to`), or the name plus a curated word (`sumandastud.io`). With
+  `--variants` it checks brand variants (get-/use-/try-/hola-/my-,
+  -hq/-app/-labs/-studio) under `.com` and the top 3 other TLDs.
+- The `name` report has sections for exact names, hacks, available variants,
+  taken names with details, names it could not verify (each with its reason)
+  and DNS conflicts. It ends with a ranked recommendation. `--format
+  text|markdown|json`; `--output` saves the raw results as CSV/JSON Lines;
+  `--confirm-dns/--no-confirm-dns` controls the DNS cross-check.
+
 - Parallel checks across registry hosts: `check --parallel N` (default 4)
   checks up to N hosts at once, never more than one request in flight per
   host. TLDs that share a host (`.io`/`.sh`/`.ac`/`.me`) share its lane, so

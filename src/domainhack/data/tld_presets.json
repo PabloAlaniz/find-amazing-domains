@@ -1,0 +1,7 @@
+{
+  "_comment": "TLD presets for `domainhack name --tlds`. A list is used as is, in order (the order also picks the top TLDs for --variants). The string \"catalog\" means every TLD the registrar catalog supports, computed at run time. Suffixes the TLD type rejects (e.g. multi-label ones before they are supported) are skipped with a warning.",
+  "startup": ["com", "app", "io", "ai", "co", "dev", "so", "xyz"],
+  "latam": ["com.ar", "ar", "com.mx", "mx", "com.co", "co", "com.br", "cl", "pe"],
+  "classic": ["com", "net", "org"],
+  "all-supported": "catalog"
+}

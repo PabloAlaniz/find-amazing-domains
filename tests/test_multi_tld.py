@@ -142,8 +142,13 @@ class TestRegistrarFactory:
         with patch("domainhack.cli.app.build_registrar_for", return_value=sentinel) as catalog:
             client = _registrar_factory(argparse.Namespace(delay=2.5))(IN)
         assert client is sentinel
-        catalog.assert_called_once_with(IN, delay=2.5, breaker=ANY)
+        catalog.assert_called_once_with(IN, delay=2.5, breaker=ANY, contact=None)
         assert isinstance(catalog.call_args.kwargs["breaker"], HostCircuitBreaker)
+
+    def test_passes_contact_to_catalog(self) -> None:
+        with patch("domainhack.cli.app.build_registrar_for") as catalog:
+            _registrar_factory(argparse.Namespace(delay=0.0, contact="me@example.com"))(IN)
+        assert catalog.call_args.kwargs["contact"] == "me@example.com"
 
     def test_one_breaker_is_shared_across_tlds(self) -> None:
         with patch("domainhack.cli.app.build_registrar_for") as catalog:
@@ -215,17 +220,15 @@ class TestCmdCheckMultiTld:
             cmd_check(_check_args("to,in,io"))
         assert uc_cls.return_value.execute.call_args.kwargs["total"] == 2
 
-    def test_all_unsupported_is_usage_error(self, capsys: pytest.CaptureFixture[str]) -> None:
-        argv = ["domainhack", "--tld", "in,io", "check", "--range-max", "1", "--no-progress"]
+    def test_all_unsupported_is_runtime_error(self, capsys: pytest.CaptureFixture[str]) -> None:
+        argv = ["--tld", "in,io", "check", "--range-max", "1", "--no-progress"]
         with (
-            patch("sys.argv", argv),
             patch("domainhack.cli.app.build_registrar_for", return_value=None),
             patch("domainhack.cli.app.CheckDomainsUseCase") as uc_cls,
-            pytest.raises(SystemExit) as exc_info,
         ):
-            main()
-        assert exc_info.value.code == 2
-        assert "no registrar supports .in, .io" in capsys.readouterr().err
+            assert main(argv) == 1
+        err = capsys.readouterr().err
+        assert err == "error: no registrar supports .in, .io\n"
         uc_cls.assert_not_called()
 
     def test_router_is_wrapped_by_cache(self, tmp_path: Path) -> None:

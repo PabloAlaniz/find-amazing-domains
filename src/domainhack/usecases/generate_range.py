@@ -4,7 +4,7 @@ from collections.abc import Iterator
 
 from domainhack.ports.word_source import WordSource
 
-_MAX_ALLOWED_LENGTH = 6
+MAX_RANGE_LENGTH = 6
 _ALPHABET = string.ascii_lowercase
 _BASE = len(_ALPHABET)
 
@@ -25,8 +25,8 @@ class RangeWordSource(WordSource):
     def __init__(self, max_length: int, end_at: str | None = None) -> None:
         if max_length < 1:
             raise ValueError("max_length must be >= 1")
-        if max_length > _MAX_ALLOWED_LENGTH:
-            raise ValueError(f"max_length must be <= {_MAX_ALLOWED_LENGTH}")
+        if max_length > MAX_RANGE_LENGTH:
+            raise ValueError(f"max_length must be <= {MAX_RANGE_LENGTH}")
         self._max_length = max_length
         self._end_at = end_at
 

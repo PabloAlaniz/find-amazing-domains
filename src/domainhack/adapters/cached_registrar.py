@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import sqlite3
 import time
 from collections.abc import Callable
 from pathlib import Path
 
+from domainhack.adapters._stderr import write_stderr
 from domainhack.domain.entities import Availability, DomainCheckResult, DomainHack
 from domainhack.ports.registrar import RegistrarClient
 
@@ -29,6 +31,11 @@ class CachedRegistrarClient(RegistrarClient):
     Cache hits never touch the inner client, so any rate-limit delay it applies
     is skipped. ERROR results are never cached. Results served from the cache
     carry ``raw_title == "cache"``.
+
+    The cache is an optimisation, never a reason to fail a run: if the database
+    cannot be opened, read or written (corrupt file, a directory, no
+    permission...), ``warn`` is called once and every later check goes straight
+    to the inner client.
     """
 
     def __init__(
@@ -37,12 +44,31 @@ class CachedRegistrarClient(RegistrarClient):
         path: Path | None = None,
         ttl_seconds: float = DEFAULT_TTL_SECONDS,
         clock: Callable[[], float] = time.time,
+        warn: Callable[[str], None] = write_stderr,
     ) -> None:
         self._inner = inner
         self._path = path if path is not None else default_cache_path()
         self._ttl = ttl_seconds
         self._clock = clock
         self._conn: sqlite3.Connection | None = None
+        self._warn = warn
+        self._disabled = False
+
+    @property
+    def disabled(self) -> bool:
+        """True once the cache failed and the client became a pass-through."""
+        return self._disabled
+
+    def _disable(self, exc: Exception) -> None:
+        self._disabled = True
+        self._close_db()
+        self._warn(f"warning: result cache disabled ({self._path}: {exc}); continuing without it")
+
+    def _close_db(self) -> None:
+        conn, self._conn = self._conn, None
+        if conn is not None:
+            with contextlib.suppress(sqlite3.Error):
+                conn.close()
 
     def _db(self) -> sqlite3.Connection:
         if self._conn is None:
@@ -90,18 +116,24 @@ class CachedRegistrarClient(RegistrarClient):
         db.commit()
 
     def check_availability(self, domain: DomainHack) -> DomainCheckResult:
-        cached = self._lookup(domain)
-        if cached is not None:
-            return cached
+        if not self._disabled:
+            try:
+                cached = self._lookup(domain)
+            except (sqlite3.Error, OSError) as exc:
+                self._disable(exc)
+            else:
+                if cached is not None:
+                    return cached
         result = self._inner.check_availability(domain)
-        if result.availability in _CACHEABLE:
-            self._store(result)
+        if result.availability in _CACHEABLE and not self._disabled:
+            try:
+                self._store(result)
+            except (sqlite3.Error, OSError) as exc:
+                self._disable(exc)
         return result
 
     def close(self) -> None:
         try:
-            if self._conn is not None:
-                self._conn.close()
-                self._conn = None
+            self._close_db()
         finally:
             self._inner.close()

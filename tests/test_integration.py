@@ -1,4 +1,4 @@
-"""Integration tests that hit the real Tonic.to registrar.
+"""Integration tests that hit the real .to registry (RDAP).
 
 Run manually with: pytest -m integration -v
 Excluded from CI by default via pyproject.toml addopts.
@@ -10,9 +10,9 @@ import pytest
 
 from domainhack.adapters.console_writer import ConsoleResultWriter
 from domainhack.adapters.file_word_source import FileWordSource
-from domainhack.adapters.tonic_registrar import TonicRegistrarClient
+from domainhack.adapters.registrar_catalog import build_registrar_for
 from domainhack.cli.app import cmd_check
-from domainhack.domain.entities import TLD, Availability, DomainHack
+from domainhack.domain.entities import TLD, DomainHack
 from domainhack.usecases.check_domains import CheckDomainsUseCase
 from domainhack.usecases.filter_words import FilterWordsUseCase
 from domainhack.usecases.generate_range import RangeWordSource
@@ -24,19 +24,22 @@ pytestmark = pytest.mark.integration
 
 class TestBruteForceRealCheck:
     def test_checks_domains_and_prints_summary(self, capsys: pytest.CaptureFixture[str]) -> None:
-        """Brute-force a.to + b.to against the real registrar."""
+        """Brute-force a.to + b.to against the real registry."""
         tld = TLD("to")
         source = RangeWordSource(max_length=1, end_at="b")
         domains = [DomainHack.from_sld(sld, tld) for sld in source.words()]
 
-        with TonicRegistrarClient(delay=1.5) as registrar:
+        registrar = build_registrar_for(tld, delay=1.5)
+        assert registrar is not None
+        with registrar:
             writer = ConsoleResultWriter(show_taken=True)
-            CheckDomainsUseCase(registrar, writer).execute(domains)
+            summary = CheckDomainsUseCase(registrar, writer).execute(domains)
 
-        output = capsys.readouterr().out
+        captured = capsys.readouterr()
+        output = captured.out + captured.err
         assert "a.to" in output
         assert "b.to" in output
-        assert "Done. Checked 2 domains" in output
+        assert summary.checked == 2
 
 
 class TestWordlistRealCheck:
@@ -84,20 +87,3 @@ class TestFilterThenCheckPipeline:
 
         output = capsys.readouterr().out
         assert ".to" in output
-
-
-class TestTonicRegistrarRealRequest:
-    def test_known_taken_domain(self) -> None:
-        """'google.to' should be taken."""
-        hack = DomainHack.from_sld("google", TLD("to"))
-        with TonicRegistrarClient(delay=0.0) as client:
-            result = client.check_availability(hack)
-        assert result.availability == Availability.TAKEN
-
-    def test_likely_available_domain(self) -> None:
-        """A random gibberish SLD is likely available."""
-        hack = DomainHack.from_sld("xqzjvkw", TLD("to"))
-        with TonicRegistrarClient(delay=0.0) as client:
-            result = client.check_availability(hack)
-        # Can't guarantee availability, but can guarantee no ERROR
-        assert result.availability != Availability.ERROR

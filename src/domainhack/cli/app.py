@@ -1,14 +1,18 @@
 import argparse
+import codecs
+import os
+import re
 import sys
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
+from domainhack import __version__
 from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters.cached_registrar import CachedRegistrarClient
 from domainhack.adapters.composite_writer import CompositeResultWriter
 from domainhack.adapters.console_writer import ConsoleResultWriter
 from domainhack.adapters.csv_writer import CsvResultWriter
-from domainhack.adapters.file_word_source import FileWordSource
+from domainhack.adapters.file_word_source import DEFAULT_ENCODING, FileWordSource, WordListError
 from domainhack.adapters.json_writer import JsonResultWriter
 from domainhack.adapters.registrar_catalog import build_registrar_for
 from domainhack.adapters.registrar_router import RegistrarFactory, RegistrarRouter
@@ -17,19 +21,44 @@ from domainhack.domain.entities import TLD, DomainHack
 from domainhack.ports.progress import NullProgressReporter, ProgressReporter
 from domainhack.ports.registrar import RegistrarClient
 from domainhack.ports.result_writer import ResultWriter
-from domainhack.usecases.check_domains import CheckDomainsUseCase
+from domainhack.usecases.check_domains import CheckDomainsUseCase, CheckSummary
 from domainhack.usecases.filter_words import FilterWordsUseCase
-from domainhack.usecases.generate_range import RangeWordSource
+from domainhack.usecases.generate_range import MAX_RANGE_LENGTH, RangeWordSource
 
 OUTPUT_FORMATS = ("csv", "json")
 _FORMAT_BY_SUFFIX = {".csv": "csv", ".json": "json", ".jsonl": "json"}
 
+EXIT_OK = 0
+EXIT_FAILURE = 1
+EXIT_USAGE = 2
+EXIT_INTERRUPTED = 130  # 128 + SIGINT, the shell convention
+
+CONTACT_ENV = "DOMAINHACK_CONTACT"
+
+_EPILOG = f"""\
+exit status:
+  {EXIT_OK}    completed and every check succeeded
+  {EXIT_FAILURE}    completed but some checks ended in ERROR, or the run failed
+       (unreadable word list, unwritable output, no supported TLD...)
+  {EXIT_USAGE}    usage error (bad option or value)
+  {EXIT_INTERRUPTED}  interrupted (Ctrl-C); results checked so far are kept
+
+Results go to stdout; errors, warnings, progress and the summary go to stderr.
+"""
+
+_RANGE_END_RE = re.compile(r"[a-z]+")
+_EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+
+
+class CliError(Exception):
+    """A runtime failure reported as a single ``error:`` line (exit status 1)."""
+
 
 class OutputFormatError(ValueError):
-    """The output file format could not be determined."""
+    """The output file format could not be determined (a usage error)."""
 
 
-class NoSupportedTLDError(ValueError):
+class NoSupportedTLDError(CliError):
     """None of the requested TLDs has a registrar able to check it."""
 
 
@@ -61,11 +90,73 @@ def _selected_tlds(args: argparse.Namespace) -> list[TLD]:
     return parse_tld_list(value) if isinstance(value, str) else list(value)
 
 
+def _non_negative_float(value: str) -> float:
+    try:
+        number = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"not a number: {value!r}") from None
+    if not 0 <= number < float("inf"):  # also rejects nan
+        raise argparse.ArgumentTypeError(f"must be a finite number >= 0, got {value!r}")
+    return number
+
+
+def _non_negative_int(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"not an integer: {value!r}") from None
+    if number < 0:
+        raise argparse.ArgumentTypeError(f"must be >= 0, got {value!r}")
+    return number
+
+
+def _range_max(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"not an integer: {value!r}") from None
+    if not 1 <= number <= MAX_RANGE_LENGTH:
+        raise argparse.ArgumentTypeError(f"must be between 1 and {MAX_RANGE_LENGTH}, got {value!r}")
+    return number
+
+
+def _range_end(value: str) -> str:
+    if not _RANGE_END_RE.fullmatch(value):
+        raise argparse.ArgumentTypeError(f"must be lowercase letters a-z, got {value!r}")
+    return value
+
+
+def _encoding(value: str) -> str:
+    try:
+        return codecs.lookup(value).name
+    except LookupError:
+        raise argparse.ArgumentTypeError(f"unknown encoding: {value!r}") from None
+
+
+def _contact(value: str) -> str:
+    # Printable ASCII only: the value goes verbatim into an HTTP header.
+    if not (value.isascii() and value.isprintable() and _EMAIL_RE.fullmatch(value)):
+        raise argparse.ArgumentTypeError(f"not an email address: {value!r}")
+    return value
+
+
+def _add_encoding_option(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--encoding",
+        type=_encoding,
+        default=DEFAULT_ENCODING,
+        help="Word list encoding (default: utf-8); undecodable bytes are an error",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="domainhack",
         description="Find domain hacks hiding in real words.",
+        epilog=_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
         "--tld",
         type=parse_tld_list,
@@ -79,12 +170,21 @@ def build_parser() -> argparse.ArgumentParser:
     # filter subcommand
     filt = sub.add_parser("filter", help="Filter words that form domain hacks")
     filt.add_argument("file", type=Path, help="Path to word list file")
-    filt.add_argument("--min-length", type=int, default=0, help="Minimum word length")
+    filt.add_argument("--min-length", type=_non_negative_int, default=0, help="Minimum word length")
+    _add_encoding_option(filt)
 
     # check subcommand
-    chk = sub.add_parser("check", help="Check domain availability")
+    chk = sub.add_parser(
+        "check",
+        help="Check domain availability",
+        epilog=_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     chk.add_argument(
-        "--delay", type=float, default=1.0, help="Seconds between requests (default: 1.0)"
+        "--delay",
+        type=_non_negative_float,
+        default=1.0,
+        help="Seconds between requests (default: 1.0)",
     )
     chk.add_argument("--show-taken", action="store_true", help="Also print taken domains")
     chk.add_argument("--dry-run", action="store_true", help="List domains without checking")
@@ -96,8 +196,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     source_group = chk.add_mutually_exclusive_group(required=True)
     source_group.add_argument("--file", type=Path, help="Word list file (list mode)")
-    source_group.add_argument("--range-max", type=int, help="Max combination length (range mode)")
-    chk.add_argument("--range-end", type=str, default=None, help="Stop at this combination")
+    source_group.add_argument(
+        "--range-max",
+        type=_range_max,
+        help=f"Max combination length, 1-{MAX_RANGE_LENGTH} (range mode)",
+    )
+    chk.add_argument("--range-end", type=_range_end, default=None, help="Stop at this combination")
+    _add_encoding_option(chk)
     chk.add_argument("--output", type=Path, default=None, help="Also save results to FILE")
     chk.add_argument(
         "--format",
@@ -108,7 +213,7 @@ def build_parser() -> argparse.ArgumentParser:
     chk.add_argument("--no-cache", action="store_true", help="Disable the result cache")
     chk.add_argument(
         "--cache-ttl",
-        type=float,
+        type=_non_negative_float,
         default=168.0,
         metavar="HOURS",
         help="Reuse cached results younger than HOURS (default: 168 = 7 days)",
@@ -119,11 +224,33 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="SQLite cache file (default: $XDG_CACHE_HOME/domainhack/results.sqlite3)",
     )
+    chk.add_argument(
+        "--contact",
+        type=_contact,
+        default=os.environ.get(CONTACT_ENV) or None,
+        metavar="EMAIL",
+        help="Send EMAIL as the HTTP From header on RDAP requests so registry "
+        f"operators can reach you (default: ${CONTACT_ENV})",
+    )
 
     return parser
 
 
-def cmd_filter(args: argparse.Namespace) -> None:
+def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """Cross-option checks argparse cannot express; exits with status 2 on error."""
+    if args.command != "check" or args.range_end is None:
+        return
+    if args.range_max is None:
+        parser.error("--range-end requires --range-max")
+    if len(args.range_end) > args.range_max:
+        parser.error(f"--range-end {args.range_end!r} is longer than --range-max {args.range_max}")
+
+
+def _word_source(args: argparse.Namespace, path: Path) -> FileWordSource:
+    return FileWordSource(path, encoding=getattr(args, "encoding", DEFAULT_ENCODING))
+
+
+def cmd_filter(args: argparse.Namespace) -> int:
     """Print matching words.
 
     With a single TLD the output is one word per line (unchanged, pipeable into
@@ -132,11 +259,12 @@ def cmd_filter(args: argparse.Namespace) -> None:
     more than one TLD.
     """
     tlds = _selected_tlds(args)
-    source = FileWordSource(args.file)
+    source = _word_source(args, args.file)
     use_case = FilterWordsUseCase(source, tlds, min_length=args.min_length)
     multi = len(tlds) > 1
     for hack in use_case.execute():
         print(f"{hack.word} -> {hack.fqdn}" if multi else hack.word)
+    return EXIT_OK
 
 
 def _build_domains(args: argparse.Namespace, tlds: TLD | Sequence[TLD]) -> Iterable[DomainHack]:
@@ -146,7 +274,7 @@ def _build_domains(args: argparse.Namespace, tlds: TLD | Sequence[TLD]) -> Itera
     """
     tld_list: tuple[TLD, ...] = (tlds,) if isinstance(tlds, TLD) else tuple(tlds)
     if args.file:
-        word_source = FileWordSource(args.file)
+        word_source = _word_source(args, args.file)
         return FilterWordsUseCase(word_source, tld_list).execute()
     range_source = RangeWordSource(args.range_max, end_at=args.range_end)
     return (DomainHack.from_sld(sld, tld) for sld in range_source.words() for tld in tld_list)
@@ -171,9 +299,12 @@ def _build_writer(args: argparse.Namespace) -> ResultWriter:
     if output is None:
         return console
     fmt = _resolve_output_format(output, getattr(args, "format", None))
-    file_writer: ResultWriter = (
-        CsvResultWriter(output) if fmt == "csv" else JsonResultWriter(output)
-    )
+    try:
+        file_writer: ResultWriter = (
+            CsvResultWriter(output) if fmt == "csv" else JsonResultWriter(output)
+        )
+    except OSError as exc:
+        raise CliError(f"cannot write output file '{output}': {exc.strerror or exc}") from exc
     return CompositeResultWriter([console, file_writer])
 
 
@@ -194,11 +325,12 @@ def _build_progress(args: argparse.Namespace) -> ProgressReporter:
 def _registrar_factory(args: argparse.Namespace) -> RegistrarFactory:
     """Map a TLD to a fresh RegistrarClient, or None when no registrar supports it."""
     delay: float = args.delay
+    contact: str | None = getattr(args, "contact", None)
     # One breaker per run: a host that stops answering is skipped for every TLD it serves.
     breaker = HostCircuitBreaker()
 
     def factory(tld: TLD) -> RegistrarClient | None:
-        return build_registrar_for(tld, delay=delay, breaker=breaker)
+        return build_registrar_for(tld, delay=delay, breaker=breaker, contact=contact)
 
     return factory
 
@@ -242,43 +374,96 @@ def _supported_tlds(router: RegistrarRouter, tlds: Sequence[TLD]) -> list[TLD]:
     return supported
 
 
-def cmd_check(args: argparse.Namespace) -> None:
+def cmd_check(args: argparse.Namespace) -> int:
     tlds = _selected_tlds(args)
 
     if args.dry_run:
         for domain in _build_domains(args, tlds):
             print(f"  {domain.fqdn}  (word: {domain.word!r})")
-        return
+        return EXIT_OK
 
+    # Fail fast on local problems, before any network work starts.
     if getattr(args, "output", None) is not None:
-        # Validate the output format before any network work starts.
         _resolve_output_format(args.output, getattr(args, "format", None))
+    if args.file:
+        _word_source(args, args.file).check_readable()
 
     router = _build_router(args)
     tlds = _supported_tlds(router, tlds)
+    try:
+        writer = _build_writer(args)
+    except BaseException:
+        router.close()
+        raise
     domains = _build_domains(args, tlds)
 
     with _build_registrar(args, router) as registrar:
-        writer = _build_writer(args)
         progress = _build_progress(args)
-        CheckDomainsUseCase(registrar, writer, progress).execute(
+        summary = CheckDomainsUseCase(registrar, writer, progress).execute(
             domains, total=_progress_total(args, tlds)
         )
+    return _report(summary)
 
 
-def main() -> None:
+def _report(summary: CheckSummary) -> int:
+    """Print the run summary on stderr and map it to an exit status."""
+    if summary.interrupted:
+        _stderr(
+            f"Interrupted after {summary.checked} checks "
+            f"({summary.available} available, {summary.errors} errors)."
+        )
+        return EXIT_INTERRUPTED
+    _stderr(
+        f"\nDone. Checked {summary.checked} domains: {summary.available} available, "
+        f"{summary.taken} taken, {summary.errors} errors."
+    )
+    return EXIT_FAILURE if summary.errors else EXIT_OK
+
+
+def _stderr(message: str) -> None:
+    print(message, file=sys.stderr)
+
+
+def _silence_stdout() -> None:
+    """After EPIPE (``domainhack ... | head``), keep Python's exit-time flush quiet."""
+    try:
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+    except (OSError, ValueError):
+        pass
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Run the CLI and return its exit status (see the ``--help`` epilog)."""
     parser = build_parser()
-    args = parser.parse_args()
+    try:
+        args = parser.parse_args(argv)
+        _validate_args(parser, args)
+    except SystemExit as exc:  # usage error (2), or --help / --version (0)
+        return exc.code if isinstance(exc.code, int) else EXIT_USAGE
 
-    match args.command:
-        case "filter":
-            cmd_filter(args)
-        case "check":
-            try:
-                cmd_check(args)
-            except (OutputFormatError, NoSupportedTLDError) as exc:
-                parser.error(str(exc))
+    try:
+        if args.command == "filter":
+            return cmd_filter(args)
+        return cmd_check(args)
+    except OutputFormatError as exc:
+        parser.print_usage(sys.stderr)
+        _stderr(f"{parser.prog}: error: {exc}")
+        return EXIT_USAGE
+    except KeyboardInterrupt:
+        _stderr("Interrupted.")
+        return EXIT_INTERRUPTED
+    except BrokenPipeError:
+        _silence_stdout()
+        return EXIT_FAILURE
+    except (CliError, WordListError) as exc:
+        _stderr(f"error: {exc}")
+        return EXIT_FAILURE
+    except OSError as exc:
+        where = f"{exc.filename}: " if exc.filename else ""
+        _stderr(f"error: {where}{exc.strerror or exc}")
+        return EXIT_FAILURE
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

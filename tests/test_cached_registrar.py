@@ -12,7 +12,6 @@ from domainhack.adapters.cached_registrar import (
     default_cache_path,
 )
 from domainhack.adapters.registrar_router import RegistrarRouter
-from domainhack.adapters.tonic_registrar import TonicRegistrarClient
 from domainhack.cli.app import _build_registrar, build_parser
 from domainhack.domain.entities import TLD, Availability, DomainCheckResult, DomainHack
 from domainhack.ports.registrar import RegistrarClient
@@ -122,16 +121,73 @@ class TestCachedRegistrarClient:
             cached.check_availability(_hack("a"))
             cached.check_availability(_hack("b"))
 
-        inner = TonicRegistrarClient(delay=5.0)
-        with (
-            patch("domainhack.adapters.tonic_registrar.time.sleep") as sleep,
-            patch.object(inner, "check_availability") as inner_check,
-            CachedRegistrarClient(inner, path=db_path, clock=clock) as cached,
-        ):
+        inner = CountingRegistrar({})
+        with CachedRegistrarClient(inner, path=db_path, clock=clock) as cached:
+            assert cached.check_availability(_hack("a")).raw_title == CACHE_RAW_TITLE
+            assert cached.check_availability(_hack("b")).raw_title == CACHE_RAW_TITLE
+        # The inner client (and therefore any rate-limit delay it applies) is never hit.
+        assert inner.calls == []
+
+    def test_corrupt_database_warns_once_and_passes_through(self, tmp_path: Path) -> None:
+        path = tmp_path / "results.sqlite3"
+        path.write_bytes(b"this is not a sqlite database" * 100)
+        inner = CountingRegistrar({"a.to": Availability.TAKEN, "b.to": Availability.AVAILABLE})
+        warnings: list[str] = []
+        with CachedRegistrarClient(inner, path=path, warn=warnings.append) as cached:
+            assert cached.check_availability(_hack("a")).availability is Availability.TAKEN
+            assert cached.check_availability(_hack("b")).availability is Availability.AVAILABLE
+            assert cached.disabled
+        assert inner.calls == ["a.to", "b.to"]
+        assert len(warnings) == 1
+        assert "result cache disabled" in warnings[0]
+        assert str(path) in warnings[0]
+        # The unusable file is left untouched.
+        assert path.read_bytes().startswith(b"this is not a sqlite database")
+
+    def test_directory_as_path_falls_back(self, tmp_path: Path) -> None:
+        inner = CountingRegistrar({"a.to": Availability.TAKEN})
+        warnings: list[str] = []
+        with CachedRegistrarClient(inner, path=tmp_path, warn=warnings.append) as cached:
+            assert cached.check_availability(_hack("a")).raw_title == "live"
+        assert len(warnings) == 1
+        assert inner.closed
+
+    def test_parent_is_a_file_falls_back(self, tmp_path: Path) -> None:
+        blocker = tmp_path / "file"
+        blocker.write_text("x")
+        inner = CountingRegistrar({"a.to": Availability.TAKEN})
+        warnings: list[str] = []
+        with CachedRegistrarClient(
+            inner, path=blocker / "results.sqlite3", warn=warnings.append
+        ) as cached:
             cached.check_availability(_hack("a"))
-            cached.check_availability(_hack("b"))
-        sleep.assert_not_called()
-        inner_check.assert_not_called()
+            cached.check_availability(_hack("a"))
+        assert inner.calls == ["a.to", "a.to"]
+        assert len(warnings) == 1
+
+    def test_write_failure_disables_cache(self, db_path: Path) -> None:
+        inner = CountingRegistrar({"a.to": Availability.TAKEN})
+        warnings: list[str] = []
+        cached = CachedRegistrarClient(inner, path=db_path, warn=warnings.append)
+        with (
+            patch.object(cached, "_store", side_effect=sqlite3.OperationalError("disk full")),
+            cached,
+        ):
+            assert cached.check_availability(_hack("a")).raw_title == "live"
+            assert cached.check_availability(_hack("a")).raw_title == "live"
+        assert warnings == [
+            f"warning: result cache disabled ({db_path}: disk full); continuing without it"
+        ]
+
+    def test_default_warning_goes_to_stderr(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        inner = CountingRegistrar({"a.to": Availability.TAKEN})
+        with CachedRegistrarClient(inner, path=tmp_path) as cached:
+            cached.check_availability(_hack("a"))
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "warning: result cache disabled" in captured.err
 
     def test_close_propagates_and_is_idempotent(self, db_path: Path) -> None:
         inner = CountingRegistrar({"pla.to": Availability.TAKEN})

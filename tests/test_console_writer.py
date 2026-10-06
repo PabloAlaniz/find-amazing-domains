@@ -37,33 +37,37 @@ class TestConsoleResultWriter:
         assert "TAKEN" in out
         assert "pla.to" in out
 
-    def test_shows_errors_by_default(self, capsys) -> None:
+    def test_errors_go_to_stderr(self, capsys) -> None:
         writer = ConsoleResultWriter()
         writer.write_result(_result(Availability.ERROR))
-        out = capsys.readouterr().out
-        assert "ERROR" in out
-        assert "fail" in out
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "ERROR" in captured.err
+        assert "fail" in captured.err
 
     def test_hides_errors_when_disabled(self, capsys) -> None:
         writer = ConsoleResultWriter(show_errors=False)
         writer.write_result(_result(Availability.ERROR))
-        out = capsys.readouterr().out
-        assert out == ""
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err == ""
 
-    def test_flush_prints_summary(self, capsys) -> None:
-        writer = ConsoleResultWriter()
+    def test_results_go_to_stdout_only(self, capsys) -> None:
+        writer = ConsoleResultWriter(show_taken=True)
         writer.write_result(_result(Availability.AVAILABLE))
         writer.write_result(_result(Availability.TAKEN, "grato"))
-        capsys.readouterr()  # clear
         writer.flush()
-        out = capsys.readouterr().out
-        assert "Checked 2" in out
-        assert "1 available" in out
+        captured = capsys.readouterr()
+        assert captured.out.splitlines() == [
+            "  AVAILABLE: pla.to (word: 'plato')",
+            "  TAKEN:     gra.to",
+        ]
+        assert captured.err == ""
 
-    def test_counts(self) -> None:
+    def test_flush_prints_no_summary(self, capsys) -> None:
+        """The run summary belongs to the CLI (from CheckSummary), not the writer."""
         writer = ConsoleResultWriter()
         writer.write_result(_result(Availability.AVAILABLE))
-        writer.write_result(_result(Availability.AVAILABLE, "grato"))
-        writer.write_result(_result(Availability.TAKEN, "abeto"))
-        assert writer._available_count == 2
-        assert writer._checked_count == 3
+        capsys.readouterr()
+        writer.flush()
+        assert capsys.readouterr() == ("", "")

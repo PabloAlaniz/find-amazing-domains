@@ -254,13 +254,8 @@ class TestCmdCheckOutput:
     def test_main_reports_bad_extension_as_usage_error(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        argv = ["domainhack", "check", "--range-max", "1", "--output", str(tmp_path / "r.txt")]
-        with (
-            patch("sys.argv", argv),
-            patch("domainhack.cli.app.build_registrar_for") as mock_client,
-            pytest.raises(SystemExit) as exc_info,
-        ):
-            main()
-        assert exc_info.value.code == 2
+        argv = ["check", "--range-max", "1", "--output", str(tmp_path / "r.txt")]
+        with patch("domainhack.cli.app.build_registrar_for") as mock_client:
+            assert main(argv) == 2
         assert "Cannot infer output format" in capsys.readouterr().err
         mock_client.assert_not_called()

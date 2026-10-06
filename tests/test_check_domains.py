@@ -5,7 +5,7 @@ import pytest
 
 from domainhack.domain.entities import TLD, Availability, DomainCheckResult, DomainHack
 from domainhack.usecases.check_domains import CheckDomainsUseCase, CheckSummary
-from tests.conftest import CollectingWriter, FakeRegistrarClient
+from tests.fakes import CollectingWriter, FakeRegistrarClient
 
 
 class TestCheckDomainsUseCase:

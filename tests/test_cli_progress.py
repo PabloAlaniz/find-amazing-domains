@@ -1,9 +1,10 @@
 import argparse
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from domainhack.adapters.tqdm_progress import TqdmProgressReporter
 from domainhack.cli.app import _build_progress, _progress_total, build_parser, cmd_check
 from domainhack.ports.progress import NullProgressReporter
+from tests.fakes import FakeCatalog, ScriptedRegistrar
 
 
 class TestNoProgressFlag:
@@ -34,9 +35,6 @@ class TestProgressTotal:
 
 class TestCmdCheckWiresProgress:
     def test_passes_reporter_and_total(self) -> None:
-        mock_registrar = MagicMock()
-        mock_registrar.__enter__ = MagicMock(return_value=mock_registrar)
-        mock_registrar.__exit__ = MagicMock(return_value=False)
         args = argparse.Namespace(
             tld="to",
             file=None,
@@ -48,12 +46,8 @@ class TestCmdCheckWiresProgress:
             no_progress=True,
         )
 
-        with (
-            patch("domainhack.cli.app.build_registrar_for", return_value=mock_registrar),
-            patch("domainhack.cli.app.ConsoleResultWriter"),
-            patch("domainhack.cli.app.CheckDomainsUseCase") as mock_uc_cls,
-        ):
-            cmd_check(args)
+        with patch("domainhack.cli.app.CheckDomainsUseCase") as mock_uc_cls:
+            cmd_check(args, catalog=FakeCatalog(ScriptedRegistrar()))
 
         progress = mock_uc_cls.call_args.args[2]
         assert isinstance(progress, NullProgressReporter)

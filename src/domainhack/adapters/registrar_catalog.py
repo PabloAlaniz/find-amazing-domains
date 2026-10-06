@@ -43,14 +43,17 @@ def build_registrar_for(
     timeout: float = 10.0,
     breaker: HostCircuitBreaker | None = None,
     contact: str | None = None,
+    bootstrap: RdapBootstrap | None = None,
 ) -> RegistrarClient | None:
     """Return a new client able to check domains under ``tld``, or None if unsupported.
 
     Pass one ``breaker`` to every call of a run so clients that share a host
     (e.g. .io/.sh/.ac/.me) also share its circuit. ``contact`` (an email) is
-    sent as the ``From`` header on RDAP requests.
+    sent as the ``From`` header on RDAP requests. ``bootstrap`` replaces the
+    process-wide default RDAP bootstrap (tests pass one with a fake fetcher).
     """
-    base_url = _default_bootstrap().base_url_for(tld.suffix)
+    rdap = bootstrap if bootstrap is not None else _default_bootstrap()
+    base_url = rdap.base_url_for(tld.suffix)
     if base_url is not None:
         return RdapRegistrarClient(
             base_url, delay=delay, timeout=timeout, breaker=breaker, contact=contact
@@ -72,6 +75,7 @@ def build_registrar_for(
     return None
 
 
-def supported_tlds() -> set[str]:
+def supported_tlds(bootstrap: RdapBootstrap | None = None) -> set[str]:
     """All TLDs ``build_registrar_for`` can serve (may fetch the IANA bootstrap)."""
-    return _default_bootstrap().known_tlds() | set(WHOIS_SERVERS) | set(WHOIS_FALLBACK_SERVERS)
+    rdap = bootstrap if bootstrap is not None else _default_bootstrap()
+    return rdap.known_tlds() | set(WHOIS_SERVERS) | set(WHOIS_FALLBACK_SERVERS)

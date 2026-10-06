@@ -1,4 +1,4 @@
-from tests.conftest import FakeRegistrarClient
+from tests.fakes import FakeRegistrarClient
 
 
 class TestRegistrarClientPort:

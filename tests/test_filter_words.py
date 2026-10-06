@@ -1,6 +1,6 @@
 from domainhack.domain.entities import TLD
 from domainhack.usecases.filter_words import FilterWordsUseCase
-from tests.conftest import FakeWordSource
+from tests.fakes import FakeWordSource
 
 
 class TestFilterWordsUseCase:

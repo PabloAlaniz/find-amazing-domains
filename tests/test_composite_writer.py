@@ -3,7 +3,7 @@ import pytest
 from domainhack.adapters.composite_writer import CompositeResultWriter
 from domainhack.domain.entities import TLD, Availability, DomainCheckResult, DomainHack
 from domainhack.ports.result_writer import ResultWriter
-from tests.conftest import CollectingWriter
+from tests.fakes import CollectingWriter
 
 
 def _result() -> DomainCheckResult:

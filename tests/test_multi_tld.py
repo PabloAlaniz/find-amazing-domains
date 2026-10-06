@@ -1,15 +1,12 @@
 """Phase 2: multi-TLD support (--tld to,io,in) and TLD-based registrar routing."""
 
 import argparse
-import subprocess
-import sys
 from pathlib import Path
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from domainhack.adapters._circuit import HostCircuitBreaker
-from domainhack.adapters.registrar_router import RegistrarRouter
 from domainhack.cli.app import (
     _build_domains,
     _progress_total,
@@ -20,9 +17,9 @@ from domainhack.cli.app import (
     main,
     parse_tld_list,
 )
-from domainhack.domain.entities import TLD, Availability, DomainCheckResult
+from domainhack.domain.entities import TLD, Availability
 from domainhack.usecases.filter_words import FilterWordsUseCase
-from tests.conftest import FakeWordSource
+from tests.fakes import CatalogCall, FakeCatalog, FakeWordSource, ScriptedRegistrar, run_cli
 
 TO, IO, IN = TLD("to"), TLD("io"), TLD("in")
 
@@ -138,42 +135,44 @@ class TestProgressTotalMultiTld:
 
 class TestRegistrarFactory:
     def test_delegates_to_catalog_with_delay(self) -> None:
-        sentinel = MagicMock()
-        with patch("domainhack.cli.app.build_registrar_for", return_value=sentinel) as catalog:
-            client = _registrar_factory(argparse.Namespace(delay=2.5))(IN)
+        sentinel = ScriptedRegistrar()
+        catalog = FakeCatalog(sentinel)
+        client = _registrar_factory(argparse.Namespace(delay=2.5), catalog)(IN)
         assert client is sentinel
-        catalog.assert_called_once_with(IN, delay=2.5, breaker=ANY, contact=None)
-        assert isinstance(catalog.call_args.kwargs["breaker"], HostCircuitBreaker)
+        (call,) = catalog.calls
+        assert call == CatalogCall(IN, delay=2.5, breaker=call.breaker, contact=None)
+        assert isinstance(call.breaker, HostCircuitBreaker)
 
     def test_passes_contact_to_catalog(self) -> None:
-        with patch("domainhack.cli.app.build_registrar_for") as catalog:
-            _registrar_factory(argparse.Namespace(delay=0.0, contact="me@example.com"))(IN)
-        assert catalog.call_args.kwargs["contact"] == "me@example.com"
+        catalog = FakeCatalog()
+        _registrar_factory(argparse.Namespace(delay=0.0, contact="me@example.com"), catalog)(IN)
+        assert catalog.calls[0].contact == "me@example.com"
 
     def test_one_breaker_is_shared_across_tlds(self) -> None:
-        with patch("domainhack.cli.app.build_registrar_for") as catalog:
-            factory = _registrar_factory(argparse.Namespace(delay=0.0))
-            factory(IN)
-            factory(IO)
-        first, second = (c.kwargs["breaker"] for c in catalog.call_args_list)
+        catalog = FakeCatalog()
+        factory = _registrar_factory(argparse.Namespace(delay=0.0), catalog)
+        factory(IN)
+        factory(IO)
+        first, second = (c.breaker for c in catalog.calls)
         assert first is second
 
     def test_unsupported_tld_is_none(self) -> None:
-        with patch("domainhack.cli.app.build_registrar_for", return_value=None):
-            assert _registrar_factory(argparse.Namespace(delay=0.0))(IO) is None
+        assert _registrar_factory(argparse.Namespace(delay=0.0), FakeCatalog(None))(IO) is None
+
+    def test_defaults_to_the_real_catalog(self) -> None:
+        # .to resolves from the built-in RDAP overrides: no network involved.
+        client = _registrar_factory(argparse.Namespace(delay=0.0))(TO)
+        assert client is not None
+        client.close()
 
 
-def _fake_tonic() -> MagicMock:
-    client = MagicMock()
-    client.check_availability.side_effect = lambda d: DomainCheckResult(
-        domain=d, availability=Availability.AVAILABLE
-    )
-    return client
+def _fake_tonic() -> ScriptedRegistrar:
+    return ScriptedRegistrar(default=Availability.AVAILABLE)
 
 
-def _only_to(client: MagicMock) -> MagicMock:
-    """Patch target for the catalog: only .to is supported, served by ``client``."""
-    return MagicMock(side_effect=lambda tld, **_: client if tld.suffix == "to" else None)
+def _only_to(client: ScriptedRegistrar) -> FakeCatalog:
+    """A catalog where only .to is supported, served by ``client``."""
+    return FakeCatalog(by_tld={"to": client})
 
 
 def _check_args(tlds: str, **kwargs: object) -> argparse.Namespace:
@@ -194,72 +193,47 @@ def _check_args(tlds: str, **kwargs: object) -> argparse.Namespace:
 
 class TestCmdCheckMultiTld:
     def test_dry_run_prints_all_tlds(self, capsys: pytest.CaptureFixture[str]) -> None:
-        with patch("domainhack.cli.app.build_registrar_for") as catalog:
-            cmd_check(_check_args("to,in", dry_run=True))
-        catalog.assert_not_called()
+        catalog = FakeCatalog()
+        cmd_check(_check_args("to,in", dry_run=True), catalog=catalog)
+        assert catalog.calls == []
         out = capsys.readouterr().out
         assert [line.split()[0] for line in out.splitlines()] == ["a.to", "a.in", "b.to", "b.in"]
 
     def test_in_domains_never_reach_tonic(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Regression: .in domains used to be sent to tonic.to's .to-only form."""
         tonic = _fake_tonic()
-        with patch("domainhack.cli.app.build_registrar_for", _only_to(tonic)):
-            cmd_check(_check_args("to,in"))
-        checked = [c.args[0].fqdn for c in tonic.check_availability.call_args_list]
-        assert checked == ["a.to", "b.to"]
+        cmd_check(_check_args("to,in"), catalog=_only_to(tonic))
+        assert tonic.calls == ["a.to", "b.to"]
         captured = capsys.readouterr()
         assert "warning: no registrar supports .in; skipping" in captured.err
         assert ".in" not in captured.out
-        tonic.close.assert_called_once()
+        assert tonic.closed
 
     def test_progress_total_uses_supported_tlds(self) -> None:
-        with (
-            patch("domainhack.cli.app.build_registrar_for", _only_to(_fake_tonic())),
-            patch("domainhack.cli.app.CheckDomainsUseCase") as uc_cls,
-        ):
-            cmd_check(_check_args("to,in,io"))
+        with patch("domainhack.cli.app.CheckDomainsUseCase") as uc_cls:
+            cmd_check(_check_args("to,in,io"), catalog=_only_to(_fake_tonic()))
         assert uc_cls.return_value.execute.call_args.kwargs["total"] == 2
 
     def test_all_unsupported_is_runtime_error(self, capsys: pytest.CaptureFixture[str]) -> None:
         argv = ["--tld", "in,io", "check", "--range-max", "1", "--no-progress"]
-        with (
-            patch("domainhack.cli.app.build_registrar_for", return_value=None),
-            patch("domainhack.cli.app.CheckDomainsUseCase") as uc_cls,
-        ):
-            assert main(argv) == 1
+        with patch("domainhack.cli.app.CheckDomainsUseCase") as uc_cls:
+            assert main(argv, catalog=FakeCatalog(None)) == 1
         err = capsys.readouterr().err
         assert err == "error: no registrar supports .in, .io\n"
         uc_cls.assert_not_called()
 
     def test_router_is_wrapped_by_cache(self, tmp_path: Path) -> None:
-        tonic = _fake_tonic()
-        args = _check_args("to", no_cache=False, cache_path=tmp_path / "c.sqlite3")
-        with (
-            patch("domainhack.cli.app.build_registrar_for", _only_to(tonic)),
-            patch("domainhack.cli.app.CheckDomainsUseCase") as uc_cls,
-        ):
-            cmd_check(args)
-        registrar = uc_cls.call_args.args[0]
-        assert isinstance(registrar._inner, RegistrarRouter)
+        args = _check_args("to,in", no_cache=False, cache_path=tmp_path / "c.sqlite3")
+        first, second = _fake_tonic(), _fake_tonic()
+        cmd_check(args, catalog=_only_to(first))
+        cmd_check(args, catalog=_only_to(second))
+        assert first.calls == ["a.to", "b.to"]
+        assert second.calls == []  # the second run is served from the cache
 
 
 class TestCliSubprocess:
     def test_dry_run_multi_tld(self) -> None:
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "domainhack.cli.app",
-                "--tld",
-                "to,io",
-                "check",
-                "--range-max",
-                "1",
-                "--dry-run",
-            ],
-            capture_output=True,
-            text=True,
-        )
+        result = run_cli("--tld", "to,io", "check", "--range-max", "1", "--dry-run")
         assert result.returncode == 0
         lines = result.stdout.strip().splitlines()
         assert len(lines) == 52
@@ -268,10 +242,6 @@ class TestCliSubprocess:
         assert "z.io" in lines[-1]
 
     def test_invalid_tld_is_usage_error(self) -> None:
-        result = subprocess.run(
-            [sys.executable, "-m", "domainhack.cli.app", "--tld", "to,1", "filter", "x.txt"],
-            capture_output=True,
-            text=True,
-        )
+        result = run_cli("--tld", "to,1", "filter", "x.txt")
         assert result.returncode == 2
         assert "invalid TLD" in result.stderr

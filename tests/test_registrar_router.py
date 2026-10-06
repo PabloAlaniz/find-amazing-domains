@@ -1,35 +1,24 @@
 import pytest
 
 from domainhack.adapters.registrar_router import RegistrarRouter
-from domainhack.domain.entities import TLD, Availability, DomainCheckResult, DomainHack
+from domainhack.domain.entities import TLD, Availability, DomainHack
 from domainhack.ports.registrar import RegistrarClient
+from tests.fakes import ScriptedRegistrar
 
 TO = TLD("to")
 IO = TLD("io")
 IN = TLD("in")
 
 
-class FakeClient(RegistrarClient):
-    def __init__(self, name: str, fail_on_close: bool = False) -> None:
-        self.name = name
-        self.calls: list[str] = []
-        self.closed = False
-        self._fail_on_close = fail_on_close
-
-    def check_availability(self, domain: DomainHack) -> DomainCheckResult:
-        self.calls.append(domain.fqdn)
-        return DomainCheckResult(
-            domain=domain, availability=Availability.AVAILABLE, raw_title=self.name
-        )
-
-    def close(self) -> None:
-        self.closed = True
-        if self._fail_on_close:
-            raise RuntimeError(f"{self.name} close failed")
+def FakeClient(name: str, fail_on_close: bool = False) -> ScriptedRegistrar:
+    """A client that answers AVAILABLE with ``raw_title=name``."""
+    return ScriptedRegistrar(
+        default=Availability.AVAILABLE, raw_title=name, fail_on_close=fail_on_close
+    )
 
 
 class RecordingFactory:
-    def __init__(self, supported: dict[str, FakeClient]) -> None:
+    def __init__(self, supported: dict[str, ScriptedRegistrar]) -> None:
         self._supported = supported
         self.calls: list[str] = []
 

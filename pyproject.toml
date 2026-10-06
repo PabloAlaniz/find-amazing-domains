@@ -34,7 +34,7 @@ where = ["src"]
 testpaths = ["tests"]
 addopts = "--cov=domainhack --cov-report=term-missing -m 'not integration'"
 markers = [
-    "integration: tests that hit external services (Tonic.to registrar)",
+    "integration: tests that hit external services (Tonic.to, RDAP and WHOIS servers)",
 ]
 
 # ── ruff ────────────────────────────────────────────────

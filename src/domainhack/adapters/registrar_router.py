@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 
 from domainhack.domain.entities import TLD, Availability, DomainCheckResult, DomainHack
@@ -17,17 +18,24 @@ class RegistrarRouter(RegistrarClient):
     and memoized (including "no client" answers, so the factory runs at most
     once per TLD). Domains whose TLD has no client get an ERROR result without
     any network access.
+
+    Thread-safe: parallel checks call it from several worker threads. Client
+    creation is serialized by a lock, so the factory still runs at most once
+    per TLD; the clients themselves are called concurrently only for TLDs in
+    different lanes (see ``pacing.lane_for``).
     """
 
     def __init__(self, factory: RegistrarFactory) -> None:
         self._factory = factory
         self._clients: dict[TLD, RegistrarClient | None] = {}
+        self._lock = threading.Lock()
 
     def client_for(self, tld: TLD) -> RegistrarClient | None:
         """The client for ``tld`` (created on first use), or None if unsupported."""
-        if tld not in self._clients:
-            self._clients[tld] = self._factory(tld)
-        return self._clients[tld]
+        with self._lock:
+            if tld not in self._clients:
+                self._clients[tld] = self._factory(tld)
+            return self._clients[tld]
 
     def supports(self, tld: TLD) -> bool:
         """True if some registrar client can check domains under ``tld``."""
@@ -45,8 +53,9 @@ class RegistrarRouter(RegistrarClient):
 
     def close(self) -> None:
         """Close every client created so far; re-raise the first failure, if any."""
-        clients = [c for c in self._clients.values() if c is not None]
-        self._clients.clear()
+        with self._lock:
+            clients = [c for c in self._clients.values() if c is not None]
+            self._clients.clear()
         first_error: Exception | None = None
         for client in clients:
             try:

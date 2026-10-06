@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Parallel checks across registry hosts: `check --parallel N` (default 4)
+  checks up to N hosts at once, never more than one request in flight per
+  host. TLDs that share a host (`.io`/`.sh`/`.ac`/`.me`) share its lane, so
+  per-host pacing, adaptive slow-down and the circuit breaker work as before.
+  A slow or hung host no longer stalls the other TLDs. `--parallel 1` keeps
+  the old one-at-a-time behaviour.
+- `--keep-order` prints and saves parallel results in check order.
+
 - Registration details for taken names: RDAP `status` values and the
   `expiration` event (WHOIS: EPP status codes and ISO expiry dates, best
   effort). Malformed parts are ignored and never turn a taken name into an error.
@@ -68,6 +76,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- With the default `--parallel 4`, results print and are saved in completion
+  order rather than check order (pass `--keep-order` or `--parallel 1` for
+  the old order). Cache lookups and writes happen on the main thread, before
+  dispatch, so cache hits never wait behind a slow host. An unexpected
+  exception inside one check is reported as an ERROR for that domain instead
+  of ending the run. The brute-force estimate notes how many hosts run in
+  parallel.
 - Split cache TTLs instead of one 7-day TTL: available names 24 h, dropping names
   24 h, taken names until their expiration date (at most 90 days; 30 days when
   unknown). `--cache-ttl HOURS` now caps all of them and has no default. The

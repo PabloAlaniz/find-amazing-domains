@@ -90,7 +90,12 @@ domainhack --tld to check --file data/words_es.txt --dry-run
 
 # Also show taken domains in the output
 domainhack --tld to check --file data/words_es.txt --show-taken
+
+# Show taken domains that are about to drop (redemption or pending delete)
+domainhack --tld to check --file data/words_es.txt --show-dropping
 ```
+
+Taken names in their registry's redemption period or pending delete are "dropping": they may become free soon. They print as `TAKEN (dropping: pending delete, expires 2026-11-02): x.to` with `--show-taken` or `--show-dropping`, and the summary counts them (`12 taken (1 dropping)`). Statuses and expiry dates come from RDAP; for WHOIS TLDs they are read only when the reply uses EPP status codes and ISO dates (e.g. `.it`).
 
 ### Check availability -- brute-force mode
 
@@ -129,7 +134,7 @@ domainhack --tld to check --file data/words_es.txt --output results.csv
 domainhack --tld to check --file data/words_es.txt --output results.jsonl
 ```
 
-Rows are written as they are checked, so an interrupted run (Ctrl-C) keeps everything checked so far. Columns: `fqdn` (ASCII, what was queried), `display` (as written, e.g. `ñandú.de`), `word`, `sld`, `tld`, `availability`, `error_message`.
+Rows are written as they are checked, so an interrupted run (Ctrl-C) keeps everything checked so far. Columns: `fqdn` (ASCII, what was queried), `display` (as written, e.g. `ñandú.de`), `word`, `sld`, `tld`, `availability`, `error_message`, `statuses`, `expires_at`. `statuses` holds the registry statuses of a taken name (RFC 9083 form, e.g. `client transfer prohibited`; joined with `;` in CSV, a list in JSON) and `expires_at` its expiration date in ISO 8601 UTC (`2026-11-30T07:38:29Z`; empty in CSV and `null` in JSON when unknown).
 
 Only results go to stdout; warnings, errors and the final summary go to stderr, so stdout can be piped.
 
@@ -142,7 +147,17 @@ Word lists are read as UTF-8; use `--encoding latin-1` for older lists.
 ### Progress and caching
 
 - A progress bar is shown on stderr when running in a terminal. Disable it with `--no-progress`.
-- Results are cached in SQLite (`$XDG_CACHE_HOME/domainhack/results.sqlite3`, default 7 days). Re-runs skip domains already checked. Use `--no-cache`, `--cache-ttl HOURS` or `--cache-path PATH` to control it. Errors are never cached.
+- Results are cached in SQLite (`$XDG_CACHE_HOME/domainhack/results.sqlite3`), so re-runs skip domains already checked. How long a result is reused depends on what it says:
+
+  | Result | Reused for |
+  |--------|------------|
+  | Available | 24 hours (`--cache-ttl-available HOURS`): someone else can register it at any moment |
+  | Taken, dropping (redemption / pending delete) | 24 hours |
+  | Taken, expiration date known | until that date, at least 24 hours and at most 90 days |
+  | Taken, no expiration date | 30 days |
+  | Error | never cached |
+
+  `--cache-ttl HOURS` caps all of these (e.g. `--cache-ttl 1` rechecks anything older than an hour). Use `--no-cache` to skip the cache and `--cache-path PATH` to move it. Cache files from older versions are upgraded in place.
 
 ## Supported TLDs
 

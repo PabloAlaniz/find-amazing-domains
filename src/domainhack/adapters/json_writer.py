@@ -1,5 +1,6 @@
 import json
 
+from domainhack.adapters._registration import format_utc
 from domainhack.adapters._text_sink import TextSink, TextTarget
 from domainhack.domain.entities import DomainCheckResult
 from domainhack.ports.result_writer import ResultWriter
@@ -10,7 +11,9 @@ class JsonResultWriter(ResultWriter):
 
     Each line is flushed as it is written, so an interrupted run leaves a valid
     file containing every result checked so far. ``fqdn`` is the queried ASCII
-    name (A-label for IDNs) and ``display`` the name as written.
+    name (A-label for IDNs) and ``display`` the name as written. ``statuses``
+    is a list of registry statuses and ``expires_at`` an ISO 8601 UTC
+    date-time or null.
     """
 
     def __init__(self, target: TextTarget) -> None:
@@ -26,6 +29,8 @@ class JsonResultWriter(ResultWriter):
             "tld": domain.tld.suffix,
             "availability": result.availability.value,
             "error_message": result.error_message,
+            "statuses": list(result.statuses),
+            "expires_at": format_utc(result.expires_at) or None,
         }
         self._sink.stream.write(json.dumps(record, ensure_ascii=False) + "\n")
         self._sink.stream.flush()

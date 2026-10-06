@@ -41,6 +41,8 @@ class TestJsonResultWriter:
                 "tld": "to",
                 "availability": "available",
                 "error_message": "",
+                "statuses": [],
+                "expires_at": None,
             },
             {
                 "fqdn": "abe.to",
@@ -50,6 +52,8 @@ class TestJsonResultWriter:
                 "tld": "to",
                 "availability": "error",
                 "error_message": "timeout",
+                "statuses": [],
+                "expires_at": None,
             },
         ]
 

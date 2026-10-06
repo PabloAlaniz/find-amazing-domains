@@ -1,10 +1,23 @@
 import csv
 
+from domainhack.adapters._registration import format_utc
 from domainhack.adapters._text_sink import TextSink, TextTarget
 from domainhack.domain.entities import DomainCheckResult
 from domainhack.ports.result_writer import ResultWriter
 
-CSV_FIELDS = ("fqdn", "display", "word", "sld", "tld", "availability", "error_message")
+# New columns are appended at the end so existing column positions stay stable.
+CSV_FIELDS = (
+    "fqdn",
+    "display",
+    "word",
+    "sld",
+    "tld",
+    "availability",
+    "error_message",
+    "statuses",
+    "expires_at",
+)
+STATUS_SEPARATOR = ";"
 
 
 class CsvResultWriter(ResultWriter):
@@ -12,6 +25,8 @@ class CsvResultWriter(ResultWriter):
 
     ``fqdn`` is the ASCII name that was queried (A-label for IDNs); ``display``
     is the name as written (U-label), and equals ``fqdn`` for ASCII names.
+    ``statuses`` is the registry status list joined with ``;`` and
+    ``expires_at`` an ISO 8601 UTC date-time; both are empty when unknown.
 
     The header is written immediately and each row is flushed as it is written,
     so an interrupted run keeps every result checked so far.
@@ -34,6 +49,8 @@ class CsvResultWriter(ResultWriter):
                 domain.tld.suffix,
                 result.availability.value,
                 result.error_message,
+                STATUS_SEPARATOR.join(result.statuses),
+                format_utc(result.expires_at),
             )
         )
         self._sink.stream.flush()

@@ -1,0 +1,20 @@
+{
+  "objectClassName": "domain",
+  "ldhName": "google.io",
+  "unicodeName": "google.io",
+  "rdapConformance": ["rdap_level_0", "icann_rdap_technical_implementation_guide_1"],
+  "status": [
+    "client delete prohibited",
+    "server delete prohibited",
+    "client transfer prohibited",
+    "server transfer prohibited",
+    "client update prohibited",
+    "server update prohibited"
+  ],
+  "events": [
+    {"eventAction": "expiration", "eventDate": "2027-09-30T01:00:00Z"},
+    {"eventAction": "registration", "eventDate": "2002-10-01T01:00:00Z"},
+    {"eventAction": "last changed", "eventDate": "2026-09-03T10:48:03.042Z"},
+    {"eventAction": "last update of RDAP database", "eventDate": "2026-10-06T22:03:23.182Z"}
+  ]
+}

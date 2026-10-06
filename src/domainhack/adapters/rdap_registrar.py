@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Callable
+from datetime import datetime
 from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import quote
@@ -13,6 +14,7 @@ import httpx
 
 from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters._http import identity_headers
+from domainhack.adapters._registration import normalize_statuses, parse_datetime_utc
 from domainhack.adapters._throttle import DEFAULT_THROTTLE, HostThrottle
 from domainhack.domain.entities import Availability, DomainCheckResult, DomainHack
 from domainhack.ports.registrar import RegistrarClient
@@ -47,6 +49,8 @@ class RdapRegistrarClient(RegistrarClient):
     whose ``ldhName`` matches -> TAKEN, anything else (429, 5xx, timeouts,
     HTML 200 pages) -> ERROR. A 429 with a short ``Retry-After`` is retried a
     bounded number of times. ``raw_title`` holds ``"HTTP <status>"``.
+    TAKEN results carry the domain's ``status`` values and ``expiration``
+    event when the body has them; malformed parts are ignored.
 
     Transport errors, a final 429 and 5xx answers count as failures for the
     per-host circuit ``breaker``; while a host's circuit is open its domains
@@ -147,19 +151,50 @@ class RdapRegistrarClient(RegistrarClient):
         ldh = body.get("ldhName")
         if isinstance(ldh, str):
             if ldh.rstrip(".").lower() == domain.fqdn.lower():
-                return DomainCheckResult(
-                    domain=domain, availability=Availability.TAKEN, raw_title=title
-                )
+                return _taken(domain, title, body)
             return _error(domain, f"RDAP ldhName mismatch: {ldh!r}", status)
         if body.get("objectClassName") == "domain":
-            return DomainCheckResult(
-                domain=domain, availability=Availability.TAKEN, raw_title=title
-            )
+            return _taken(domain, title, body)
         return _error(domain, "RDAP 200 response is not a domain object", status)
 
     def close(self) -> None:
         if self._owns_client:
             self._client.close()
+
+
+def _taken(domain: DomainHack, title: str, body: dict[str, Any]) -> DomainCheckResult:
+    return DomainCheckResult(
+        domain=domain,
+        availability=Availability.TAKEN,
+        raw_title=title,
+        statuses=parse_rdap_statuses(body),
+        expires_at=parse_rdap_expiration(body),
+    )
+
+
+def parse_rdap_statuses(body: dict[str, Any]) -> tuple[str, ...]:
+    """The domain's ``status`` array (RFC 9083 §4.6), normalized; ``()`` if absent or malformed."""
+    values = body.get("status")
+    if not isinstance(values, list):
+        return ()
+    return normalize_statuses(values)
+
+
+def parse_rdap_expiration(body: dict[str, Any]) -> datetime | None:
+    """The date of the first valid ``expiration`` event (RFC 9083 §4.5), in UTC, or None."""
+    events = body.get("events")
+    if not isinstance(events, list):
+        return None
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        action = event.get("eventAction")
+        if not isinstance(action, str) or action.strip().lower() != "expiration":
+            continue
+        when = parse_datetime_utc(event.get("eventDate"))
+        if when is not None:
+            return when
+    return None
 
 
 def _error(domain: DomainHack, message: str, status: int | None = None) -> DomainCheckResult:

@@ -1,0 +1,12 @@
+{
+  "objectClassName": "domain",
+  "ldhName": "example.io",
+  "unicodeName": "example.io",
+  "rdapConformance": ["rdap_level_0", "icann_rdap_technical_implementation_guide_1"],
+  "status": ["pending delete", "redemption period", "server hold"],
+  "events": [
+    {"eventAction": "expiration", "eventDate": "2026-08-28T12:00:00Z"},
+    {"eventAction": "registration", "eventDate": "2016-08-28T12:00:00Z"},
+    {"eventAction": "last changed", "eventDate": "2026-10-01T09:15:00.000Z"}
+  ]
+}

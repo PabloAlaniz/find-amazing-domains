@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 
 import idna
@@ -159,11 +160,38 @@ class Availability(Enum):
     ERROR = "error"
 
 
+# RFC 9083 §10.2.2 status values (RFC 8056 maps the EPP and RGP codes to
+# them) that mean the registration is on its way out: after "redemption
+# period" (about 30 days, the holder can still restore it) comes "pending
+# delete" (about 5 days, nobody can), then the name is released.
+# "pending restore" is left out on purpose: it means the holder asked to
+# restore the name during redemption, so it is most likely coming back.
+DROPPING_STATUSES: frozenset[str] = frozenset({"pending delete", "redemption period"})
+
+
 @dataclass(frozen=True)
 class DomainCheckResult:
-    """Result of checking a single domain's availability."""
+    """Result of checking a single domain's availability.
+
+    ``statuses`` and ``expires_at`` are registration details a registry may
+    return for TAKEN names: status values in RFC 9083 form (lowercase words,
+    e.g. ``"client hold"``, ``"pending delete"``) and the expiration date as
+    an aware UTC datetime. Both are empty when unknown.
+    """
 
     domain: DomainHack
     availability: Availability
     raw_title: str = ""
     error_message: str = ""
+    statuses: tuple[str, ...] = ()
+    expires_at: datetime | None = None
+
+    @property
+    def dropping_statuses(self) -> tuple[str, ...]:
+        """The statuses in ``DROPPING_STATUSES``, in registry order."""
+        return tuple(s for s in self.statuses if s in DROPPING_STATUSES)
+
+    @property
+    def is_dropping(self) -> bool:
+        """True for a TAKEN name in redemption or pending delete (it may soon be free)."""
+        return self.availability is Availability.TAKEN and bool(self.dropping_statuses)

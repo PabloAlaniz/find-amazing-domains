@@ -2,13 +2,24 @@ import argparse
 from collections.abc import Iterable
 from pathlib import Path
 
+from domainhack.adapters.composite_writer import CompositeResultWriter
 from domainhack.adapters.console_writer import ConsoleResultWriter
+from domainhack.adapters.csv_writer import CsvResultWriter
 from domainhack.adapters.file_word_source import FileWordSource
+from domainhack.adapters.json_writer import JsonResultWriter
 from domainhack.adapters.tonic_registrar import TonicRegistrarClient
 from domainhack.domain.entities import TLD, DomainHack
+from domainhack.ports.result_writer import ResultWriter
 from domainhack.usecases.check_domains import CheckDomainsUseCase
 from domainhack.usecases.filter_words import FilterWordsUseCase
 from domainhack.usecases.generate_range import RangeWordSource
+
+OUTPUT_FORMATS = ("csv", "json")
+_FORMAT_BY_SUFFIX = {".csv": "csv", ".json": "json", ".jsonl": "json"}
+
+
+class OutputFormatError(ValueError):
+    """The output file format could not be determined."""
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -37,6 +48,13 @@ def build_parser() -> argparse.ArgumentParser:
     source_group.add_argument("--file", type=Path, help="Word list file (list mode)")
     source_group.add_argument("--range-max", type=int, help="Max combination length (range mode)")
     chk.add_argument("--range-end", type=str, default=None, help="Stop at this combination")
+    chk.add_argument("--output", type=Path, default=None, help="Also save results to FILE")
+    chk.add_argument(
+        "--format",
+        choices=OUTPUT_FORMATS,
+        default=None,
+        help="Output file format (default: inferred from --output extension)",
+    )
 
     return parser
 
@@ -57,6 +75,31 @@ def _build_domains(args: argparse.Namespace, tld: TLD) -> Iterable[DomainHack]:
     return (DomainHack.from_sld(sld, tld) for sld in range_source.words())
 
 
+def _resolve_output_format(output: Path, fmt: str | None) -> str:
+    """Return the explicit format, or infer it from the output file extension."""
+    if fmt is not None:
+        return fmt
+    inferred = _FORMAT_BY_SUFFIX.get(output.suffix.lower())
+    if inferred is None:
+        raise OutputFormatError(
+            f"Cannot infer output format from {output.name!r}; "
+            "use a .csv/.json/.jsonl extension or pass --format {csv,json}"
+        )
+    return inferred
+
+
+def _build_writer(args: argparse.Namespace) -> ResultWriter:
+    console = ConsoleResultWriter(show_taken=args.show_taken)
+    output: Path | None = getattr(args, "output", None)
+    if output is None:
+        return console
+    fmt = _resolve_output_format(output, getattr(args, "format", None))
+    file_writer: ResultWriter = (
+        CsvResultWriter(output) if fmt == "csv" else JsonResultWriter(output)
+    )
+    return CompositeResultWriter([console, file_writer])
+
+
 def cmd_check(args: argparse.Namespace) -> None:
     tld = TLD(args.tld)
     domains = _build_domains(args, tld)
@@ -66,8 +109,12 @@ def cmd_check(args: argparse.Namespace) -> None:
             print(f"  {domain.fqdn}  (word: {domain.word!r})")
         return
 
+    if getattr(args, "output", None) is not None:
+        # Validate the output format before any network work starts.
+        _resolve_output_format(args.output, getattr(args, "format", None))
+
     with TonicRegistrarClient(delay=args.delay) as registrar:
-        writer = ConsoleResultWriter(show_taken=args.show_taken)
+        writer = _build_writer(args)
         CheckDomainsUseCase(registrar, writer).execute(domains)
 
 
@@ -79,7 +126,10 @@ def main() -> None:
         case "filter":
             cmd_filter(args)
         case "check":
-            cmd_check(args)
+            try:
+                cmd_check(args)
+            except OutputFormatError as exc:
+                parser.error(str(exc))
 
 
 if __name__ == "__main__":

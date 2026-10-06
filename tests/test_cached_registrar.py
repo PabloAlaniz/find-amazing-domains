@@ -11,6 +11,7 @@ from domainhack.adapters.cached_registrar import (
     CachedRegistrarClient,
     default_cache_path,
 )
+from domainhack.adapters.registrar_router import RegistrarRouter
 from domainhack.adapters.tonic_registrar import TonicRegistrarClient
 from domainhack.cli.app import _build_registrar, build_parser
 from domainhack.domain.entities import TLD, Availability, DomainCheckResult, DomainHack
@@ -195,12 +196,14 @@ class TestCliCacheFlags:
         inner.check_availability.return_value = DomainCheckResult(
             domain=_hack("a"), availability=Availability.TAKEN
         )
+        # The router creates per-TLD clients lazily, so the patch must cover usage.
         with patch("domainhack.cli.app.TonicRegistrarClient", return_value=inner):
             registrar = _build_registrar(args)
-        assert isinstance(registrar, CachedRegistrarClient)
-        with registrar:
-            registrar.check_availability(_hack("a"))
-            registrar.check_availability(_hack("a"))
+            assert isinstance(registrar, CachedRegistrarClient)
+            assert isinstance(registrar._inner, RegistrarRouter)
+            with registrar:
+                registrar.check_availability(_hack("a"))
+                registrar.check_availability(_hack("a"))
         assert inner.check_availability.call_count == 1
         assert cache_file.exists()
         inner.close.assert_called_once()
@@ -209,7 +212,10 @@ class TestCliCacheFlags:
         args = build_parser().parse_args(["check", "--range-max", "1", "--no-cache"])
         inner = MagicMock(spec=RegistrarClient)
         with patch("domainhack.cli.app.TonicRegistrarClient", return_value=inner):
-            assert _build_registrar(args) is inner
+            registrar = _build_registrar(args)
+            assert isinstance(registrar, RegistrarRouter)
+            registrar.check_availability(_hack("a"))
+        inner.check_availability.assert_called_once()
 
     def test_build_registrar_uses_default_path(self) -> None:
         args = argparse.Namespace(delay=0.0)
@@ -219,6 +225,6 @@ class TestCliCacheFlags:
         )
         with patch("domainhack.cli.app.TonicRegistrarClient", return_value=inner):
             registrar = _build_registrar(args)
-        with registrar:
-            registrar.check_availability(_hack("a"))
+            with registrar:
+                registrar.check_availability(_hack("a"))
         assert default_cache_path().exists()

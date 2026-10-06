@@ -1,5 +1,6 @@
 import argparse
-from collections.abc import Iterable
+import sys
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 from domainhack.adapters.cached_registrar import CachedRegistrarClient
@@ -8,6 +9,7 @@ from domainhack.adapters.console_writer import ConsoleResultWriter
 from domainhack.adapters.csv_writer import CsvResultWriter
 from domainhack.adapters.file_word_source import FileWordSource
 from domainhack.adapters.json_writer import JsonResultWriter
+from domainhack.adapters.registrar_router import RegistrarFactory, RegistrarRouter
 from domainhack.adapters.tonic_registrar import TonicRegistrarClient
 from domainhack.adapters.tqdm_progress import TqdmProgressReporter
 from domainhack.domain.entities import TLD, DomainHack
@@ -26,12 +28,50 @@ class OutputFormatError(ValueError):
     """The output file format could not be determined."""
 
 
+class NoSupportedTLDError(ValueError):
+    """None of the requested TLDs has a registrar able to check it."""
+
+
+def parse_tld_list(value: str) -> list[TLD]:
+    """Parse ``"to,io,in"`` into TLDs: lowercased, deduplicated, order preserved.
+
+    Raises ``argparse.ArgumentTypeError`` (an argparse usage error) when the list
+    is empty or any suffix is not a valid TLD.
+    """
+    tlds: list[TLD] = []
+    for raw in value.split(","):
+        suffix = raw.strip().lstrip(".").lower()
+        if not suffix:
+            continue
+        try:
+            tld = TLD(suffix)
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(f"invalid TLD: {raw.strip()!r}") from exc
+        if tld not in tlds:
+            tlds.append(tld)
+    if not tlds:
+        raise argparse.ArgumentTypeError("at least one TLD is required")
+    return tlds
+
+
+def _selected_tlds(args: argparse.Namespace) -> list[TLD]:
+    """The TLDs requested on the command line (accepts a raw string for convenience)."""
+    value: str | list[TLD] = args.tld
+    return parse_tld_list(value) if isinstance(value, str) else list(value)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="domainhack",
         description="Find domain hacks hiding in real words.",
     )
-    parser.add_argument("--tld", default="to", help="TLD suffix (default: to)")
+    parser.add_argument(
+        "--tld",
+        type=parse_tld_list,
+        default="to",
+        metavar="TLD[,TLD...]",
+        help="TLD suffix, or a comma-separated list like to,io,in (default: to)",
+    )
 
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -83,19 +123,32 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def cmd_filter(args: argparse.Namespace) -> None:
-    tld = TLD(args.tld)
+    """Print matching words.
+
+    With a single TLD the output is one word per line (unchanged, pipeable into
+    ``check --file``). With several TLDs each match is printed as
+    ``word -> sld.tld``, one line per (word, TLD) match, since a word can match
+    more than one TLD.
+    """
+    tlds = _selected_tlds(args)
     source = FileWordSource(args.file)
-    use_case = FilterWordsUseCase(source, tld, min_length=args.min_length)
+    use_case = FilterWordsUseCase(source, tlds, min_length=args.min_length)
+    multi = len(tlds) > 1
     for hack in use_case.execute():
-        print(hack.word)
+        print(f"{hack.word} -> {hack.fqdn}" if multi else hack.word)
 
 
-def _build_domains(args: argparse.Namespace, tld: TLD) -> Iterable[DomainHack]:
+def _build_domains(args: argparse.Namespace, tlds: TLD | Sequence[TLD]) -> Iterable[DomainHack]:
+    """Domains to check: every (word, TLD) match in list mode, every SLD x TLD in range mode.
+
+    Range mode is SLD-major (a.to, a.io, b.to, b.io, ...).
+    """
+    tld_list: tuple[TLD, ...] = (tlds,) if isinstance(tlds, TLD) else tuple(tlds)
     if args.file:
         word_source = FileWordSource(args.file)
-        return FilterWordsUseCase(word_source, tld).execute()
+        return FilterWordsUseCase(word_source, tld_list).execute()
     range_source = RangeWordSource(args.range_max, end_at=args.range_end)
-    return (DomainHack.from_sld(sld, tld) for sld in range_source.words())
+    return (DomainHack.from_sld(sld, tld) for sld in range_source.words() for tld in tld_list)
 
 
 def _resolve_output_format(output: Path, fmt: str | None) -> str:
@@ -123,11 +176,12 @@ def _build_writer(args: argparse.Namespace) -> ResultWriter:
     return CompositeResultWriter([console, file_writer])
 
 
-def _progress_total(args: argparse.Namespace) -> int | None:
-    """Exact total in range mode; None (indeterminate bar) in file mode."""
+def _progress_total(args: argparse.Namespace, tlds: Sequence[TLD] | None = None) -> int | None:
+    """Exact total in range mode (SLDs x TLDs); None (indeterminate bar) in file mode."""
     if args.file:
         return None
-    return RangeWordSource(args.range_max, end_at=args.range_end).total()
+    tld_count = len(tlds) if tlds is not None else len(_selected_tlds(args))
+    return RangeWordSource(args.range_max, end_at=args.range_end).total() * tld_count
 
 
 def _build_progress(args: argparse.Namespace) -> ProgressReporter:
@@ -136,8 +190,30 @@ def _build_progress(args: argparse.Namespace) -> ProgressReporter:
     return TqdmProgressReporter()
 
 
-def _build_registrar(args: argparse.Namespace) -> RegistrarClient:
-    registrar: RegistrarClient = TonicRegistrarClient(delay=args.delay)
+def _registrar_factory(args: argparse.Namespace) -> RegistrarFactory:
+    """Map a TLD to a fresh RegistrarClient, or None when no registrar supports it."""
+    delay: float = args.delay
+
+    def factory(tld: TLD) -> RegistrarClient | None:
+        if tld.suffix == "to":
+            return TonicRegistrarClient(delay=delay)
+        return None
+
+    return factory
+
+
+def _build_router(args: argparse.Namespace) -> RegistrarRouter:
+    return RegistrarRouter(_registrar_factory(args))
+
+
+def _build_registrar(
+    args: argparse.Namespace, router: RegistrarRouter | None = None
+) -> RegistrarClient:
+    """The TLD router, wrapped in the result cache unless ``--no-cache``.
+
+    The cache is keyed by fqdn, so a single cache serves every TLD.
+    """
+    registrar: RegistrarClient = router if router is not None else _build_router(args)
     if getattr(args, "no_cache", False):
         return registrar
     return CachedRegistrarClient(
@@ -147,12 +223,29 @@ def _build_registrar(args: argparse.Namespace) -> RegistrarClient:
     )
 
 
+def _supported_tlds(router: RegistrarRouter, tlds: Sequence[TLD]) -> list[TLD]:
+    """Keep TLDs the router can check; warn on stderr about the others.
+
+    Raises NoSupportedTLDError when none is supported.
+    """
+    supported = [tld for tld in tlds if router.supports(tld)]
+    unsupported = [f".{tld.suffix}" for tld in tlds if tld not in supported]
+    if unsupported and supported:
+        print(
+            f"warning: no registrar supports {', '.join(unsupported)}; skipping",
+            file=sys.stderr,
+        )
+    if not supported:
+        router.close()
+        raise NoSupportedTLDError(f"no registrar supports {', '.join(unsupported)}")
+    return supported
+
+
 def cmd_check(args: argparse.Namespace) -> None:
-    tld = TLD(args.tld)
-    domains = _build_domains(args, tld)
+    tlds = _selected_tlds(args)
 
     if args.dry_run:
-        for domain in domains:
+        for domain in _build_domains(args, tlds):
             print(f"  {domain.fqdn}  (word: {domain.word!r})")
         return
 
@@ -160,11 +253,15 @@ def cmd_check(args: argparse.Namespace) -> None:
         # Validate the output format before any network work starts.
         _resolve_output_format(args.output, getattr(args, "format", None))
 
-    with _build_registrar(args) as registrar:
+    router = _build_router(args)
+    tlds = _supported_tlds(router, tlds)
+    domains = _build_domains(args, tlds)
+
+    with _build_registrar(args, router) as registrar:
         writer = _build_writer(args)
         progress = _build_progress(args)
         CheckDomainsUseCase(registrar, writer, progress).execute(
-            domains, total=_progress_total(args)
+            domains, total=_progress_total(args, tlds)
         )
 
 
@@ -178,7 +275,7 @@ def main() -> None:
         case "check":
             try:
                 cmd_check(args)
-            except OutputFormatError as exc:
+            except (OutputFormatError, NoSupportedTLDError) as exc:
                 parser.error(str(exc))
 
 

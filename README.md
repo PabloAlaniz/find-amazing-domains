@@ -151,6 +151,27 @@ domainhack --tld to,io,it filter data/words_en.txt
 domainhack --tld to,io,it check --file data/words_en.txt
 ```
 
+#### Parallel checks
+
+Different registry hosts are checked in parallel, each with one request in flight at a time. TLDs served by the same host share it: `.io`, `.sh`, `.ac` and `.me` (Identity Digital) are checked one after another, while `.to` and `.it` go ahead independently. One slow or unresponsive host (e.g. `whois.nic.it` at one query per 4 s) no longer holds up the others.
+
+```bash
+# Up to 8 hosts at once (default: 4)
+domainhack --tld to,io,it,co,de check --file data/words_en.txt --parallel 8
+
+# Strictly one domain at a time, in check order (the old behaviour)
+domainhack --tld to,io,it check --file data/words_en.txt --parallel 1
+
+# Parallel, but print and save results in check order
+domainhack --tld to,io,it check --file data/words_en.txt --keep-order
+```
+
+- **Output order is completion order.** With `--parallel` above 1, results print (and are saved) as they come back, so domains from a fast host come out ahead of a slow one. Within one host they keep the check order. `--keep-order` holds results back to restore the check order (a slow host then delays the output, not the checks). `--parallel 1` checks in order, so output is in order too.
+- **What gets checked does not change.** `--order` and `--limit` pick the domains before they are dispatched, and each host gets its share in that order.
+- **Cache hits skip the queue.** Cached results are answered before dispatch and never wait for a host.
+- **Memory stays bounded in brute-force mode.** Candidates are generated lazily. Each host has a queue of at most 16 waiting domains; when it is full, generation pauses until that host catches up. At most `hosts x 16` candidates (plus their results) are in memory, however large `--range-max` is.
+- **Ctrl-C** stops dispatching at once, gives checks in flight up to a second to finish (their results are kept), and exits with status 130 as before.
+
 ### Saving results
 
 ```bash
@@ -204,6 +225,7 @@ Note: "available" means *not registered*. Premium or reserved names may still sh
 ### Being a good citizen
 
 - Requests identify the tool: `User-Agent: domainhack/<version> (+repo URL)`. Add `--contact you@example.com` (or `DOMAINHACK_CONTACT`) to include a `From` header.
+- Each registry host gets at most one request at a time from domainhack, however high `--parallel` is. Parallelism only goes across hosts (RFC 9112 §9.4 asks clients to limit simultaneous connections per server).
 - Requests to each host are spaced (`--delay`, with stricter per-server minimums, e.g. 4 s for `whois.nic.it`). Each wait gets ±20% random jitter.
 - The spacing adapts to each host (RFC 7480 §5.5). A 429, a 503, a timeout or WHOIS rate-limit text doubles that host's interval, up to 60 s. Each real answer shrinks it by 10%, back down to `--delay`.
 - RDAP retries a 429, a 5xx, a timeout or a dropped connection at most twice. It waits for `Retry-After` when the server sends one (a 429 asking for more than 30 s is not retried, but the host is still held back, for up to 60 s). Otherwise it waits a "full jitter" exponential backoff, `random(0, min(30, 2 × 2^n))` seconds. WHOIS retries a timeout or a rate-limited reply only once.
@@ -235,9 +257,11 @@ Built with **Clean Architecture** and **SOLID principles**:
 
 ```
 domain/       Pure entities: TLD, DomainHack, Availability
-ports/        Abstract interfaces: WordSource, RegistrarClient, ResultWriter
+ports/        Abstract interfaces: WordSource, RegistrarClient, ResultWriter,
+              ResultCache
 usecases/     Business logic: FilterWords, RangeCandidates, RankCandidates,
-              EstimateRun, CheckDomains
+              EstimateRun, CheckDomains (sequential, or parallel lanes
+              per registry host)
 adapters/     Implementations: FileWordSource, RDAP/WHOIS registrars,
               RegistrarRouter, CachedRegistrar, Console/CSV/JSON writers, tqdm progress
 cli/          Composition root: argparse + dependency injection

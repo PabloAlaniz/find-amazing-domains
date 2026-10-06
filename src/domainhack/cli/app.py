@@ -3,7 +3,7 @@ import codecs
 import os
 import re
 import sys
-from collections.abc import Iterable, Sequence
+from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Protocol
 
@@ -19,7 +19,7 @@ from domainhack.adapters.console_writer import ConsoleResultWriter
 from domainhack.adapters.csv_writer import CsvResultWriter
 from domainhack.adapters.file_word_source import DEFAULT_ENCODING, FileWordSource, WordListError
 from domainhack.adapters.json_writer import JsonResultWriter
-from domainhack.adapters.pacing import pacing_for
+from domainhack.adapters.pacing import lane_for, pacing_for
 from domainhack.adapters.registrar_catalog import build_registrar_for
 from domainhack.adapters.registrar_router import RegistrarFactory, RegistrarRouter
 from domainhack.adapters.tqdm_progress import TqdmProgressReporter
@@ -27,7 +27,12 @@ from domainhack.domain.entities import TLD, DomainHack
 from domainhack.ports.progress import NullProgressReporter, ProgressReporter
 from domainhack.ports.registrar import RegistrarClient
 from domainhack.ports.result_writer import ResultWriter
-from domainhack.usecases.check_domains import CheckDomainsUseCase, CheckSummary
+from domainhack.usecases.check_domains import (
+    DEFAULT_PARALLEL,
+    CheckDomainsUseCase,
+    CheckSummary,
+    LaneKey,
+)
 from domainhack.usecases.estimate_run import (
     GUARDRAIL_MAX_QUERIES,
     Pacing,
@@ -266,6 +271,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Check at most N domains per TLD, taken in --order",
     )
     chk.add_argument(
+        "--parallel",
+        type=_positive_int,
+        default=DEFAULT_PARALLEL,
+        metavar="N",
+        help="Check up to N registry hosts at once, never more than one request per "
+        f"host (default: {DEFAULT_PARALLEL}); results print as they complete. "
+        "--parallel 1 checks one domain at a time, in order",
+    )
+    chk.add_argument(
+        "--keep-order",
+        action="store_true",
+        help="With --parallel > 1, print and save results in check order "
+        "instead of completion order",
+    )
+    chk.add_argument(
         "--yes",
         action="store_true",
         help=f"Run a brute-force check estimated at more than {GUARDRAIL_MAX_QUERIES:,} queries",
@@ -493,6 +513,19 @@ def _build_registrar(
     )
 
 
+def _lane_key(args: argparse.Namespace, router: RegistrarRouter) -> LaneKey:
+    """One lane per registry host (see ``pacing.lane_for``), resolved once per TLD."""
+    lanes: dict[TLD, Hashable] = {}
+
+    def lane(domain: DomainHack) -> Hashable:
+        tld = domain.tld
+        if tld not in lanes:
+            lanes[tld] = lane_for(router.client_for(tld), tld)
+        return lanes[tld]
+
+    return lane
+
+
 def _cache_ttl_policy(args: argparse.Namespace) -> CacheTtlPolicy:
     """``--cache-ttl-available`` sets the AVAILABLE TTL; ``--cache-ttl`` caps every TTL."""
     cap_hours: float | None = getattr(args, "cache_ttl", None)
@@ -524,9 +557,14 @@ def _range_guardrail(
     estimate = _estimate_range_run(args, router, tlds)
     hosts = ", ".join(h.host for h in estimate.hosts)
     count = len(estimate.hosts)
+    parallel: int = getattr(args, "parallel", 1)
+    lanes = min(parallel, count)
+    # The estimate is the busiest host's share: a lower bound whether hosts
+    # are checked in parallel lanes or take turns (each host is paced on its own).
+    how = f"; {lanes} hosts in parallel, one request at a time each" if lanes > 1 else ""
     _stderr(
         f"Estimated {estimate.queries:,} queries to {count} host{'s' if count != 1 else ''} "
-        f"({hosts}): at least {format_duration(estimate.seconds)} at the current pacing."
+        f"({hosts}): at least {format_duration(estimate.seconds)} at the current pacing{how}."
     )
     if not estimate.exceeds() or getattr(args, "yes", False):
         return None
@@ -597,7 +635,19 @@ def cmd_check(args: argparse.Namespace, *, catalog: RegistrarCatalog | None = No
 
     with _build_registrar(args, router) as registrar:
         progress = _build_progress(args)
-        summary = CheckDomainsUseCase(registrar, writer, progress).execute(domains, total=total)
+        # Workers call the router directly; the cache is read and written on
+        # this thread only, so cache hits never wait for a lane.
+        cache = registrar if isinstance(registrar, CachedRegistrarClient) else None
+        use_case = CheckDomainsUseCase(
+            router,
+            writer,
+            progress,
+            cache=cache,
+            parallel=getattr(args, "parallel", 1),
+            lane_key=_lane_key(args, router),
+            keep_order=getattr(args, "keep_order", False),
+        )
+        summary = use_case.execute(domains, total=total)
     _warn_skipped(candidates.skipped)
     return _report(summary)
 

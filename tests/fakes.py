@@ -5,7 +5,8 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from collections.abc import Iterator, Mapping
+import threading
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +16,7 @@ from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters._throttle import HostThrottle
 from domainhack.domain.entities import TLD, Availability, DomainCheckResult, DomainHack
 from domainhack.ports.registrar import RegistrarClient
+from domainhack.ports.result_cache import ResultCache
 from domainhack.ports.result_writer import ResultWriter
 from domainhack.ports.word_source import WordSource
 
@@ -113,6 +115,134 @@ class CollectingWriter(ResultWriter):
 
     def flush(self) -> None:
         self.flushed = True
+
+
+# Upper bound for any wait in the concurrency tests: a correct run never gets
+# near it; a broken one fails instead of hanging the suite.
+WAIT_TIMEOUT = 5.0
+
+
+class SignallingWriter(CollectingWriter):
+    """A CollectingWriter that lets a test wait until it holds ``n`` results.
+
+    ``on_write`` (if set) runs after each result is stored, with the count so far.
+    """
+
+    def __init__(self, on_write: Callable[[int], None] | None = None) -> None:
+        super().__init__()
+        self._cond = threading.Condition()
+        self._on_write = on_write
+
+    def write_result(self, result: DomainCheckResult) -> None:
+        with self._cond:
+            super().write_result(result)
+            self._cond.notify_all()
+        if self._on_write is not None:
+            self._on_write(len(self.results))
+
+    def wait_for(self, n: int, timeout: float = WAIT_TIMEOUT) -> bool:
+        with self._cond:
+            return self._cond.wait_for(lambda: len(self.results) >= n, timeout)
+
+    @property
+    def fqdns(self) -> list[str]:
+        return [r.domain.fqdn for r in self.results]
+
+
+class ConcurrencyProbe:
+    """Records which checks run at the same time, per host and overall."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.in_flight: dict[str, int] = {}
+        self.max_in_flight: dict[str, int] = {}
+        self.total = 0
+        self.max_total = 0
+        self.started: list[str] = []
+        self.threads: set[str] = set()
+
+    def enter(self, host: str, fqdn: str) -> None:
+        with self._lock:
+            self.started.append(fqdn)
+            self.threads.add(threading.current_thread().name)
+            self.in_flight[host] = self.in_flight.get(host, 0) + 1
+            self.max_in_flight[host] = max(self.max_in_flight.get(host, 0), self.in_flight[host])
+            self.total += 1
+            self.max_total = max(self.max_total, self.total)
+
+    def leave(self, host: str) -> None:
+        with self._lock:
+            self.in_flight[host] -= 1
+            self.total -= 1
+
+
+class GatedRegistrar(ScriptedRegistrar):
+    """A ScriptedRegistrar for one ``host`` whose checks can be held open.
+
+    A check of a domain (fqdn or SLD) listed in ``gates`` waits for that
+    event before answering; ``barrier`` (if any) is passed by every check.
+    ``entered`` is set for an fqdn as soon as its check starts. Every check
+    is recorded in the shared ``probe``. No sleeps: waits end on events, or
+    fail after ``WAIT_TIMEOUT``.
+    """
+
+    def __init__(
+        self,
+        host: str,
+        probe: ConcurrencyProbe,
+        script: Mapping[str, Outcome] | None = None,
+        *,
+        gates: Mapping[str, threading.Event] | None = None,
+        barrier: threading.Barrier | None = None,
+        default: Outcome = Availability.TAKEN,
+    ) -> None:
+        super().__init__(script, default=default, raw_title=host)
+        self.host = host
+        self._probe = probe
+        self._gates = dict(gates or {})
+        self._barrier = barrier
+        self._lock = threading.Lock()
+        self.entered: dict[str, threading.Event] = {}
+
+    def started(self, fqdn: str) -> threading.Event:
+        with self._lock:
+            return self.entered.setdefault(fqdn, threading.Event())
+
+    def check_availability(self, domain: DomainHack) -> DomainCheckResult:
+        self._probe.enter(self.host, domain.fqdn)
+        try:
+            self.started(domain.fqdn).set()
+            gate = self._gates.get(domain.fqdn, self._gates.get(domain.sld))
+            if gate is not None and not gate.wait(WAIT_TIMEOUT):
+                raise AssertionError(f"gate for {domain.fqdn} never opened")
+            if self._barrier is not None:
+                self._barrier.wait(WAIT_TIMEOUT)
+            with self._lock:
+                return super().check_availability(domain)
+        finally:
+            self._probe.leave(self.host)
+
+
+class FakeResultCache(ResultCache):
+    """An in-memory ResultCache that records lookups and stores (and their threads)."""
+
+    def __init__(self, hits: Mapping[str, Availability] | None = None) -> None:
+        self._hits = dict(hits or {})
+        self.lookups: list[str] = []
+        self.stored: list[str] = []
+        self.threads: set[str] = set()
+
+    def lookup(self, domain: DomainHack) -> DomainCheckResult | None:
+        self.threads.add(threading.current_thread().name)
+        self.lookups.append(domain.fqdn)
+        availability = self._hits.get(domain.fqdn)
+        if availability is None:
+            return None
+        return DomainCheckResult(domain=domain, availability=availability, raw_title="cache")
+
+    def store(self, result: DomainCheckResult) -> None:
+        self.threads.add(threading.current_thread().name)
+        self.stored.append(result.domain.fqdn)
 
 
 class FakeClock:

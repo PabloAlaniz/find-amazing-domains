@@ -16,6 +16,7 @@ from domainhack.adapters._registration import normalize_statuses
 from domainhack.adapters._stderr import write_stderr
 from domainhack.domain.entities import Availability, DomainCheckResult, DomainHack
 from domainhack.ports.registrar import RegistrarClient
+from domainhack.ports.result_cache import ResultCache
 
 HOUR: float = 60 * 60
 DAY: float = 24 * HOUR
@@ -81,7 +82,7 @@ class CacheTtlPolicy:
         return ttl if self.cap is None else min(ttl, self.cap)
 
 
-class CachedRegistrarClient(RegistrarClient):
+class CachedRegistrarClient(RegistrarClient, ResultCache):
     """Decorator that caches AVAILABLE/TAKEN results of an inner RegistrarClient.
 
     Cache hits never touch the inner client, so any rate-limit delay it applies
@@ -96,6 +97,11 @@ class CachedRegistrarClient(RegistrarClient):
     permission...), ``warn`` is called once and every later check goes straight
     to the inner client. Cache files written by older versions are migrated in
     place (missing columns are added; old rows read as "no details").
+
+    It is also a ``ResultCache``: ``lookup`` and ``store`` let a caller that
+    queries the inner client itself (the parallel check) use the cache from
+    one thread. The sqlite connection is not shared across threads, so all
+    calls must come from the same thread.
     """
 
     def __init__(
@@ -213,21 +219,31 @@ class CachedRegistrarClient(RegistrarClient):
             self._pending = 0
             self._last_commit = now
 
+    def lookup(self, domain: DomainHack) -> DomainCheckResult | None:
+        """A fresh cached result for ``domain``, or None (also when the cache failed)."""
+        if self._disabled:
+            return None
+        try:
+            return self._lookup(domain)
+        except (sqlite3.Error, OSError) as exc:
+            self._disable(exc)
+            return None
+
+    def store(self, result: DomainCheckResult) -> None:
+        """Save an AVAILABLE/TAKEN ``result``; anything else is ignored."""
+        if result.availability not in _CACHEABLE or self._disabled:
+            return
+        try:
+            self._store(result)
+        except (sqlite3.Error, OSError) as exc:
+            self._disable(exc)
+
     def check_availability(self, domain: DomainHack) -> DomainCheckResult:
-        if not self._disabled:
-            try:
-                cached = self._lookup(domain)
-            except (sqlite3.Error, OSError) as exc:
-                self._disable(exc)
-            else:
-                if cached is not None:
-                    return cached
+        cached = self.lookup(domain)
+        if cached is not None:
+            return cached
         result = self._inner.check_availability(domain)
-        if result.availability in _CACHEABLE and not self._disabled:
-            try:
-                self._store(result)
-            except (sqlite3.Error, OSError) as exc:
-                self._disable(exc)
+        self.store(result)
         return result
 
     def close(self) -> None:

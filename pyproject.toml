@@ -40,6 +40,7 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "pytest-cov>=6.0",
+    "coverage>=7.10",  # [tool.coverage.run] patch = ["subprocess"]
     # Keep ruff/mypy in step with the revs in .pre-commit-config.yaml
     # (CI runs pre-commit, so those revs are what actually gates merges).
     "ruff~=0.16.10",
@@ -105,3 +106,7 @@ packages = ["domainhack"]
 strict = true
 warn_return_any = true
 warn_unused_configs = true
+
+[tool.coverage.run]
+source = ["domainhack"]
+patch = ["subprocess"]

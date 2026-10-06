@@ -18,8 +18,8 @@ jobs:
     name: pytest -m integration (live registries)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # A registry outage must not show up as a red build.
-    continue-on-error: true
+    # Separate workflow, so a red run here never blocks merges; it is red on
+    # purpose so registry drift (or a stale test) gets noticed.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

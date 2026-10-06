@@ -44,7 +44,7 @@ def test_rdap_live_bootstrap() -> None:
     assert boot.base_url_for("fm") is not None
 
 
-@pytest.mark.parametrize("tld", ["it", "st", "gg", "la", "io"])
+@pytest.mark.parametrize("tld", ["it", "st", "gg", "la", "nu"])
 def test_whois_taken_and_available(tld: str) -> None:
     with WhoisRegistrarClient(delay=1.0, timeout=20.0) as client:
         taken = client.check_availability(DomainHack.from_sld("google", TLD(tld)))

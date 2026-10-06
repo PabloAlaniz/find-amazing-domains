@@ -170,13 +170,41 @@ DROPPING_STATUSES: frozenset[str] = frozenset({"pending delete", "redemption per
 
 
 @dataclass(frozen=True)
+class DnsEvidence:
+    """What public DNS says about a name: a second opinion, never the verdict.
+
+    ``nameservers`` are the delegated NS hosts (lowercase, no trailing dot);
+    ``has_address`` is True when the name resolves to an A or AAAA record.
+    ``error`` is set when the lookup itself failed (timeout, SERVFAIL...), in
+    which case the other fields carry no information.
+    """
+
+    nameservers: tuple[str, ...] = ()
+    has_address: bool = False
+    error: str = ""
+
+    @property
+    def is_delegated(self) -> bool:
+        """True when the name has NS records, i.e. it is certainly registered."""
+        return not self.error and bool(self.nameservers)
+
+
+@dataclass(frozen=True)
 class DomainCheckResult:
     """Result of checking a single domain's availability.
 
-    ``statuses`` and ``expires_at`` are registration details a registry may
-    return for TAKEN names: status values in RFC 9083 form (lowercase words,
-    e.g. ``"client hold"``, ``"pending delete"``) and the expiration date as
-    an aware UTC datetime. Both are empty when unknown.
+    Registration details a registry may return for TAKEN names, all empty
+    when unknown:
+
+    - ``statuses``: RFC 9083 status values (lowercase words, e.g.
+      ``"client hold"``, ``"pending delete"``);
+    - ``expires_at`` / ``registered_at``: aware UTC datetimes;
+    - ``registrar``: the sponsoring registrar's name;
+    - ``nameservers``: delegated NS hosts as published by the registry.
+
+    ``dns`` is optional DNS evidence gathered after the registry check (see
+    ``DnsEvidence``); ``parked_hint`` names the parking/aftermarket service
+    the nameservers point to (e.g. ``"domainrecover"``), when recognised.
     """
 
     domain: DomainHack
@@ -185,6 +213,20 @@ class DomainCheckResult:
     error_message: str = ""
     statuses: tuple[str, ...] = ()
     expires_at: datetime | None = None
+    registered_at: datetime | None = None
+    registrar: str = ""
+    nameservers: tuple[str, ...] = ()
+    parked_hint: str = ""
+    dns: DnsEvidence | None = None
+
+    @property
+    def dns_conflict(self) -> bool:
+        """AVAILABLE per the registry, yet delegated in DNS: do not trust it as free."""
+        return (
+            self.availability is Availability.AVAILABLE
+            and self.dns is not None
+            and self.dns.is_delegated
+        )
 
     @property
     def dropping_statuses(self) -> tuple[str, ...]:

@@ -16,6 +16,8 @@ from typing import Any
 
 import httpx
 
+from domainhack.adapters._http import identity_headers
+
 IANA_BOOTSTRAP_URL = "https://data.iana.org/rdap/dns.json"
 DEFAULT_TTL_SECONDS: float = 24 * 60 * 60
 
@@ -55,7 +57,9 @@ def default_bootstrap_cache_path() -> Path:
 
 
 def fetch_iana_bootstrap(timeout: float = 10.0) -> bytes:
-    response = httpx.get(IANA_BOOTSTRAP_URL, timeout=timeout, follow_redirects=True)
+    response = httpx.get(
+        IANA_BOOTSTRAP_URL, headers=identity_headers(), timeout=timeout, follow_redirects=True
+    )
     response.raise_for_status()
     return response.content
 

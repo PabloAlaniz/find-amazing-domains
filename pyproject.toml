@@ -4,13 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "domainhack"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Find domain hacks hiding in real words"
 requires-python = ">=3.10"
 license = "MIT"
 dependencies = [
     "httpx>=0.27",
-    "beautifulsoup4>=4.12",
     "tqdm>=4.66",
 ]
 
@@ -27,6 +26,10 @@ dev = [
 [project.scripts]
 domainhack = "domainhack.cli.app:main"
 
+[tool.setuptools.dynamic]
+# Single source of truth: src/domainhack/__init__.py (read statically, not imported).
+version = {attr = "domainhack.__version__"}
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
@@ -34,7 +37,7 @@ where = ["src"]
 testpaths = ["tests"]
 addopts = "--cov=domainhack --cov-report=term-missing -m 'not integration'"
 markers = [
-    "integration: tests that hit external services (Tonic.to, RDAP and WHOIS servers)",
+    "integration: tests that hit external services (RDAP and WHOIS servers)",
 ]
 
 # ── ruff ────────────────────────────────────────────────

@@ -11,14 +11,12 @@ from typing import Any
 import httpx
 
 from domainhack.adapters._circuit import HostCircuitBreaker
+from domainhack.adapters._http import identity_headers
 from domainhack.adapters._throttle import DEFAULT_THROTTLE, HostThrottle
 from domainhack.domain.entities import Availability, DomainCheckResult, DomainHack
 from domainhack.ports.registrar import RegistrarClient
 
-_HEADERS = {
-    "Accept": "application/rdap+json, application/json",
-    "User-Agent": "domainhack/0.1 (domain availability checker)",
-}
+_ACCEPT = {"Accept": "application/rdap+json, application/json"}
 _STATUS_TAKEN = 200
 _STATUS_AVAILABLE = 404
 _STATUS_TOO_MANY = 429
@@ -66,14 +64,16 @@ class RdapRegistrarClient(RegistrarClient):
         throttle: HostThrottle | None = None,
         breaker: HostCircuitBreaker | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        contact: str | None = None,
     ) -> None:
+        self._headers = {**_ACCEPT, **identity_headers(contact)}
         self._base_url = base_url if base_url.endswith("/") else base_url + "/"
         self._host = httpx.URL(self._base_url).host
         self._delay = delay
         self._timeout = timeout
         self._owns_client = client is None
         self._client = client or httpx.Client(
-            headers=_HEADERS,
+            headers=self._headers,
             timeout=httpx.Timeout(timeout, connect=min(DEFAULT_CONNECT_TIMEOUT, timeout)),
             follow_redirects=True,
         )
@@ -95,7 +95,7 @@ class RdapRegistrarClient(RegistrarClient):
         while True:
             self._throttle.wait(self._host, self._delay)
             try:
-                response = self._client.get(url, headers=_HEADERS)
+                response = self._client.get(url, headers=self._headers)
             except httpx.HTTPError as e:
                 self._breaker.record_failure(self._host)
                 return _error(domain, f"RDAP request failed: {e or type(e).__name__}")

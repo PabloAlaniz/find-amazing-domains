@@ -208,21 +208,17 @@ class TestMigration:
                 ("cc.to", "available", NOW - 2 * DAY),
             ],
         )
-        inner = ScriptedRegistrar({"cc.to": Availability.TAKEN})
+        inner = ScriptedRegistrar({"aa.to": Availability.TAKEN, "cc.to": Availability.TAKEN})
         clock = FakeClock(NOW)
         with CachedRegistrarClient(inner, path=db_path, clock=clock) as cached:
             aa = cached.check_availability(hack("aa"))
             bb = cached.check_availability(hack("bb"))
             cc = cached.check_availability(hack("cc"))
-        assert (aa.raw_title, aa.availability, aa.statuses, aa.expires_at) == (
-            CACHE_RAW_TITLE,
-            Availability.TAKEN,
-            (),
-            None,
-        )
+        # Old TAKEN rows lack registration details: the migration expires them.
+        assert (aa.raw_title, aa.availability) == ("live", Availability.TAKEN)
         assert (bb.raw_title, bb.availability) == (CACHE_RAW_TITLE, Availability.AVAILABLE)
         assert cc.raw_title == "live"  # an AVAILABLE row older than 24 h is rechecked
-        assert inner.calls == ["cc.to"]
+        assert inner.calls == ["aa.to", "cc.to"]
 
         conn = sqlite3.connect(db_path)
         try:

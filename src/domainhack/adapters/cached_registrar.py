@@ -299,6 +299,10 @@ def _migrate(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE results ADD COLUMN {name} {declaration}")
     (version,) = conn.execute("PRAGMA user_version").fetchone()
     if version < SCHEMA_VERSION:
+        # TAKEN rows written by an older schema lack the registration details
+        # added since, and their TTL (up to the expiry date) would hide that
+        # for months: expire them so the next run fetches the details.
+        conn.execute("UPDATE results SET checked_at = 0 WHERE availability = 'taken'")
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     conn.commit()
 

@@ -558,7 +558,7 @@ def _make_v1_db(path: Path) -> None:
 
 
 class TestMigrationFromV1:
-    def test_v1_rows_keep_working_and_new_rows_store_details(self, db_path: Path) -> None:
+    def test_v1_taken_rows_are_refetched_and_new_rows_store_details(self, db_path: Path) -> None:
         _make_v1_db(db_path)
         inner = ScriptedRegistrar({"sumanda.com": SUMANDA_ANSWER})
         clock = FakeClock(NOW)
@@ -566,16 +566,10 @@ class TestMigrationFromV1:
             old = cached.check_availability(hack())
             cached.check_availability(hack("sumanda", "com"))
             assert not cached.disabled
-        assert old.raw_title == CACHE_RAW_TITLE
-        assert old.statuses == ("client hold",)
-        assert old.expires_at is not None
-        assert (old.registered_at, old.registrar, old.nameservers, old.parked_hint) == (
-            None,
-            "",
-            (),
-            "",
-        )
-        assert inner.calls == ["sumanda.com"]
+        # The v1 TAKEN row had no registration details, so the migration
+        # expired it instead of serving it until its expiry date.
+        assert old.raw_title == "live"
+        assert inner.calls == ["pla.to", "sumanda.com"]
 
         conn = sqlite3.connect(db_path)
         try:

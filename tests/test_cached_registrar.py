@@ -117,10 +117,10 @@ class TestCachedRegistrarClient:
 
     def test_cache_hits_skip_inner_delay(self, db_path: Path) -> None:
         clock = FakeClock()
-        seed = CountingRegistrar({"a.to": Availability.TAKEN, "b.to": Availability.AVAILABLE})
+        seed = CountingRegistrar({"aa.to": Availability.TAKEN, "bb.to": Availability.AVAILABLE})
         with CachedRegistrarClient(seed, path=db_path, clock=clock) as cached:
-            cached.check_availability(_hack("a"))
-            cached.check_availability(_hack("b"))
+            cached.check_availability(_hack("aa"))
+            cached.check_availability(_hack("bb"))
 
         inner = TonicRegistrarClient(delay=5.0)
         with (
@@ -128,8 +128,8 @@ class TestCachedRegistrarClient:
             patch.object(inner, "check_availability") as inner_check,
             CachedRegistrarClient(inner, path=db_path, clock=clock) as cached,
         ):
-            cached.check_availability(_hack("a"))
-            cached.check_availability(_hack("b"))
+            cached.check_availability(_hack("aa"))
+            cached.check_availability(_hack("bb"))
         sleep.assert_not_called()
         inner_check.assert_not_called()
 
@@ -194,7 +194,7 @@ class TestCliCacheFlags:
         )
         inner = MagicMock(spec=RegistrarClient)
         inner.check_availability.return_value = DomainCheckResult(
-            domain=_hack("a"), availability=Availability.TAKEN
+            domain=_hack("aa"), availability=Availability.TAKEN
         )
         # The router creates per-TLD clients lazily, so the patch must cover usage.
         with patch("domainhack.cli.app.build_registrar_for", return_value=inner):
@@ -202,8 +202,8 @@ class TestCliCacheFlags:
             assert isinstance(registrar, CachedRegistrarClient)
             assert isinstance(registrar._inner, RegistrarRouter)
             with registrar:
-                registrar.check_availability(_hack("a"))
-                registrar.check_availability(_hack("a"))
+                registrar.check_availability(_hack("aa"))
+                registrar.check_availability(_hack("aa"))
         assert inner.check_availability.call_count == 1
         assert cache_file.exists()
         inner.close.assert_called_once()
@@ -214,17 +214,17 @@ class TestCliCacheFlags:
         with patch("domainhack.cli.app.build_registrar_for", return_value=inner):
             registrar = _build_registrar(args)
             assert isinstance(registrar, RegistrarRouter)
-            registrar.check_availability(_hack("a"))
+            registrar.check_availability(_hack("aa"))
         inner.check_availability.assert_called_once()
 
     def test_build_registrar_uses_default_path(self) -> None:
         args = argparse.Namespace(delay=0.0)
         inner = MagicMock(spec=RegistrarClient)
         inner.check_availability.return_value = DomainCheckResult(
-            domain=_hack("a"), availability=Availability.TAKEN
+            domain=_hack("aa"), availability=Availability.TAKEN
         )
         with patch("domainhack.cli.app.build_registrar_for", return_value=inner):
             registrar = _build_registrar(args)
             with registrar:
-                registrar.check_availability(_hack("a"))
+                registrar.check_availability(_hack("aa"))
         assert default_cache_path().exists()

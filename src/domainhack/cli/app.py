@@ -19,7 +19,7 @@ from domainhack.ports.registrar import RegistrarClient
 from domainhack.ports.result_writer import ResultWriter
 from domainhack.usecases.check_domains import CheckDomainsUseCase
 from domainhack.usecases.filter_words import FilterWordsUseCase
-from domainhack.usecases.generate_range import RangeWordSource
+from domainhack.usecases.generate_range import RangeCandidatesUseCase, RangeWordSource
 
 OUTPUT_FORMATS = ("csv", "json")
 _FORMAT_BY_SUFFIX = {".csv": "csv", ".json": "json", ".jsonl": "json"}
@@ -136,7 +136,28 @@ def cmd_filter(args: argparse.Namespace) -> None:
     use_case = FilterWordsUseCase(source, tlds, min_length=args.min_length)
     multi = len(tlds) > 1
     for hack in use_case.execute():
-        print(f"{hack.word} -> {hack.fqdn}" if multi else hack.word)
+        print(f"{hack.word} -> {hack.display}" if multi else hack.word)
+    _warn_skipped(use_case.skipped)
+
+
+def _warn_skipped(count: int) -> None:
+    """One stderr line about candidates dropped by label validation."""
+    if count:
+        print(f"skipped {count} invalid candidates", file=sys.stderr)
+
+
+def _build_candidates(
+    args: argparse.Namespace, tlds: TLD | Sequence[TLD]
+) -> FilterWordsUseCase | RangeCandidatesUseCase:
+    """Candidate source: (word, TLD) matches in list mode, SLD x TLD in range mode.
+
+    Invalid labels are skipped and counted in the returned use case's ``skipped``.
+    """
+    tld_list: tuple[TLD, ...] = (tlds,) if isinstance(tlds, TLD) else tuple(tlds)
+    if args.file:
+        return FilterWordsUseCase(FileWordSource(args.file), tld_list)
+    range_source = RangeWordSource(args.range_max, end_at=args.range_end)
+    return RangeCandidatesUseCase(range_source, tld_list)
 
 
 def _build_domains(args: argparse.Namespace, tlds: TLD | Sequence[TLD]) -> Iterable[DomainHack]:
@@ -144,12 +165,7 @@ def _build_domains(args: argparse.Namespace, tlds: TLD | Sequence[TLD]) -> Itera
 
     Range mode is SLD-major (a.to, a.io, b.to, b.io, ...).
     """
-    tld_list: tuple[TLD, ...] = (tlds,) if isinstance(tlds, TLD) else tuple(tlds)
-    if args.file:
-        word_source = FileWordSource(args.file)
-        return FilterWordsUseCase(word_source, tld_list).execute()
-    range_source = RangeWordSource(args.range_max, end_at=args.range_end)
-    return (DomainHack.from_sld(sld, tld) for sld in range_source.words() for tld in tld_list)
+    return _build_candidates(args, tlds).execute()
 
 
 def _resolve_output_format(output: Path, fmt: str | None) -> str:
@@ -178,11 +194,12 @@ def _build_writer(args: argparse.Namespace) -> ResultWriter:
 
 
 def _progress_total(args: argparse.Namespace, tlds: Sequence[TLD] | None = None) -> int | None:
-    """Exact total in range mode (SLDs x TLDs); None (indeterminate bar) in file mode."""
+    """Exact total in range mode (valid SLD x TLD pairs); None (indeterminate bar) in file mode."""
     if args.file:
         return None
-    tld_count = len(tlds) if tlds is not None else len(_selected_tlds(args))
-    return RangeWordSource(args.range_max, end_at=args.range_end).total() * tld_count
+    tld_list = list(tlds) if tlds is not None else _selected_tlds(args)
+    range_source = RangeWordSource(args.range_max, end_at=args.range_end)
+    return RangeCandidatesUseCase(range_source, tld_list).total()
 
 
 def _build_progress(args: argparse.Namespace) -> ProgressReporter:
@@ -246,8 +263,10 @@ def cmd_check(args: argparse.Namespace) -> None:
     tlds = _selected_tlds(args)
 
     if args.dry_run:
-        for domain in _build_domains(args, tlds):
-            print(f"  {domain.fqdn}  (word: {domain.word!r})")
+        candidates = _build_candidates(args, tlds)
+        for domain in candidates.execute():
+            print(f"  {domain.display}  (word: {domain.word!r})")
+        _warn_skipped(candidates.skipped)
         return
 
     if getattr(args, "output", None) is not None:
@@ -256,14 +275,15 @@ def cmd_check(args: argparse.Namespace) -> None:
 
     router = _build_router(args)
     tlds = _supported_tlds(router, tlds)
-    domains = _build_domains(args, tlds)
+    candidates = _build_candidates(args, tlds)
 
     with _build_registrar(args, router) as registrar:
         writer = _build_writer(args)
         progress = _build_progress(args)
         CheckDomainsUseCase(registrar, writer, progress).execute(
-            domains, total=_progress_total(args, tlds)
+            candidates.execute(), total=_progress_total(args, tlds)
         )
+    _warn_skipped(candidates.skipped)
 
 
 def main() -> None:

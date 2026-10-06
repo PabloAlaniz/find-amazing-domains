@@ -8,7 +8,9 @@ from domainhack.adapters.rdap_bootstrap import (
     RDAP_OVERRIDES,
     RdapBootstrap,
     default_bootstrap_cache_path,
+    load_bundled_snapshot,
     parse_bootstrap,
+    snapshot_date,
 )
 
 IANA_DOC = {
@@ -20,6 +22,15 @@ IANA_DOC = {
         [["gg"], ["https://rdap.gg/"]],
         [["xx"], ["https://rdap.org/"]],
         [["io"], ["https://wrong.example.io/"]],
+    ],
+}
+
+
+SNAPSHOT_DOC = {
+    "publication": "2026-01-02T03:04:05Z",
+    "services": [
+        [["ai"], ["https://snapshot.example.ai/"]],
+        [["nl"], ["https://snapshot.example.nl/"]],
     ],
 }
 
@@ -37,13 +48,20 @@ class Fetcher:
 
 
 def _bootstrap(
-    tmp_path: Path, fetcher: Fetcher, now: float = 1000.0, ttl: float = 100.0
+    tmp_path: Path,
+    fetcher: Fetcher,
+    now: float = 1000.0,
+    ttl: float = 100.0,
+    warnings: list[str] | None = None,
 ) -> RdapBootstrap:
+    sink = warnings if warnings is not None else []
     return RdapBootstrap(
         cache_path=tmp_path / "rdap.json",
         ttl_seconds=ttl,
         fetcher=fetcher,
         clock=lambda: now,
+        snapshot=lambda: SNAPSHOT_DOC,
+        warn=sink.append,
     )
 
 
@@ -114,25 +132,44 @@ class TestCaching:
         _bootstrap(tmp_path, fetcher, now=1200.0).base_url_for("ai")
         assert fetcher.calls == 1
 
-    def test_stale_cache_is_used_when_fetch_fails(self, tmp_path: Path) -> None:
+    def test_stale_cache_is_not_used_when_fetch_fails(self, tmp_path: Path) -> None:
+        # Offline results must not depend on whatever is left in ~/.cache.
         _bootstrap(tmp_path, _ok(), now=1000.0).base_url_for("ai")
         failing = Fetcher(httpx.ConnectError("offline"))
-        boot = _bootstrap(tmp_path, failing, now=5000.0)
-        assert boot.base_url_for("ai") == "https://rdap.example.ai/rdap/"
+        warnings: list[str] = []
+        boot = _bootstrap(tmp_path, failing, now=5000.0, warnings=warnings)
+        assert boot.base_url_for("ai") == "https://snapshot.example.ai/"
+        assert boot.base_url_for("fm") is None
+        assert len(warnings) == 1
 
     @pytest.mark.parametrize(
         "payload",
         [httpx.ConnectError("offline"), OSError("boom"), b"not json", b'{"services": []}'],
     )
-    def test_failed_fetch_without_cache_keeps_overrides(
+    def test_failed_fetch_uses_snapshot_and_warns_once(
         self, tmp_path: Path, payload: bytes | Exception
     ) -> None:
         fetcher = Fetcher(payload)
-        boot = _bootstrap(tmp_path, fetcher)
-        assert boot.base_url_for("ai") is None
+        warnings: list[str] = []
+        boot = _bootstrap(tmp_path, fetcher, warnings=warnings)
+        assert boot.base_url_for("ai") == "https://snapshot.example.ai/"
         assert boot.base_url_for("fm") is None
         assert boot.base_url_for("io") == RDAP_OVERRIDES["io"]
+        assert "ai" in boot.known_tlds()
         assert fetcher.calls == 1  # not retried per TLD
+        assert len(warnings) == 1
+        assert warnings[0].startswith("could not refresh RDAP bootstrap (")
+        assert warnings[0].endswith("; using bundled snapshot from 2026-01-02")
+
+    def test_successful_fetch_does_not_warn(self, tmp_path: Path) -> None:
+        warnings: list[str] = []
+        _bootstrap(tmp_path, _ok(), warnings=warnings).base_url_for("ai")
+        assert warnings == []
+
+    def test_fresh_entries_win_and_snapshot_fills_gaps(self, tmp_path: Path) -> None:
+        boot = _bootstrap(tmp_path, _ok())
+        assert boot.base_url_for("ai") == "https://rdap.example.ai/rdap/"  # fresh wins
+        assert boot.base_url_for("nl") == "https://snapshot.example.nl/"  # snapshot only
 
     def test_corrupt_cache_triggers_fetch(self, tmp_path: Path) -> None:
         (tmp_path / "rdap.json").write_text("{nope")
@@ -143,7 +180,9 @@ class TestCaching:
     def test_unwritable_cache_is_ignored(self, tmp_path: Path) -> None:
         blocker = tmp_path / "file"
         blocker.write_text("x")
-        boot = RdapBootstrap(cache_path=blocker / "sub" / "rdap.json", fetcher=_ok())
+        boot = RdapBootstrap(
+            cache_path=blocker / "sub" / "rdap.json", fetcher=_ok(), snapshot=lambda: {}
+        )
         assert boot.base_url_for("ai") == "https://rdap.example.ai/rdap/"
 
 
@@ -152,3 +191,32 @@ def test_default_cache_path_uses_xdg(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert default_bootstrap_cache_path() == tmp_path / "domainhack" / "rdap_dns.json"
     monkeypatch.delenv("XDG_CACHE_HOME")
     assert default_bootstrap_cache_path().parts[-3:] == (".cache", "domainhack", "rdap_dns.json")
+
+
+class TestBundledSnapshot:
+    def test_loads_from_package_data(self) -> None:
+        data = load_bundled_snapshot()
+        services = parse_bootstrap(data)
+        # TLDs the catalog serves through the IANA bootstrap (not overrides).
+        assert {"ai", "ar", "fm", "in", "is", "ly", "re", "tv"} <= set(services)
+        assert snapshot_date(data) != "unknown"
+
+    def test_default_stderr_warning(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        boot = RdapBootstrap(
+            cache_path=tmp_path / "rdap.json", fetcher=Fetcher(httpx.ConnectError("offline"))
+        )
+        assert boot.base_url_for("ai") is not None
+        boot.base_url_for("in")
+        err = capsys.readouterr().err.splitlines()
+        assert len(err) == 1
+        date = snapshot_date(load_bundled_snapshot())
+        assert err[0] == (
+            f"warning: could not refresh RDAP bootstrap (offline); "
+            f"using bundled snapshot from {date}"
+        )
+
+    @pytest.mark.parametrize("data", [{}, [], {"publication": 5}, {"publication": ""}])
+    def test_snapshot_date_unknown(self, data: object) -> None:
+        assert snapshot_date(data) == "unknown"

@@ -60,6 +60,23 @@ def _server(
 # min_interval: every server gets the documented ~1 query/s floor. whois.nic.it
 # silently stopped answering after ~50 queries at 1 query/s in a live run
 # (2026-10-06), so it is paced at 4 s.
+#
+# Which table a TLD is in is a routing decision (see registrar_catalog):
+#
+# * WHOIS_SERVERS: TLDs with no usable RDAP server (none published, or one on
+#   RDAP_DENYLIST such as gg/la). WHOIS is their primary and only backend.
+# * WHOIS_FALLBACK_SERVERS: TLDs that RDAP serves through the IANA bootstrap
+#   (always available offline thanks to the bundled snapshot). Used only if
+#   RDAP resolution ever yields nothing for them, and the catalog warns on
+#   stderr when it happens, so the protocol never changes silently.
+#
+# TLDs pinned in RDAP_OVERRIDES (ac, co, de, io, me, sh, so, to) have no
+# WHOIS entry: the override always wins, so an entry could never be reached.
+# Their verified servers, for reference: whois.nic.{io,sh,ac,me}
+# ("^Domain not found\."), whois.registry.co ("DOMAIN NOT FOUND"),
+# whois.denic.de ("Status:\s*free" / taken "Status:\s*connect"),
+# whois.nic.so ("No Object Found"), whois.tonicregistry.to
+# ("is available for registration").
 WHOIS_SERVERS: Mapping[str, WhoisServer] = {
     "it": _server("whois.nic.it", r"Status:\s+AVAILABLE", min_interval=4.0),
     "am": _server("whois.amnic.net", r"^No match"),
@@ -73,22 +90,19 @@ WHOIS_SERVERS: Mapping[str, WhoisServer] = {
     "nu": _server("whois.iis.nu", r"not found\."),
     "pe": _server("kero.yachay.pe", r"Domain Status: No Object Found"),
     "st": _server("whois.nic.st", r"No entries found for domain"),
+}
+
+WHOIS_FALLBACK_SERVERS: Mapping[str, WhoisServer] = {
+    "ar": _server("whois.nic.ar", r"no se encuentra registrado"),
     "fm": _server("whois.nic.fm", r"DOMAIN NOT FOUND"),
+    "in": _server("whois.nixiregistry.in", r"is available for registration"),
+    "is": _server("whois.isnic.is", r"No entries found for query"),
+    "ly": _server("whois.nic.ly", r"No Object Found"),
     "re": _server("whois.nic.re", r"NOT FOUND"),
     "tv": _server("whois.nic.tv", r"No Data Found"),
-    "ly": _server("whois.nic.ly", r"No Object Found"),
-    "so": _server("whois.nic.so", r"No Object Found"),
-    "is": _server("whois.isnic.is", r"No entries found for query"),
-    "in": _server("whois.nixiregistry.in", r"is available for registration"),
-    "ar": _server("whois.nic.ar", r"no se encuentra registrado"),
-    "co": _server("whois.registry.co", r"DOMAIN NOT FOUND"),
-    "io": _server("whois.nic.io", r"^Domain not found\."),
-    "sh": _server("whois.nic.sh", r"^Domain not found\."),
-    "ac": _server("whois.nic.ac", r"^Domain not found\."),
-    "me": _server("whois.nic.me", r"^Domain not found\."),
-    "de": _server("whois.denic.de", r"Status:\s*free", taken=r"Status:\s*connect"),
-    "to": _server("whois.tonicregistry.to", r"is available for registration"),
 }
+
+ALL_WHOIS_SERVERS: Mapping[str, WhoisServer] = {**WHOIS_SERVERS, **WHOIS_FALLBACK_SERVERS}
 
 # Responses that mean "no answer", not "registered". Many registries mention
 # throttling in the legal boilerplate of every reply, so these only count when
@@ -100,6 +114,32 @@ _ERROR_PATTERNS = re.compile(
     r"temporarily (unavailable|blocked)|quota exceeded",
     re.IGNORECASE,
 )
+
+
+# Bytes that would end or split a WHOIS query line.
+_LINE_BREAKING_CHARS = frozenset("\r\n\x00")
+# ...plus whitespace, which most servers read as an argument separator. A
+# leading "-" is rejected separately: servers parse it as a query flag
+# (e.g. "-h x", "-t dn,ace").
+_UNSAFE_NAME_CHARS = _LINE_BREAKING_CHARS | frozenset(" \t\v\f")
+
+
+class UnsafeWhoisQueryError(ValueError):
+    """A WHOIS query name contains bytes that could alter the query."""
+
+
+def check_query_name(name: str) -> None:
+    """Raise UnsafeWhoisQueryError unless ``name`` is safe to send as one query.
+
+    Rejects CR, LF, NUL, spaces/tabs, a leading ``-``, an empty name and
+    non-ASCII text (names must already be A-labels).
+    """
+    if not name:
+        raise UnsafeWhoisQueryError("empty WHOIS query")
+    if name.startswith("-"):
+        raise UnsafeWhoisQueryError(f"WHOIS query starts with '-': {name!r}")
+    if any(c in _UNSAFE_NAME_CHARS for c in name) or not name.isascii():
+        raise UnsafeWhoisQueryError(f"WHOIS query contains unsafe characters: {name!r}")
 
 
 class Connection(Protocol):
@@ -127,7 +167,14 @@ def whois_query(
 
     ``connect_timeout`` (default: ``timeout``) bounds the TCP handshake, so an
     unreachable server fails fast; ``timeout`` bounds each read.
+
+    ``query`` must be exactly one line: UnsafeWhoisQueryError is raised,
+    before connecting, if anything but its trailing CRLF is a CR, LF or NUL.
+    (Callers check the queried name itself with ``check_query_name``.)
     """
+    body = query[:-2] if query.endswith("\r\n") else query
+    if not body or any(c in _LINE_BREAKING_CHARS for c in body):
+        raise UnsafeWhoisQueryError(f"WHOIS query is not a single line: {query!r}")
     conn = connect((host, WHOIS_PORT), timeout if connect_timeout is None else connect_timeout)
     try:
         conn.settimeout(timeout)
@@ -167,7 +214,7 @@ class WhoisRegistrarClient(RegistrarClient):
         self,
         delay: float = 1.0,
         timeout: float = 10.0,
-        servers: Mapping[str, WhoisServer] = WHOIS_SERVERS,
+        servers: Mapping[str, WhoisServer] = ALL_WHOIS_SERVERS,
         connect: Connector = _default_connect,
         *,
         connect_timeout: float = DEFAULT_CONNECT_TIMEOUT,
@@ -193,15 +240,23 @@ class WhoisRegistrarClient(RegistrarClient):
         if not self._breaker.allow(server.host):
             return _error(domain, self._breaker.skip_message(server.host), title)
 
+        query = server.query_format.format(fqdn=domain.fqdn)
+        try:
+            check_query_name(domain.fqdn)
+        except UnsafeWhoisQueryError as e:
+            return _error(domain, f"Refused to send WHOIS query: {e}", title)
+
         self._throttle.wait(server.host, max(self._delay, server.min_interval))
         try:
             text = whois_query(
                 server.host,
-                server.query_format.format(fqdn=domain.fqdn),
+                query,
                 self._timeout,
                 self._connect,
                 self._connect_timeout,
             )
+        except UnsafeWhoisQueryError as e:
+            return _error(domain, f"Refused to send WHOIS query: {e}", title)
         except (OSError, TimeoutError) as e:
             self._breaker.record_failure(server.host)
             return _error(domain, f"WHOIS query failed: {e or type(e).__name__}", title)

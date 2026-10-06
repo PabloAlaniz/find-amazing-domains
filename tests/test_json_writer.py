@@ -7,8 +7,10 @@ from domainhack.adapters.json_writer import JsonResultWriter
 from domainhack.domain.entities import TLD, Availability, DomainCheckResult, DomainHack
 
 
-def _result(availability: Availability, word: str = "plato", error: str = "") -> DomainCheckResult:
-    hack = DomainHack.from_word(word, TLD("to"))
+def _result(
+    availability: Availability, word: str = "plato", error: str = "", tld: str = "to"
+) -> DomainCheckResult:
+    hack = DomainHack.from_word(word, TLD(tld))
     assert hack is not None
     return DomainCheckResult(domain=hack, availability=availability, error_message=error)
 
@@ -33,6 +35,7 @@ class TestJsonResultWriter:
         assert _read_lines(out) == [
             {
                 "fqdn": "pla.to",
+                "display": "pla.to",
                 "word": "plato",
                 "sld": "pla",
                 "tld": "to",
@@ -41,6 +44,7 @@ class TestJsonResultWriter:
             },
             {
                 "fqdn": "abe.to",
+                "display": "abe.to",
                 "word": "abeto",
                 "sld": "abe",
                 "tld": "to",
@@ -59,10 +63,13 @@ class TestJsonResultWriter:
     def test_preserves_non_ascii(self, tmp_path: Path) -> None:
         out = tmp_path / "out.jsonl"
         writer = JsonResultWriter(out)
-        writer.write_result(_result(Availability.AVAILABLE, "ñato"))
+        writer.write_result(_result(Availability.AVAILABLE, "ñandúde", tld="de"))
         writer.flush()
-        assert "ñato" in out.read_text(encoding="utf-8")
-        assert _read_lines(out)[0]["sld"] == "ña"
+        assert "ñandú" in out.read_text(encoding="utf-8")
+        record = _read_lines(out)[0]
+        assert record["sld"] == "ñandú"
+        assert record["display"] == "ñandú.de"
+        assert record["fqdn"] == "xn--and-6ma2c.de"  # queried name is always ASCII
 
     def test_flush_closes_owned_file_and_is_idempotent(self, tmp_path: Path) -> None:
         writer = JsonResultWriter(tmp_path / "out.jsonl")

@@ -1,7 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import re
+import unicodedata
+from dataclasses import dataclass, field
 from enum import Enum
+
+import idna
+
+from domainhack.domain.label_rules import DNS_MAX_LABEL_LENGTH, label_rule_for
+
+_LDH_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
+_ACE_PREFIX = "xn--"
+
+
+class InvalidLabelError(ValueError):
+    """A candidate SLD is not a label the TLD's registry could hold."""
 
 
 @dataclass(frozen=True)
@@ -11,8 +24,66 @@ class TLD:
     suffix: str
 
     def __post_init__(self) -> None:
-        if not self.suffix.isalpha() or len(self.suffix) < 2:
+        if not (self.suffix.isascii() and self.suffix.isalpha()) or len(self.suffix) < 2:
             raise ValueError(f"Invalid TLD suffix: {self.suffix!r}")
+
+
+def _check_ldh(ascii_label: str, original: str) -> None:
+    """RFC 5891 §4.2.3.1 / RFC 1123 syntax for an ASCII label (any length)."""
+    if not _LDH_LABEL.match(ascii_label):
+        raise InvalidLabelError(
+            f"{original!r} is not a valid label (letters, digits and inner hyphens only)"
+        )
+    if ascii_label[2:4] == "--" and not ascii_label.startswith(_ACE_PREFIX):
+        raise InvalidLabelError(f"{original!r} has '--' in positions 3-4 (reserved)")
+
+
+def to_ascii_label(label: str, tld: TLD) -> str:
+    """Validate ``label`` for ``tld`` and return its ASCII (A-label) form.
+
+    Unicode labels are NFC-normalized and converted with IDNA2008 (the
+    ``idna`` package); ``xn--`` input must be a valid A-label. IDN labels are
+    only accepted when the TLD's registry supports IDN (see ``label_rules``).
+    Raises InvalidLabelError otherwise.
+    """
+    rule = label_rule_for(tld.suffix)
+    unicode_label = unicodedata.normalize("NFC", label)
+    if unicode_label.isascii():
+        ascii_label = unicode_label
+        _check_ldh(ascii_label, label)
+        is_idn = ascii_label.startswith(_ACE_PREFIX)
+        if is_idn:
+            try:
+                unicode_label = idna.ulabel(ascii_label)
+                if idna.alabel(unicode_label).decode("ascii") != ascii_label:
+                    raise idna.IDNAError("not in canonical form")
+            except (idna.IDNAError, UnicodeError) as exc:
+                raise InvalidLabelError(f"{label!r} is not a valid A-label: {exc}") from exc
+    else:
+        is_idn = True
+        if not rule.idn:
+            raise InvalidLabelError(
+                f"{label!r} is an internationalized name and .{tld.suffix} does not accept IDN"
+            )
+        try:
+            ascii_label = idna.alabel(unicode_label).decode("ascii")
+        except (idna.IDNAError, UnicodeError) as exc:
+            raise InvalidLabelError(f"{label!r} is not a valid IDN label: {exc}") from exc
+        _check_ldh(ascii_label, label)
+
+    if is_idn and not rule.idn:
+        raise InvalidLabelError(
+            f"{label!r} is an internationalized name and .{tld.suffix} does not accept IDN"
+        )
+    if not is_idn and ascii_label.startswith(rule.forbidden_prefixes):
+        raise InvalidLabelError(f".{tld.suffix} does not accept names like {label!r}")
+    if len(unicode_label) < rule.min_length:
+        raise InvalidLabelError(
+            f".{tld.suffix} requires at least {rule.min_length} characters, got {label!r}"
+        )
+    if len(ascii_label) > min(rule.max_length, DNS_MAX_LABEL_LENGTH):
+        raise InvalidLabelError(f"{label!r} is too long for .{tld.suffix}")
+    return ascii_label
 
 
 @dataclass(frozen=True)
@@ -20,20 +91,53 @@ class DomainHack:
     """A word that ends with a TLD suffix, split into SLD + TLD.
 
     Example: word='plato', tld=TLD('to') -> sld='pla', fqdn='pla.to'
+
+    Naming convention for internationalized names: ``word`` and ``sld`` keep
+    what the user wrote (lowercased, NFC), ``display`` is ``sld.tld`` in that
+    form, and ``fqdn``/``ascii_sld`` are **always ASCII** (the IDNA A-label).
+    Everything that talks to a registry or keys a cache uses ``fqdn``; only
+    human-facing output uses ``display``. For ASCII names both are equal.
+
+    Construction validates the label (LDH syntax plus the TLD's rules from
+    ``label_rules``) and raises InvalidLabelError, so an invalid name can
+    never reach a registrar adapter.
     """
 
     word: str
     sld: str
     tld: TLD
+    ascii_sld: str = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "ascii_sld", to_ascii_label(self.sld, self.tld))
 
     @property
     def fqdn(self) -> str:
+        """The ASCII name used for every query and cache key (A-label for IDNs)."""
+        return f"{self.ascii_sld}.{self.tld.suffix}"
+
+    @property
+    def display(self) -> str:
+        """The name as the user wrote it (U-label for IDNs), for display only."""
         return f"{self.sld}.{self.tld.suffix}"
+
+    @property
+    def is_idn(self) -> bool:
+        return self.fqdn != self.display
+
+    @staticmethod
+    def _normalize(text: str) -> str:
+        return unicodedata.normalize("NFC", text.strip().lower())
 
     @staticmethod
     def from_word(word: str, tld: TLD) -> DomainHack | None:
-        """Create a DomainHack if the word ends with the TLD suffix and the SLD is non-empty."""
-        lower = word.strip().lower()
+        """Split ``word`` into SLD + ``tld``.
+
+        Returns None when the word does not end with the TLD suffix or leaves
+        an empty SLD; raises InvalidLabelError when it does but the SLD is
+        not a valid label for that TLD.
+        """
+        lower = DomainHack._normalize(word)
         if lower.endswith(tld.suffix) and len(lower) > len(tld.suffix):
             sld = lower[: -len(tld.suffix)]
             return DomainHack(word=lower, sld=sld, tld=tld)
@@ -41,8 +145,11 @@ class DomainHack:
 
     @staticmethod
     def from_sld(sld: str, tld: TLD) -> DomainHack:
-        """Create a DomainHack directly from an SLD (for brute-force range mode)."""
-        lower = sld.strip().lower()
+        """Create a DomainHack directly from an SLD (for brute-force range mode).
+
+        Raises InvalidLabelError when ``sld`` is not a valid label for ``tld``.
+        """
+        lower = DomainHack._normalize(sld)
         return DomainHack(word=f"{lower}{tld.suffix}", sld=lower, tld=tld)
 
 

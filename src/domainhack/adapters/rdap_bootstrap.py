@@ -2,15 +2,31 @@
 
 Order: denylist (known-broken servers) -> hard-coded overrides (working
 servers missing from IANA's bootstrap) -> IANA bootstrap file
-(https://data.iana.org/rdap/dns.json), fetched lazily and cached on disk.
+(https://data.iana.org/rdap/dns.json), fetched lazily and cached on disk
+for ``ttl_seconds`` -> the snapshot of that file bundled with the package
+(``domainhack/data/rdap_dns.json``).
+
+The bundled snapshot makes the backend choice independent of the network:
+offline, every TLD resolves exactly as it did when the snapshot was taken,
+and a fresh bootstrap only adds or updates entries on top of it. When the
+refresh fails, one warning goes to stderr and the snapshot alone is used; a
+stale on-disk cache is deliberately *not* used, so offline runs are
+deterministic whatever happens to be in ``~/.cache``.
+
+Refresh the snapshot by downloading the IANA file and re-serialising it
+minified (``json.dump(data, f, separators=(",", ":"))``) into
+``src/domainhack/data/rdap_dns.json``. It is kept whole (about 32 KB) so any
+TLD, not just the catalog's, resolves offline exactly as online.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 from collections.abc import Callable, Mapping
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +62,26 @@ RDAP_DENYLIST: frozenset[str] = frozenset({"gg", "la"})
 _DENIED_HOSTS: frozenset[str] = frozenset({"rdap.org", "www.rdap.org"})
 
 Fetcher = Callable[[], bytes]
+SnapshotLoader = Callable[[], Any]
+Warn = Callable[[str], None]
+
+BUNDLED_SNAPSHOT = "data/rdap_dns.json"
+
+
+def load_bundled_snapshot() -> Any:
+    """The IANA bootstrap document shipped as package data."""
+    resource = resources.files("domainhack").joinpath(BUNDLED_SNAPSHOT)
+    return json.loads(resource.read_text(encoding="utf-8"))
+
+
+def snapshot_date(data: Any) -> str:
+    """``YYYY-MM-DD`` from a bootstrap document's ``publication`` field, or ``unknown``."""
+    publication = data.get("publication") if isinstance(data, dict) else None
+    return publication[:10] if isinstance(publication, str) and publication else "unknown"
+
+
+def _stderr_warn(message: str) -> None:
+    print(f"warning: {message}", file=sys.stderr)
 
 
 def default_bootstrap_cache_path() -> Path:
@@ -92,9 +128,11 @@ def _pick_url(urls: list[str]) -> str | None:
 class RdapBootstrap:
     """TLD -> RDAP base URL resolver with a lazily loaded, disk-cached IANA file.
 
-    A failed fetch falls back to a stale cache if one exists; otherwise only
-    the overrides are available. The fetch is attempted at most once per
-    instance, so a network outage does not cost one timeout per TLD.
+    Lookups go overrides -> fresh bootstrap (disk cache younger than the TTL,
+    or a new fetch) -> bundled snapshot. A failed fetch emits one warning
+    through ``warn`` and leaves the snapshot as the only source. The fetch is
+    attempted at most once per instance, so a network outage does not cost
+    one timeout per TLD.
     """
 
     def __init__(
@@ -105,6 +143,8 @@ class RdapBootstrap:
         clock: Callable[[], float] = time.time,
         overrides: Mapping[str, str] = RDAP_OVERRIDES,
         denylist: frozenset[str] = RDAP_DENYLIST,
+        snapshot: SnapshotLoader = load_bundled_snapshot,
+        warn: Warn = _stderr_warn,
     ) -> None:
         self._cache_path = cache_path if cache_path is not None else default_bootstrap_cache_path()
         self._ttl = ttl_seconds
@@ -112,6 +152,8 @@ class RdapBootstrap:
         self._clock = clock
         self._overrides = {k.lower(): v for k, v in overrides.items()}
         self._denylist = frozenset(t.lower() for t in denylist)
+        self._snapshot_loader = snapshot
+        self._warn = warn
         self._services: dict[str, str] | None = None
 
     def base_url_for(self, tld: str) -> str | None:
@@ -127,13 +169,18 @@ class RdapBootstrap:
         return tlds - self._denylist
 
     def _load(self) -> dict[str, str]:
-        if self._services is not None:
-            return self._services
+        if self._services is None:
+            snapshot_data = self._snapshot_loader()
+            services = parse_bootstrap(snapshot_data)
+            services.update(self._load_fresh(snapshot_date(snapshot_data)))
+            self._services = services
+        return self._services
 
+    def _load_fresh(self, snapshot_day: str) -> dict[str, str]:
+        """Entries from a fresh cache or a new fetch; {} (with a warning) on failure."""
         cached = self._read_cache()
         if cached is not None and self._clock() - cached[0] <= self._ttl:
-            self._services = parse_bootstrap(cached[1])
-            return self._services
+            return parse_bootstrap(cached[1])
 
         try:
             raw = self._fetcher()
@@ -141,12 +188,15 @@ class RdapBootstrap:
             services = parse_bootstrap(data)
             if not services:
                 raise ValueError("empty RDAP bootstrap")
-        except (httpx.HTTPError, OSError, ValueError):
-            self._services = parse_bootstrap(cached[1]) if cached is not None else {}
-            return self._services
+        except (httpx.HTTPError, OSError, ValueError) as exc:
+            reason = str(exc) or type(exc).__name__
+            self._warn(
+                f"could not refresh RDAP bootstrap ({reason}); "
+                f"using bundled snapshot from {snapshot_day}"
+            )
+            return {}
 
         self._write_cache(data)
-        self._services = services
         return services
 
     def _read_cache(self) -> tuple[float, Any] | None:

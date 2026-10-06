@@ -56,7 +56,7 @@ class TestRegistrarRouter:
         router = RegistrarRouter(factory)
         assert factory.calls == []
 
-        for sld in ("a", "b", "c"):
+        for sld in ("aa", "bb", "cc"):
             router.check_availability(DomainHack.from_sld(sld, TO))
         router.check_availability(DomainHack.from_sld("a", IN))
         router.check_availability(DomainHack.from_sld("b", IN))
@@ -79,13 +79,13 @@ class TestRegistrarRouter:
         router = RegistrarRouter(factory)
         assert router.supports(TO) is True
         assert router.supports(IN) is False
-        router.check_availability(DomainHack.from_sld("a", TO))
+        router.check_availability(DomainHack.from_sld("aa", TO))
         assert factory.calls == ["to", "in"]
 
     def test_close_closes_all_created_clients(self) -> None:
         to_client, io_client = FakeClient("to"), FakeClient("io")
         router = RegistrarRouter(RecordingFactory({"to": to_client, "io": io_client}))
-        router.check_availability(DomainHack.from_sld("a", TO))
+        router.check_availability(DomainHack.from_sld("aa", TO))
         router.check_availability(DomainHack.from_sld("a", IN))  # unsupported: nothing to close
 
         with router:

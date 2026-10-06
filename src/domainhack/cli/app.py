@@ -2,10 +2,12 @@ import argparse
 from collections.abc import Iterable
 from pathlib import Path
 
+from domainhack.adapters.cached_registrar import CachedRegistrarClient
 from domainhack.adapters.console_writer import ConsoleResultWriter
 from domainhack.adapters.file_word_source import FileWordSource
 from domainhack.adapters.tonic_registrar import TonicRegistrarClient
 from domainhack.domain.entities import TLD, DomainHack
+from domainhack.ports.registrar import RegistrarClient
 from domainhack.usecases.check_domains import CheckDomainsUseCase
 from domainhack.usecases.filter_words import FilterWordsUseCase
 from domainhack.usecases.generate_range import RangeWordSource
@@ -37,6 +39,20 @@ def build_parser() -> argparse.ArgumentParser:
     source_group.add_argument("--file", type=Path, help="Word list file (list mode)")
     source_group.add_argument("--range-max", type=int, help="Max combination length (range mode)")
     chk.add_argument("--range-end", type=str, default=None, help="Stop at this combination")
+    chk.add_argument("--no-cache", action="store_true", help="Disable the result cache")
+    chk.add_argument(
+        "--cache-ttl",
+        type=float,
+        default=168.0,
+        metavar="HOURS",
+        help="Reuse cached results younger than HOURS (default: 168 = 7 days)",
+    )
+    chk.add_argument(
+        "--cache-path",
+        type=Path,
+        default=None,
+        help="SQLite cache file (default: $XDG_CACHE_HOME/domainhack/results.sqlite3)",
+    )
 
     return parser
 
@@ -57,6 +73,17 @@ def _build_domains(args: argparse.Namespace, tld: TLD) -> Iterable[DomainHack]:
     return (DomainHack.from_sld(sld, tld) for sld in range_source.words())
 
 
+def _build_registrar(args: argparse.Namespace) -> RegistrarClient:
+    registrar: RegistrarClient = TonicRegistrarClient(delay=args.delay)
+    if getattr(args, "no_cache", False):
+        return registrar
+    return CachedRegistrarClient(
+        registrar,
+        path=getattr(args, "cache_path", None),
+        ttl_seconds=getattr(args, "cache_ttl", 168.0) * 3600,
+    )
+
+
 def cmd_check(args: argparse.Namespace) -> None:
     tld = TLD(args.tld)
     domains = _build_domains(args, tld)
@@ -66,7 +93,7 @@ def cmd_check(args: argparse.Namespace) -> None:
             print(f"  {domain.fqdn}  (word: {domain.word!r})")
         return
 
-    with TonicRegistrarClient(delay=args.delay) as registrar:
+    with _build_registrar(args) as registrar:
         writer = ConsoleResultWriter(show_taken=args.show_taken)
         CheckDomainsUseCase(registrar, writer).execute(domains)
 

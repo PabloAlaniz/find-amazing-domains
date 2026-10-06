@@ -12,7 +12,9 @@ class ConsoleResultWriter(ResultWriter):
     output can be piped; ERROR lines are diagnostics and go to stderr. TAKEN
     names in redemption or pending delete ("dropping") are printed with their
     status and expiry date, and ``show_dropping`` prints them even without
-    ``show_taken``. The run summary is printed by the CLI, from the use case's
+    ``show_taken``. Other TAKEN names print with whatever registration
+    details are known: ``TAKEN:     sumanda.com (since 2015-11-12, expires
+    2026-11-12, parked: domainrecover)``. The run summary is printed by the CLI, from the use case's
     ``CheckSummary``.
     """
 
@@ -32,7 +34,7 @@ class ConsoleResultWriter(ResultWriter):
                     if self._show_taken or self._show_dropping:
                         print(f"  TAKEN ({_dropping_detail(result)}): {_name(result.domain)}")
                 elif self._show_taken:
-                    print(f"  TAKEN:     {_name(result.domain)}")
+                    print(f"  TAKEN:     {_name(result.domain)}{_taken_detail(result)}")
             case Availability.ERROR:
                 if self._show_errors:
                     write_stderr(f"  ERROR:     {_name(result.domain)} -- {result.error_message}")
@@ -47,6 +49,18 @@ def _dropping_detail(result: DomainCheckResult) -> str:
     if result.expires_at is not None:
         detail += f", expires {result.expires_at.date().isoformat()}"
     return detail
+
+
+def _taken_detail(result: DomainCheckResult) -> str:
+    """`` (since 2015-11-12, expires 2026-11-12, parked: domainrecover)``, known parts only."""
+    parts = []
+    if result.registered_at is not None:
+        parts.append(f"since {result.registered_at.date().isoformat()}")
+    if result.expires_at is not None:
+        parts.append(f"expires {result.expires_at.date().isoformat()}")
+    if result.parked_hint:
+        parts.append(f"parked: {result.parked_hint}")
+    return f" ({', '.join(parts)})" if parts else ""
 
 
 def _name(domain: DomainHack) -> str:

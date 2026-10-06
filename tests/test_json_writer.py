@@ -15,6 +15,16 @@ def _result(
     return DomainCheckResult(domain=hack, availability=availability, error_message=error)
 
 
+EMPTY_DETAILS: dict[str, Any] = {
+    "registered_at": None,
+    "registrar": "",
+    "nameservers": [],
+    "parked_hint": "",
+    "dns_nameservers": [],
+    "dns_conflict": False,
+}
+
+
 def _read_lines(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
@@ -43,6 +53,7 @@ class TestJsonResultWriter:
                 "error_message": "",
                 "statuses": [],
                 "expires_at": None,
+                **EMPTY_DETAILS,
             },
             {
                 "fqdn": "abe.to",
@@ -54,6 +65,7 @@ class TestJsonResultWriter:
                 "error_message": "timeout",
                 "statuses": [],
                 "expires_at": None,
+                **EMPTY_DETAILS,
             },
         ]
 

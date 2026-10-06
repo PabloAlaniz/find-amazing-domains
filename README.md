@@ -103,6 +103,14 @@ domainhack --tld to check --file data/words_es.txt --order input
 
 Taken names in their registry's redemption period or pending delete are "dropping": they may become free soon. They print as `TAKEN (dropping: pending delete, expires 2026-11-02): x.to` with `--show-taken` or `--show-dropping`, and the summary counts them (`12 taken (1 dropping)`). Statuses and expiry dates come from RDAP; for WHOIS TLDs they are read only when the reply uses EPP status codes and ISO dates (e.g. `.it`).
 
+Other taken names print with what the registry says about them, so you can tell an active site from a name parked for sale:
+
+```
+  TAKEN:     sumanda.com (since 2015-11-12, expires 2026-11-12, parked: domainrecover)
+```
+
+Only the known parts are shown. `parked:` names the parking or aftermarket service the nameservers point to (`domainrecover`, `sedo`, `parkingcrew`, `bodis`, `afternic`, `dan.com`, `hugedomains`, `godaddy-parked`, `namebright`, ...; the curated list is in `domain/parking.py`). RDAP gives the registration date, registrar and nameservers; WHOIS gives the creation date and nameservers when the reply has `Creation Date:`/`Created:` in ISO form and `Name Server:`/`nserver:` lines.
+
 Registries throttle hard (whois.nic.it stopped answering after about 50 queries in a test run), so the best candidates are checked first. `--order` picks the order:
 
 - `score` (default): shortest SLD first, then shortest full word, then alphabetical. The order is deterministic.
@@ -182,7 +190,17 @@ domainhack --tld to check --file data/words_es.txt --output results.csv
 domainhack --tld to check --file data/words_es.txt --output results.jsonl
 ```
 
-Rows are written as they are checked, so an interrupted run (Ctrl-C) keeps everything checked so far. Columns: `fqdn` (ASCII, what was queried), `display` (as written, e.g. `ñandú.de`), `word`, `sld`, `tld`, `availability`, `error_message`, `statuses`, `expires_at`. `statuses` holds the registry statuses of a taken name (RFC 9083 form, e.g. `client transfer prohibited`; joined with `;` in CSV, a list in JSON) and `expires_at` its expiration date in ISO 8601 UTC (`2026-11-30T07:38:29Z`; empty in CSV and `null` in JSON when unknown).
+Rows are written as they are checked, so an interrupted run (Ctrl-C) keeps everything checked so far. Columns: `fqdn` (ASCII, what was queried), `display` (as written, e.g. `ñandú.de`), `word`, `sld`, `tld`, `availability`, `error_message`, `statuses`, `expires_at`, `registered_at`, `registrar`, `nameservers`, `parked_hint`, `dns_nameservers`, `dns_conflict`. New columns are always appended, so existing positions stay stable.
+
+- `statuses`: registry statuses of a taken name (RFC 9083 form, e.g. `client transfer prohibited`).
+- `expires_at` / `registered_at`: expiration and registration dates in ISO 8601 UTC (`2026-11-30T07:38:29Z`).
+- `registrar`: the sponsoring registrar's name (RDAP only).
+- `nameservers`: NS hosts the registry lists, lowercase without the trailing dot.
+- `parked_hint`: the parking/aftermarket service those nameservers belong to (e.g. `domainrecover`), empty if none is recognised.
+- `dns_nameservers`: NS hosts public DNS returned, when DNS was consulted.
+- `dns_conflict`: `true` when the registry said available but DNS shows a delegation (do not trust it as free), else `false`.
+
+Lists are joined with `;` in CSV and are arrays in JSON; unknown values are empty in CSV and `null` (dates) or empty in JSON.
 
 Only results go to stdout; warnings, errors and the final summary go to stderr, so stdout can be piped.
 
@@ -205,7 +223,7 @@ Word lists are read as UTF-8; use `--encoding latin-1` for older lists.
   | Taken, no expiration date | 30 days |
   | Error | never cached |
 
-  `--cache-ttl HOURS` caps all of these (e.g. `--cache-ttl 1` rechecks anything older than an hour). Use `--no-cache` to skip the cache and `--cache-path PATH` to move it. Cache files from older versions are upgraded in place.
+  `--cache-ttl HOURS` caps all of these (e.g. `--cache-ttl 1` rechecks anything older than an hour). Use `--no-cache` to skip the cache and `--cache-path PATH` to move it. Cache files from older versions are upgraded in place. The cache keeps registration details (statuses, dates, registrar, nameservers, parking hint) but never DNS evidence, which is looked up fresh.
 
 ## Supported TLDs
 

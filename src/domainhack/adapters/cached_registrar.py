@@ -12,7 +12,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from domainhack.adapters._registration import normalize_statuses
+from domainhack.adapters._registration import (
+    normalize_name,
+    normalize_nameservers,
+    normalize_statuses,
+)
 from domainhack.adapters._stderr import write_stderr
 from domainhack.domain.entities import Availability, DomainCheckResult, DomainHack
 from domainhack.ports.registrar import RegistrarClient
@@ -31,12 +35,19 @@ CACHE_RAW_TITLE = "cache"
 COMMIT_EVERY = 25
 COMMIT_INTERVAL_SECONDS = 10.0
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 _COLUMNS = {
     # Version 0 (before statuses/expiration were stored): fqdn, availability, checked_at.
+    # Version 1:
     "statuses": "TEXT NOT NULL DEFAULT ''",
     "expires_at": "REAL",
+    # Version 2:
+    "registered_at": "REAL",
+    "registrar": "TEXT NOT NULL DEFAULT ''",
+    "nameservers": "TEXT NOT NULL DEFAULT ''",
+    "parked_hint": "TEXT NOT NULL DEFAULT ''",
 }
+_DETAIL_COLUMNS = tuple(_COLUMNS)
 
 _CACHEABLE = (Availability.AVAILABLE, Availability.TAKEN)
 
@@ -87,10 +98,13 @@ class CachedRegistrarClient(RegistrarClient, ResultCache):
 
     Cache hits never touch the inner client, so any rate-limit delay it applies
     is skipped. ERROR results are never cached. Results served from the cache
-    carry ``raw_title == "cache"`` plus the stored ``statuses`` and
-    ``expires_at``. How long each result stays fresh is set by ``ttl`` (a
-    ``CacheTtlPolicy``); it is decided when the row is read, so a smaller
-    ``--cache-ttl`` also applies to rows written by earlier runs.
+    carry ``raw_title == "cache"`` plus the stored registration details
+    (``statuses``, ``expires_at``, ``registered_at``, ``registrar``,
+    ``nameservers``, ``parked_hint``). DNS evidence (``dns``) is never stored:
+    it is a fresh second opinion, gathered on every run. How long each
+    result stays fresh is set by ``ttl`` (a ``CacheTtlPolicy``); it is
+    decided when the row is read, so a smaller ``--cache-ttl`` also applies
+    to rows written by earlier runs.
 
     The cache is an optimisation, never a reason to fail a run: if the database
     cannot be opened, read or written (corrupt file, a directory, no
@@ -172,14 +186,24 @@ class CachedRegistrarClient(RegistrarClient, ResultCache):
         row = (
             self._db()
             .execute(
-                "SELECT availability, checked_at, statuses, expires_at FROM results WHERE fqdn = ?",
+                f"SELECT availability, checked_at, {', '.join(_DETAIL_COLUMNS)}"
+                " FROM results WHERE fqdn = ?",
                 (domain.fqdn,),
             )
             .fetchone()
         )
         if row is None:
             return None
-        availability_value, checked_at, statuses_value, expires_value = row
+        (
+            availability_value,
+            checked_at,
+            statuses_value,
+            expires_value,
+            registered_value,
+            registrar_value,
+            nameservers_value,
+            parked_value,
+        ) = row
         try:
             availability = Availability(availability_value)
             checked = float(checked_at)
@@ -192,7 +216,11 @@ class CachedRegistrarClient(RegistrarClient, ResultCache):
             availability=availability,
             raw_title=CACHE_RAW_TITLE,
             statuses=_load_statuses(statuses_value),
-            expires_at=_load_expires(expires_value),
+            expires_at=_load_timestamp(expires_value),
+            registered_at=_load_timestamp(registered_value),
+            registrar=normalize_name(registrar_value) or "",
+            nameservers=normalize_nameservers(_load_json_list(nameservers_value)),
+            parked_hint=normalize_name(parked_value) or "",
         )
         if self._clock() - checked > self._ttl.ttl_for(result, checked):
             return None
@@ -200,16 +228,20 @@ class CachedRegistrarClient(RegistrarClient, ResultCache):
 
     def _store(self, result: DomainCheckResult) -> None:
         db = self._db()
-        expires = result.expires_at.timestamp() if result.expires_at is not None else None
+        columns = ("fqdn", "availability", "checked_at", *_DETAIL_COLUMNS)
         db.execute(
-            "INSERT OR REPLACE INTO results"
-            " (fqdn, availability, checked_at, statuses, expires_at) VALUES (?, ?, ?, ?, ?)",
+            f"INSERT OR REPLACE INTO results ({', '.join(columns)})"
+            f" VALUES ({', '.join('?' * len(columns))})",
             (
                 result.domain.fqdn,
                 result.availability.value,
                 self._clock(),
-                json.dumps(list(result.statuses)) if result.statuses else "",
-                expires,
+                _dump_list(result.statuses),
+                _dump_timestamp(result.expires_at),
+                _dump_timestamp(result.registered_at),
+                result.registrar,
+                _dump_list(result.nameservers),
+                result.parked_hint,
             ),
         )
         self._pending += 1
@@ -271,18 +303,31 @@ def _migrate(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def _load_statuses(value: object) -> tuple[str, ...]:
-    """Stored statuses (a JSON list); ``()`` for old rows or anything malformed."""
+def _dump_list(values: tuple[str, ...]) -> str:
+    return json.dumps(list(values)) if values else ""
+
+
+def _dump_timestamp(value: datetime | None) -> float | None:
+    return value.timestamp() if value is not None else None
+
+
+def _load_json_list(value: object) -> list[object]:
+    """A stored JSON list; ``[]`` for old rows or anything malformed."""
     if not isinstance(value, str) or not value:
-        return ()
+        return []
     try:
         parsed = json.loads(value)
     except ValueError:
-        return ()
-    return normalize_statuses(parsed) if isinstance(parsed, list) else ()
+        return []
+    return parsed if isinstance(parsed, list) else []
 
 
-def _load_expires(value: object) -> datetime | None:
+def _load_statuses(value: object) -> tuple[str, ...]:
+    """Stored statuses (a JSON list); ``()`` for old rows or anything malformed."""
+    return normalize_statuses(_load_json_list(value))
+
+
+def _load_timestamp(value: object) -> datetime | None:
     if not isinstance(value, (int, float)):
         return None
     try:

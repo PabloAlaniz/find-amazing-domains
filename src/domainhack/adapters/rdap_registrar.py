@@ -15,7 +15,12 @@ import httpx
 
 from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters._http import identity_headers
-from domainhack.adapters._registration import normalize_statuses, parse_datetime_utc
+from domainhack.adapters._registration import (
+    normalize_name,
+    normalize_nameservers,
+    normalize_statuses,
+    parse_datetime_utc,
+)
 from domainhack.adapters._throttle import (
     DEFAULT_BACKOFF_BASE,
     DEFAULT_BACKOFF_CAP,
@@ -25,6 +30,7 @@ from domainhack.adapters._throttle import (
     full_jitter_backoff,
 )
 from domainhack.domain.entities import Availability, DomainCheckResult, DomainHack
+from domainhack.domain.parking import parking_hint_for
 from domainhack.ports.registrar import RegistrarClient
 
 _ACCEPT = {"Accept": "application/rdap+json, application/json"}
@@ -61,8 +67,10 @@ class RdapRegistrarClient(RegistrarClient):
     The HTTP status decides: 404 -> AVAILABLE, 200 with a JSON domain object
     whose ``ldhName`` matches -> TAKEN, anything else (429, 5xx, timeouts,
     HTML 200 pages) -> ERROR. ``raw_title`` holds ``"HTTP <status>"``.
-    TAKEN results carry the domain's ``status`` values and ``expiration``
-    event when the body has them; malformed parts are ignored.
+    TAKEN results carry the domain's ``status`` values, its ``registration``
+    and ``expiration`` events, its nameservers (plus the parking service they
+    point to, if recognised) and the sponsoring registrar's name, when the
+    body has them; malformed parts are ignored.
 
     429, 5xx, timeouts and dropped connections are retried up to
     ``max_retries`` times. A ``Retry-After`` header is honored (it defers the
@@ -213,12 +221,17 @@ class RdapRegistrarClient(RegistrarClient):
 
 
 def _taken(domain: DomainHack, title: str, body: dict[str, Any]) -> DomainCheckResult:
+    nameservers = parse_rdap_nameservers(body)
     return DomainCheckResult(
         domain=domain,
         availability=Availability.TAKEN,
         raw_title=title,
         statuses=parse_rdap_statuses(body),
         expires_at=parse_rdap_expiration(body),
+        registered_at=parse_rdap_registration(body),
+        registrar=parse_rdap_registrar(body),
+        nameservers=nameservers,
+        parked_hint=parking_hint_for(nameservers),
     )
 
 
@@ -230,20 +243,79 @@ def parse_rdap_statuses(body: dict[str, Any]) -> tuple[str, ...]:
     return normalize_statuses(values)
 
 
-def parse_rdap_expiration(body: dict[str, Any]) -> datetime | None:
-    """The date of the first valid ``expiration`` event (RFC 9083 §4.5), in UTC, or None."""
+def _event_date(body: dict[str, Any], action: str) -> datetime | None:
+    """The date of the first valid event with ``eventAction == action`` (RFC 9083 §4.5)."""
     events = body.get("events")
     if not isinstance(events, list):
         return None
     for event in events:
         if not isinstance(event, dict):
             continue
-        action = event.get("eventAction")
-        if not isinstance(action, str) or action.strip().lower() != "expiration":
+        event_action = event.get("eventAction")
+        if not isinstance(event_action, str) or event_action.strip().lower() != action:
             continue
         when = parse_datetime_utc(event.get("eventDate"))
         if when is not None:
             return when
+    return None
+
+
+def parse_rdap_expiration(body: dict[str, Any]) -> datetime | None:
+    """The date of the first valid ``expiration`` event, in UTC, or None."""
+    return _event_date(body, "expiration")
+
+
+def parse_rdap_registration(body: dict[str, Any]) -> datetime | None:
+    """The date of the first valid ``registration`` event, in UTC, or None."""
+    return _event_date(body, "registration")
+
+
+def parse_rdap_nameservers(body: dict[str, Any]) -> tuple[str, ...]:
+    """``ldhName`` of each ``nameservers`` entry (RFC 9083 §5.2), or ``()``.
+
+    Lowercase, without the trailing dot, deduplicated, in registry order;
+    malformed entries are skipped.
+    """
+    entries = body.get("nameservers")
+    if not isinstance(entries, list):
+        return ()
+    return normalize_nameservers(
+        entry.get("ldhName") for entry in entries if isinstance(entry, dict)
+    )
+
+
+def parse_rdap_registrar(body: dict[str, Any]) -> str:
+    """The name of the top-level entity with role ``registrar`` (RFC 9083 §5.1).
+
+    Its vCard ``fn`` (RFC 7095 jCard) when non-empty, else its ``handle``
+    (for gTLDs, the IANA registrar ID); ``""`` if there is none.
+    """
+    entities = body.get("entities")
+    if not isinstance(entities, list):
+        return ""
+    for entity in entities:
+        if not isinstance(entity, dict):
+            continue
+        roles = entity.get("roles")
+        if not isinstance(roles, list) or not any(
+            isinstance(role, str) and role.strip().lower() == "registrar" for role in roles
+        ):
+            continue
+        name = _vcard_fn(entity.get("vcardArray")) or normalize_name(entity.get("handle"))
+        if name:
+            return name
+    return ""
+
+
+def _vcard_fn(vcard: object) -> str | None:
+    """The first non-empty ``fn`` of a jCard ``["vcard", [[name, params, type, value]...]]``."""
+    if not isinstance(vcard, list) or len(vcard) < 2 or not isinstance(vcard[1], list):
+        return None
+    for prop in vcard[1]:
+        if isinstance(prop, list) and len(prop) >= 4 and prop[0] == "fn":
+            name = normalize_name(prop[3])
+            if name:
+                return name
     return None
 
 

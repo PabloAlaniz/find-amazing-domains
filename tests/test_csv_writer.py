@@ -14,6 +14,16 @@ def _result(
     return DomainCheckResult(domain=hack, availability=availability, error_message=error)
 
 
+EMPTY_DETAILS = {
+    "registered_at": "",
+    "registrar": "",
+    "nameservers": "",
+    "parked_hint": "",
+    "dns_nameservers": "",
+    "dns_conflict": "false",
+}
+
+
 def _read_rows(path: Path) -> list[dict[str, str]]:
     with path.open(encoding="utf-8", newline="") as f:
         return list(csv.DictReader(f))
@@ -45,6 +55,7 @@ class TestCsvResultWriter:
                 "error_message": "",
                 "statuses": "",
                 "expires_at": "",
+                **EMPTY_DETAILS,
             },
             {
                 "fqdn": "gra.to",
@@ -56,6 +67,7 @@ class TestCsvResultWriter:
                 "error_message": "",
                 "statuses": "",
                 "expires_at": "",
+                **EMPTY_DETAILS,
             },
             {
                 "fqdn": "abe.to",
@@ -67,6 +79,7 @@ class TestCsvResultWriter:
                 "error_message": "boom, timeout",
                 "statuses": "",
                 "expires_at": "",
+                **EMPTY_DETAILS,
             },
         ]
 
@@ -100,4 +113,4 @@ class TestCsvResultWriter:
         assert not buf.closed
         lines = buf.getvalue().splitlines()
         assert lines[0] == ",".join(CSV_FIELDS)
-        assert lines[1] == "pla.to,pla.to,plato,pla,to,available,,,"
+        assert lines[1] == "pla.to,pla.to,plato,pla,to,available,,,,,,,,,false"

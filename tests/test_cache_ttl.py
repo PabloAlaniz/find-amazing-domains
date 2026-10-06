@@ -233,6 +233,10 @@ class TestMigration:
                 "checked_at",
                 "statuses",
                 "expires_at",
+                "registered_at",
+                "registrar",
+                "nameservers",
+                "parked_hint",
             ]
             assert conn.execute("PRAGMA user_version").fetchone() == (SCHEMA_VERSION,)
         finally:

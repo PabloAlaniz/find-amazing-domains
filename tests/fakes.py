@@ -49,11 +49,15 @@ class FakeRegistrarClient(RegistrarClient):
 
 @dataclass(frozen=True)
 class Answer:
-    """A scripted answer with registration details (statuses, expiration)."""
+    """A scripted answer with registration details (statuses, dates, registrar, NS)."""
 
     availability: Availability = Availability.TAKEN
     statuses: tuple[str, ...] = ()
     expires_at: datetime | None = None
+    registered_at: datetime | None = None
+    registrar: str = ""
+    nameservers: tuple[str, ...] = ()
+    parked_hint: str = ""
 
 
 Outcome = Availability | Answer | type[BaseException]
@@ -97,6 +101,10 @@ class ScriptedRegistrar(RegistrarClient):
             error_message=message,
             statuses=outcome.statuses,
             expires_at=outcome.expires_at,
+            registered_at=outcome.registered_at,
+            registrar=outcome.registrar,
+            nameservers=outcome.nameservers,
+            parked_hint=outcome.parked_hint,
         )
 
     def close(self) -> None:

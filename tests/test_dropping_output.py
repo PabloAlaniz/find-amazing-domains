@@ -41,7 +41,7 @@ class TestFileWriters:
             "availability",
             "error_message",
         )
-        assert CSV_FIELDS[7:] == ("statuses", "expires_at")
+        assert CSV_FIELDS[7:9] == ("statuses", "expires_at")
 
     def test_csv_row(self) -> None:
         buf = io.StringIO()
@@ -62,7 +62,7 @@ class TestFileWriters:
         first, second = (json.loads(line) for line in buf.getvalue().splitlines())
         assert first["statuses"] == ["server hold", "pending delete"]
         assert first["expires_at"] == "2026-11-02T08:30:00Z"
-        assert list(first)[-2:] == ["statuses", "expires_at"]
+        assert list(first)[7:9] == ["statuses", "expires_at"]
         assert second["statuses"] == []
         assert second["expires_at"] is None
 
@@ -91,9 +91,9 @@ class TestConsole:
         ConsoleResultWriter().write_result(DROPPING)
         assert capsys.readouterr().out == ""
 
-    def test_plain_taken_line_is_unchanged(self, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_plain_taken_line_shows_expiry(self, capsys: pytest.CaptureFixture[str]) -> None:
         ConsoleResultWriter(show_taken=True).write_result(_taken("pla", ("active",), EXPIRES))
-        assert capsys.readouterr().out == "  TAKEN:     pla.to\n"
+        assert capsys.readouterr().out == "  TAKEN:     pla.to (expires 2026-11-02)\n"
 
 
 class TestSummary:

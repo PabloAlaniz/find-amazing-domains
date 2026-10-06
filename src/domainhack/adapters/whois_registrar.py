@@ -12,9 +12,14 @@ from enum import Enum
 from typing import Protocol
 
 from domainhack.adapters._circuit import HostCircuitBreaker
-from domainhack.adapters._registration import normalize_statuses, parse_datetime_utc
+from domainhack.adapters._registration import (
+    normalize_nameservers,
+    normalize_statuses,
+    parse_datetime_utc,
+)
 from domainhack.adapters._throttle import DEFAULT_THROTTLE, HostThrottle, full_jitter_backoff
 from domainhack.domain.entities import Availability, DomainCheckResult, DomainHack
+from domainhack.domain.parking import parking_hint_for
 from domainhack.ports.registrar import RegistrarClient
 
 WHOIS_PORT = 43
@@ -29,6 +34,14 @@ _WHOIS_EXPIRY = re.compile(
     r"^[ \t]*(?:Registry[ \t]+)?(?:Expiry|Expiration|Expire)[ \t]+Date:[ \t]*(\S[^\r\n]*?)[ \t]*$",
     re.M | re.I,
 )
+_WHOIS_CREATION = re.compile(
+    r"^[ \t]*(?:Creation|Created|Registration)(?:[ \t]+(?:Date|On|Time))?:"
+    r"[ \t]*(\S[^\r\n]*?)[ \t]*$",
+    re.M | re.I,
+)
+# "Name Server: ns1.x.com" (gTLD style) or "nserver: ns1.x.com 192.0.2.1" (RIPE style);
+# only the first token is the host.
+_WHOIS_NAMESERVER = re.compile(r"^[ \t]*(?:Name[ \t]?Server|nserver):[ \t]*(\S+)", re.M | re.I)
 
 
 @dataclass(frozen=True)
@@ -214,7 +227,9 @@ class WhoisRegistrarClient(RegistrarClient):
     (or ERROR if the server has a ``taken`` pattern that does not match);
     empty answers, socket errors, timeouts and rate-limit text -> ERROR.
     ``raw_title`` holds ``"whois <host>"``. TAKEN results carry EPP status
-    codes and an ISO 8601 expiry date when the reply has them (best effort).
+    codes, ISO 8601 creation and expiry dates and ``Name Server:`` /
+    ``nserver:`` hosts (plus the parking service they point to) when the
+    reply has them (best effort).
 
     Queries to one host are spaced by max(``delay``, the server's
     ``min_interval``), adapted by the shared ``throttle``: timeouts and
@@ -322,12 +337,16 @@ class WhoisRegistrarClient(RegistrarClient):
             return _error(domain, message, title), _Outcome.SLOW_DOWN
         if server.taken is not None and not server.taken.search(text):
             return _error(domain, "Unrecognised WHOIS response", title), _Outcome.ANSWERED
+        nameservers = parse_whois_nameservers(text)
         taken = DomainCheckResult(
             domain=domain,
             availability=Availability.TAKEN,
             raw_title=title,
             statuses=parse_whois_statuses(text),
             expires_at=parse_whois_expiration(text),
+            registered_at=parse_whois_creation(text),
+            nameservers=nameservers,
+            parked_hint=parking_hint_for(nameservers),
         )
         return taken, _Outcome.ANSWERED
 
@@ -352,6 +371,20 @@ def parse_whois_expiration(text: str) -> datetime | None:
         if when is not None:
             return when
     return None
+
+
+def parse_whois_creation(text: str) -> datetime | None:
+    """The first ISO 8601 creation date (``Creation Date:``, ``Created:``...), or None."""
+    for match in _WHOIS_CREATION.finditer(text):
+        when = parse_datetime_utc(match.group(1))
+        if when is not None:
+            return when
+    return None
+
+
+def parse_whois_nameservers(text: str) -> tuple[str, ...]:
+    """Hosts from ``Name Server:`` / ``nserver:`` lines: lowercase, deduplicated, in order."""
+    return normalize_nameservers(m.group(1) for m in _WHOIS_NAMESERVER.finditer(text))
 
 
 class _Outcome(Enum):

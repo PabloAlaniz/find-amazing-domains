@@ -1,4 +1,6 @@
-"""Helpers for registration details (statuses, expiration) shared by adapters.
+"""Helpers for registration details shared by adapters.
+
+Statuses, dates, nameservers and the sponsoring registrar's name.
 
 Everything here is defensive: unexpected input yields ``None`` (or is
 skipped), never an exception, so a malformed detail can never turn a TAKEN
@@ -23,6 +25,13 @@ _ISO_DATETIME = re.compile(
 _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z])(?=[A-Z])")
 _NON_WORD = re.compile(r"[\s_-]+")
 _MAX_STATUS_LENGTH = 64
+# A host name as registries publish it, after lowercasing and dropping the
+# trailing dot. Underscores are tolerated (some registries have them).
+_HOSTNAME = re.compile(
+    r"[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?(?:\.[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)*"
+)
+_MAX_HOSTNAME_LENGTH = 253
+_MAX_NAME_LENGTH = 200
 
 
 def parse_datetime_utc(value: object) -> datetime | None:
@@ -87,3 +96,33 @@ def normalize_statuses(values: Iterable[object]) -> tuple[str, ...]:
         if status is not None:
             seen.setdefault(status, None)
     return tuple(seen)
+
+
+def normalize_hostname(value: object) -> str | None:
+    """``"NS1.Example.COM."`` -> ``"ns1.example.com"``; None if it is not a host name."""
+    if not isinstance(value, str):
+        return None
+    host = value.strip().rstrip(".").lower()
+    if not host or len(host) > _MAX_HOSTNAME_LENGTH or not _HOSTNAME.fullmatch(host):
+        return None
+    return host
+
+
+def normalize_nameservers(values: Iterable[object]) -> tuple[str, ...]:
+    """Normalize every host name, dropping invalid ones and duplicates (order kept)."""
+    seen: dict[str, None] = {}
+    for value in values:
+        host = normalize_hostname(value)
+        if host is not None:
+            seen.setdefault(host, None)
+    return tuple(seen)
+
+
+def normalize_name(value: object) -> str | None:
+    """A short single-line display name (e.g. a registrar's), stripped; None otherwise."""
+    if not isinstance(value, str):
+        return None
+    name = " ".join(value.split())
+    if not name or len(name) > _MAX_NAME_LENGTH or not name.isprintable():
+        return None
+    return name

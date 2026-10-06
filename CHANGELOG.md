@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Details for taken names: RDAP registration date, sponsoring registrar (vCard
+  `fn`, else the entity handle) and nameservers; WHOIS creation dates in ISO
+  form and `Name Server:`/`nserver:` hosts (best effort). Malformed parts are
+  ignored and never turn a taken name into an error.
+- Parking detection: `domain/parking.py` maps nameservers to the parking or
+  aftermarket service behind them (`domainrecover`, `sedo`, `parkingcrew`,
+  `bodis`, `afternic`, `dan.com`, `hugedomains`, `godaddy-parked`,
+  `namebright`...). `--show-taken` prints
+  `TAKEN: sumanda.com (since 2015-11-12, expires 2026-11-12, parked: domainrecover)`,
+  showing only the known parts.
+- CSV and JSON Lines gain `registered_at`, `registrar`, `nameservers`,
+  `parked_hint`, `dns_nameservers` and `dns_conflict`, appended at the end.
+- The result cache stores registration date, registrar, nameservers and parking
+  hint (schema version 2; older cache files are upgraded in place). DNS
+  evidence is never cached.
+
 - Parallel checks across registry hosts: `check --parallel N` (default 4)
   checks up to N hosts at once, never more than one request in flight per
   host. TLDs that share a host (`.io`/`.sh`/`.ac`/`.me`) share its lane, so

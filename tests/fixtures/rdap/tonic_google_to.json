@@ -1,0 +1,18 @@
+{
+  "objectClassName": "domain",
+  "handle": "D0000000-TO",
+  "ldhName": "google.to",
+  "unicodeName": "google.to",
+  "rdapConformance": ["rdap_level_0"],
+  "status": [
+    "client delete prohibited",
+    "client transfer prohibited",
+    "client update prohibited"
+  ],
+  "events": [
+    {"eventAction": "registration", "eventActor": "escrow_import", "eventDate": "2018-11-30T07:38:29.000Z"},
+    {"eventAction": "expiration", "eventDate": "2026-11-30T07:38:29.000Z"},
+    {"eventAction": "last changed", "eventDate": "2025-11-03T10:24:53.232Z"},
+    {"eventAction": "last update of RDAP database", "eventDate": "2026-10-06T22:03:25.503Z"}
+  ]
+}

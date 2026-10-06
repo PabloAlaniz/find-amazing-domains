@@ -9,7 +9,11 @@ from typing import Protocol
 
 from domainhack import __version__
 from domainhack.adapters._circuit import HostCircuitBreaker
-from domainhack.adapters.cached_registrar import CachedRegistrarClient
+from domainhack.adapters.cached_registrar import (
+    AVAILABLE_TTL_SECONDS,
+    CachedRegistrarClient,
+    CacheTtlPolicy,
+)
 from domainhack.adapters.composite_writer import CompositeResultWriter
 from domainhack.adapters.console_writer import ConsoleResultWriter
 from domainhack.adapters.csv_writer import CsvResultWriter
@@ -209,6 +213,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Seconds between requests (default: 1.0)",
     )
     chk.add_argument("--show-taken", action="store_true", help="Also print taken domains")
+    chk.add_argument(
+        "--show-dropping",
+        action="store_true",
+        help="Also print taken domains in redemption or pending delete, which may "
+        "soon be free (implied by --show-taken)",
+    )
     chk.add_argument("--dry-run", action="store_true", help="List domains without checking")
     chk.add_argument(
         "--no-progress",
@@ -236,9 +246,19 @@ def build_parser() -> argparse.ArgumentParser:
     chk.add_argument(
         "--cache-ttl",
         type=_non_negative_float,
-        default=168.0,
+        default=None,
         metavar="HOURS",
-        help="Reuse cached results younger than HOURS (default: 168 = 7 days)",
+        help="Never reuse cached results older than HOURS (default: no cap). Without it, "
+        "taken names are kept until their expiration date (at most 90 days; 30 days "
+        "when unknown), and dropping names for 24 hours",
+    )
+    chk.add_argument(
+        "--cache-ttl-available",
+        type=_non_negative_float,
+        default=AVAILABLE_TTL_SECONDS / 3600,
+        metavar="HOURS",
+        help="Reuse cached AVAILABLE results younger than HOURS "
+        f"(default: {AVAILABLE_TTL_SECONDS / 3600:g})",
     )
     chk.add_argument(
         "--cache-path",
@@ -332,7 +352,9 @@ def _resolve_output_format(output: Path, fmt: str | None) -> str:
 
 
 def _build_writer(args: argparse.Namespace) -> ResultWriter:
-    console = ConsoleResultWriter(show_taken=args.show_taken)
+    console = ConsoleResultWriter(
+        show_taken=args.show_taken, show_dropping=getattr(args, "show_dropping", False)
+    )
     output: Path | None = getattr(args, "output", None)
     if output is None:
         return console
@@ -397,9 +419,17 @@ def _build_registrar(
     if getattr(args, "no_cache", False):
         return registrar
     return CachedRegistrarClient(
-        registrar,
-        path=getattr(args, "cache_path", None),
-        ttl_seconds=getattr(args, "cache_ttl", 168.0) * 3600,
+        registrar, path=getattr(args, "cache_path", None), ttl=_cache_ttl_policy(args)
+    )
+
+
+def _cache_ttl_policy(args: argparse.Namespace) -> CacheTtlPolicy:
+    """``--cache-ttl-available`` sets the AVAILABLE TTL; ``--cache-ttl`` caps every TTL."""
+    cap_hours: float | None = getattr(args, "cache_ttl", None)
+    available_hours: float = getattr(args, "cache_ttl_available", AVAILABLE_TTL_SECONDS / 3600)
+    return CacheTtlPolicy(
+        available=available_hours * 3600,
+        cap=None if cap_hours is None else cap_hours * 3600,
     )
 
 
@@ -464,9 +494,10 @@ def _report(summary: CheckSummary) -> int:
             f"({summary.available} available, {summary.errors} errors)."
         )
         return EXIT_INTERRUPTED
+    dropping = f" ({summary.dropping} dropping)" if summary.dropping else ""
     _stderr(
         f"\nDone. Checked {summary.checked} domains: {summary.available} available, "
-        f"{summary.taken} taken, {summary.errors} errors."
+        f"{summary.taken} taken{dropping}, {summary.errors} errors."
     )
     return EXIT_FAILURE if summary.errors else EXIT_OK
 

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Registration details for taken names: RDAP `status` values and the
+  `expiration` event (WHOIS: EPP status codes and ISO expiry dates, best
+  effort). Malformed parts are ignored and never turn a taken name into an error.
+- "Dropping" names (redemption period or pending delete) print as
+  `TAKEN (dropping: pending delete, expires 2026-11-02): x.to` with
+  `--show-taken`, or alone with the new `--show-dropping`. The summary counts them.
+- CSV and JSON Lines output gain `statuses` and `expires_at` columns, appended
+  at the end so existing column positions are unchanged.
+- `--cache-ttl-available HOURS` (default 24).
+
 - `check --output FILE` with `--format {csv,json}` (CSV or JSON Lines), inferred
   from the `.csv` / `.json` / `.jsonl` extension. Results also go to the console.
 - Multi-TLD support: `--tld` accepts a comma-separated list (`to,io,in`). A TLD
@@ -17,8 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - tqdm progress bar for `check` on stderr, hidden automatically when stderr is not
   a TTY. `--no-progress` turns it off.
 - SQLite result cache for AVAILABLE/TAKEN results, on by default. ERROR results are
-  never cached. Options: `--no-cache`, `--cache-ttl HOURS` (default 168) and
-  `--cache-path`.
+  never cached. Options: `--no-cache`, `--cache-ttl HOURS`, `--cache-ttl-available
+  HOURS` and `--cache-path`.
 - RDAP and WHOIS registrar adapters with a per-TLD catalog. Lookups try RDAP first
   (IANA bootstrap plus overrides), then fall back to port-43 WHOIS with per-TLD
   "not found" patterns. Requests are paced per host.
@@ -44,6 +54,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Split cache TTLs instead of one 7-day TTL: available names 24 h, dropping names
+  24 h, taken names until their expiration date (at most 90 days; 30 days when
+  unknown). `--cache-ttl HOURS` now caps all of them and has no default. The
+  cache stores statuses and expiration; older cache files are migrated in place
+  (`ALTER TABLE ADD COLUMN`, `PRAGMA user_version = 1`).
+- The cache commits in batches (every 25 rows or 10 s, and on close) instead of
+  once per row.
 - Honest User-Agent:
   `domainhack/<version> (+https://github.com/PabloAlaniz/find-amazing-domains)`.
   It is built from `domainhack.__version__`, which is the single source of the

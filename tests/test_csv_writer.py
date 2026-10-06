@@ -43,6 +43,8 @@ class TestCsvResultWriter:
                 "tld": "to",
                 "availability": "available",
                 "error_message": "",
+                "statuses": "",
+                "expires_at": "",
             },
             {
                 "fqdn": "gra.to",
@@ -52,6 +54,8 @@ class TestCsvResultWriter:
                 "tld": "to",
                 "availability": "taken",
                 "error_message": "",
+                "statuses": "",
+                "expires_at": "",
             },
             {
                 "fqdn": "abe.to",
@@ -61,6 +65,8 @@ class TestCsvResultWriter:
                 "tld": "to",
                 "availability": "error",
                 "error_message": "boom, timeout",
+                "statuses": "",
+                "expires_at": "",
             },
         ]
 
@@ -94,4 +100,4 @@ class TestCsvResultWriter:
         assert not buf.closed
         lines = buf.getvalue().splitlines()
         assert lines[0] == ",".join(CSV_FIELDS)
-        assert lines[1] == "pla.to,pla.to,plato,pla,to,available,"
+        assert lines[1] == "pla.to,pla.to,plato,pla,to,available,,,"

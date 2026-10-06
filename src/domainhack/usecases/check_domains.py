@@ -17,6 +17,7 @@ class CheckSummary:
     taken: int = 0
     errors: int = 0
     interrupted: bool = False
+    dropping: int = 0  # TAKEN names in redemption or pending delete (included in ``taken``)
 
     @property
     def checked(self) -> int:
@@ -44,6 +45,7 @@ class CheckDomainsUseCase:
         ``interrupted=True``. Any other exception propagates after the flush.
         """
         counts = dict.fromkeys(Availability, 0)
+        dropping = 0
         interrupted = False
         try:
             self._progress.start(total)
@@ -52,6 +54,7 @@ class CheckDomainsUseCase:
                     result = self._registrar.check_availability(domain)
                     self._writer.write_result(result)
                     counts[result.availability] += 1
+                    dropping += result.is_dropping
                     self._progress.advance(result)
             except KeyboardInterrupt:
                 interrupted = True
@@ -66,4 +69,5 @@ class CheckDomainsUseCase:
             taken=counts[Availability.TAKEN],
             errors=counts[Availability.ERROR],
             interrupted=interrupted,
+            dropping=dropping,
         )

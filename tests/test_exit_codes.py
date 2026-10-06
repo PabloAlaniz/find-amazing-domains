@@ -97,9 +97,9 @@ class TestInterrupt:
         assert registrar.calls == ["a.to", "b.to", "c.to"]
         assert registrar.closed
         assert out.read_text(encoding="utf-8").splitlines() == [
-            "fqdn,display,word,sld,tld,availability,error_message",
-            "a.to,a.to,ato,a,to,available,",
-            "b.to,b.to,bto,b,to,taken,",
+            "fqdn,display,word,sld,tld,availability,error_message,statuses,expires_at",
+            "a.to,a.to,ato,a,to,available,,,",
+            "b.to,b.to,bto,b,to,taken,,,",
         ]
         captured = capsys.readouterr()
         assert "Done" not in captured.out + captured.err

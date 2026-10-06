@@ -7,6 +7,7 @@ import subprocess
 import sys
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -43,14 +44,24 @@ class FakeRegistrarClient(RegistrarClient):
         return self._results[domain.fqdn]
 
 
-Outcome = Availability | type[BaseException]
+@dataclass(frozen=True)
+class Answer:
+    """A scripted answer with registration details (statuses, expiration)."""
+
+    availability: Availability = Availability.TAKEN
+    statuses: tuple[str, ...] = ()
+    expires_at: datetime | None = None
+
+
+Outcome = Availability | Answer | type[BaseException]
 
 
 class ScriptedRegistrar(RegistrarClient):
     """Answers from a script keyed by fqdn or SLD, recording calls and ``close()``.
 
     Unscripted domains get ``default``. A script value that is an exception
-    class is raised instead of answering. ERROR results carry ``"boom"``.
+    class is raised instead of answering; an ``Answer`` adds statuses and an
+    expiration date. ERROR results carry ``"boom"``.
     """
 
     def __init__(
@@ -71,11 +82,18 @@ class ScriptedRegistrar(RegistrarClient):
     def check_availability(self, domain: DomainHack) -> DomainCheckResult:
         self.calls.append(domain.fqdn)
         outcome = self._script.get(domain.fqdn, self._script.get(domain.sld, self._default))
-        if not isinstance(outcome, Availability):
+        if isinstance(outcome, Availability):
+            outcome = Answer(outcome)
+        if not isinstance(outcome, Answer):
             raise outcome()
-        message = "boom" if outcome is Availability.ERROR else ""
+        message = "boom" if outcome.availability is Availability.ERROR else ""
         return DomainCheckResult(
-            domain=domain, availability=outcome, raw_title=self._raw_title, error_message=message
+            domain=domain,
+            availability=outcome.availability,
+            raw_title=self._raw_title,
+            error_message=message,
+            statuses=outcome.statuses,
+            expires_at=outcome.expires_at,
         )
 
     def close(self) -> None:

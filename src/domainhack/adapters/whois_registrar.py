@@ -6,9 +6,11 @@ import re
 import socket
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 
 from domainhack.adapters._circuit import HostCircuitBreaker
+from domainhack.adapters._registration import normalize_statuses, parse_datetime_utc
 from domainhack.adapters._throttle import DEFAULT_THROTTLE, HostThrottle
 from domainhack.domain.entities import Availability, DomainCheckResult, DomainHack
 from domainhack.ports.registrar import RegistrarClient
@@ -18,6 +20,13 @@ DEFAULT_CONNECT_TIMEOUT = 5.0
 # Most registries document roughly 1 query/s per client (see registrar research).
 DEFAULT_MIN_INTERVAL = 1.0
 _MAX_RESPONSE_BYTES = 256 * 1024
+
+# Best-effort registration details for TAKEN replies (formats vary by registry).
+_WHOIS_STATUS = re.compile(r"^[ \t]*(?:Domain[ \t]+)?Status:[ \t]*([a-z]+(?:[A-Z][a-z]+)*)\b", re.M)
+_WHOIS_EXPIRY = re.compile(
+    r"^[ \t]*(?:Registry[ \t]+)?(?:Expiry|Expiration|Expire)[ \t]+Date:[ \t]*(\S[^\r\n]*?)[ \t]*$",
+    re.M | re.I,
+)
 
 
 @dataclass(frozen=True)
@@ -202,7 +211,8 @@ class WhoisRegistrarClient(RegistrarClient):
     Not-found pattern -> AVAILABLE; any other non-empty answer -> TAKEN
     (or ERROR if the server has a ``taken`` pattern that does not match);
     empty answers, socket errors, timeouts and rate-limit text -> ERROR.
-    ``raw_title`` holds ``"whois <host>"``.
+    ``raw_title`` holds ``"whois <host>"``. TAKEN results carry EPP status
+    codes and an ISO 8601 expiry date when the reply has them (best effort).
 
     Queries to one host are spaced by max(``delay``, the server's
     ``min_interval``). Empty answers, socket errors, timeouts and rate-limit
@@ -275,7 +285,35 @@ class WhoisRegistrarClient(RegistrarClient):
         self._breaker.record_success(server.host)
         if server.taken is not None and not server.taken.search(text):
             return _error(domain, "Unrecognised WHOIS response", title)
-        return DomainCheckResult(domain=domain, availability=Availability.TAKEN, raw_title=title)
+        return DomainCheckResult(
+            domain=domain,
+            availability=Availability.TAKEN,
+            raw_title=title,
+            statuses=parse_whois_statuses(text),
+            expires_at=parse_whois_expiration(text),
+        )
+
+
+def parse_whois_statuses(text: str) -> tuple[str, ...]:
+    """EPP status codes from ``Status:`` / ``Domain Status:`` lines, best effort.
+
+    Only a leading camelCase EPP-style code is taken (``pendingDelete``,
+    ``ok``, ``clientTransferProhibited https://icann.org/epp#...``); free
+    text such as ``Status: NOT AVAILABLE`` is ignored.
+    """
+    return normalize_statuses(m.group(1) for m in _WHOIS_STATUS.finditer(text))
+
+
+def parse_whois_expiration(text: str) -> datetime | None:
+    """The first ISO 8601 expiry date (``Registry Expiry Date:``, ``Expire Date:``...), or None.
+
+    Other date formats (``30-Nov-2026``, ``30.11.2026``...) are ignored.
+    """
+    for match in _WHOIS_EXPIRY.finditer(text):
+        when = parse_datetime_utc(match.group(1))
+        if when is not None:
+            return when
+    return None
 
 
 def _error(domain: DomainHack, message: str, title: str = "") -> DomainCheckResult:

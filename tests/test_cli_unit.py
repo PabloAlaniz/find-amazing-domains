@@ -7,6 +7,7 @@ import pytest
 
 from domainhack.adapters.composite_writer import CompositeResultWriter
 from domainhack.adapters.console_writer import ConsoleResultWriter
+from domainhack.adapters.csv_writer import CSV_FIELDS
 from domainhack.cli.app import (
     OutputFormatError,
     _build_domains,
@@ -192,7 +193,7 @@ class TestBuildWriter:
         writer = _build_writer(self._args(output=out))
         assert isinstance(writer, CompositeResultWriter)
         self._write_one(writer)
-        assert out.read_text(encoding="utf-8").splitlines()[1] == "a.to,a.to,ato,a,to,taken,"
+        assert out.read_text(encoding="utf-8").splitlines()[1] == "a.to,a.to,ato,a,to,taken,,,"
 
     def test_composite_with_json(self, tmp_path: Path) -> None:
         out = tmp_path / "r.out"
@@ -223,8 +224,8 @@ class TestCmdCheckOutput:
         out = tmp_path / "results.csv"
         cmd_check(self._args(out), catalog=self._catalog())
         lines = out.read_text(encoding="utf-8").splitlines()
-        assert lines[0] == "fqdn,display,word,sld,tld,availability,error_message"
-        assert lines[1:] == ["a.to,a.to,ato,a,to,available,", "b.to,b.to,bto,b,to,available,"]
+        assert lines[0] == ",".join(CSV_FIELDS)
+        assert lines[1:] == ["a.to,a.to,ato,a,to,available,,,", "b.to,b.to,bto,b,to,available,,,"]
         # Console output is still produced alongside the file.
         assert "AVAILABLE: a.to" in capsys.readouterr().out
 

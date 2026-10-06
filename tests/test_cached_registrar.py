@@ -8,9 +8,15 @@ import pytest
 
 from domainhack.adapters._throttle import HostThrottle
 from domainhack.adapters.cached_registrar import (
+    AVAILABLE_TTL_SECONDS,
     CACHE_RAW_TITLE,
-    DEFAULT_TTL_SECONDS,
+    DAY,
+    DROPPING_TTL_SECONDS,
+    HOUR,
+    TAKEN_MAX_TTL_SECONDS,
+    TAKEN_TTL_SECONDS,
     CachedRegistrarClient,
+    CacheTtlPolicy,
     default_cache_path,
 )
 from domainhack.adapters.rdap_registrar import RdapRegistrarClient
@@ -53,7 +59,9 @@ class TestCachedRegistrarClient:
     def test_ttl_expiry(self, db_path: Path) -> None:
         clock = FakeClock(NOW)
         inner = ScriptedRegistrar({"pla.to": Availability.TAKEN})
-        with CachedRegistrarClient(inner, path=db_path, ttl_seconds=60, clock=clock) as cached:
+        with CachedRegistrarClient(
+            inner, path=db_path, ttl=CacheTtlPolicy(cap=60), clock=clock
+        ) as cached:
             cached.check_availability(hack("pla"))
             clock.now += 60
             assert cached.check_availability(hack("pla")).raw_title == CACHE_RAW_TITLE
@@ -195,8 +203,12 @@ class TestCachedRegistrarClient:
         assert inner.closed
         assert not db_path.parent.exists()
 
-    def test_default_ttl_is_seven_days(self) -> None:
-        assert DEFAULT_TTL_SECONDS == 7 * 24 * 3600
+    def test_default_ttls(self) -> None:
+        assert AVAILABLE_TTL_SECONDS == 24 * HOUR
+        assert DROPPING_TTL_SECONDS == 24 * HOUR
+        assert TAKEN_TTL_SECONDS == 30 * DAY
+        assert TAKEN_MAX_TTL_SECONDS == 90 * DAY
+        assert CacheTtlPolicy().cap is None
 
 
 class TestDefaultCachePath:
@@ -215,7 +227,9 @@ class TestCliCacheFlags:
     def test_defaults(self) -> None:
         args = build_parser().parse_args(["check", "--range-max", "1"])
         assert args.no_cache is False
-        assert args.cache_ttl == 168.0
+        assert args.cache_ttl is None
+        assert args.cache_ttl_available == 24.0
+        assert args.show_dropping is False
         assert args.cache_path is None
 
     def test_flags_parsed(self) -> None:

@@ -23,17 +23,18 @@ class RegistrarRouter(RegistrarClient):
         self._factory = factory
         self._clients: dict[TLD, RegistrarClient | None] = {}
 
-    def _client_for(self, tld: TLD) -> RegistrarClient | None:
+    def client_for(self, tld: TLD) -> RegistrarClient | None:
+        """The client for ``tld`` (created on first use), or None if unsupported."""
         if tld not in self._clients:
             self._clients[tld] = self._factory(tld)
         return self._clients[tld]
 
     def supports(self, tld: TLD) -> bool:
         """True if some registrar client can check domains under ``tld``."""
-        return self._client_for(tld) is not None
+        return self.client_for(tld) is not None
 
     def check_availability(self, domain: DomainHack) -> DomainCheckResult:
-        client = self._client_for(domain.tld)
+        client = self.client_for(domain.tld)
         if client is None:
             return DomainCheckResult(
                 domain=domain,

@@ -14,7 +14,6 @@ from domainhack.adapters._registration import (
     normalize_statuses,
     parse_datetime_utc,
 )
-from domainhack.adapters._throttle import HostThrottle
 from domainhack.adapters.rdap_registrar import (
     RdapRegistrarClient,
     parse_rdap_expiration,
@@ -32,7 +31,7 @@ from domainhack.domain.entities import (
     DomainCheckResult,
     DomainHack,
 )
-from tests.fakes import FakeClock, hack
+from tests.fakes import FakeClock, FakeRandom, fake_throttle, hack
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "rdap"
 
@@ -53,8 +52,8 @@ def _rdap_check(body: object, domain: DomainHack) -> DomainCheckResult:
         "https://rdap.example.test/",
         delay=0.0,
         client=http,
-        throttle=HostThrottle(clock=clock.time, sleep=clock.sleep),
-        sleep=clock.sleep,
+        throttle=fake_throttle(clock),
+        random=FakeRandom(),
     )
     return client.check_availability(domain)
 
@@ -323,7 +322,7 @@ class TestWhoisDetails:
             delay=0.0,
             servers={"in": _server("whois.example.test", r"is available for registration")},
             connect=lambda address, timeout: Conn(),
-            throttle=HostThrottle(clock=clock.time, sleep=clock.sleep),
+            throttle=fake_throttle(clock),
         )
         result = client.check_availability(hack("pla", "in"))
         assert result.availability is Availability.TAKEN

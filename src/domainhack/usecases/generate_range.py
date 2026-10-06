@@ -88,15 +88,20 @@ class RangeCandidatesUseCase:
                     self.skipped += 1
 
     def total(self) -> int:
-        """Exact number of candidates ``execute()`` yields.
+        """Exact number of candidates ``execute()`` yields."""
+        return sum(self.totals_by_tld().values())
+
+    def totals_by_tld(self) -> dict[TLD, int]:
+        """Exact number of candidates ``execute()`` yields for each TLD.
 
         Generated SLDs are 1-6 lowercase ASCII letters, so only the rules'
         ``min_length`` and ``forbidden_prefixes`` can reject them.
         """
-        total = 0
+        totals: dict[TLD, int] = {}
         for tld in self._tlds:
             rule = label_rule_for(tld.suffix)
-            total += self._source.count(min_length=rule.min_length)
+            count = self._source.count(min_length=rule.min_length)
             for prefix in rule.forbidden_prefixes:
-                total -= self._source.count(min_length=rule.min_length, prefix=prefix)
-        return total
+                count -= self._source.count(min_length=rule.min_length, prefix=prefix)
+            totals[tld] = count
+        return totals

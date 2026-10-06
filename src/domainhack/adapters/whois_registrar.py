@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+import random as _random
 import re
 import socket
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from typing import Protocol
 
 from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters._registration import normalize_statuses, parse_datetime_utc
-from domainhack.adapters._throttle import DEFAULT_THROTTLE, HostThrottle
+from domainhack.adapters._throttle import DEFAULT_THROTTLE, HostThrottle, full_jitter_backoff
 from domainhack.domain.entities import Availability, DomainCheckResult, DomainHack
 from domainhack.ports.registrar import RegistrarClient
 
@@ -215,9 +217,12 @@ class WhoisRegistrarClient(RegistrarClient):
     codes and an ISO 8601 expiry date when the reply has them (best effort).
 
     Queries to one host are spaced by max(``delay``, the server's
-    ``min_interval``). Empty answers, socket errors, timeouts and rate-limit
-    text count as failures for the per-host circuit ``breaker``; while a
-    host's circuit is open its domains get an ERROR without any network call.
+    ``min_interval``), adapted by the shared ``throttle``: timeouts and
+    rate-limit text slow the host down and are retried at most once
+    (``max_retries`` is capped at 1) after a full-jitter backoff. Empty
+    answers, socket errors, timeouts and rate-limit text that persist count
+    as one failure for the per-host circuit ``breaker``; while a host's
+    circuit is open its domains get an ERROR without any network call.
     """
 
     def __init__(
@@ -230,6 +235,8 @@ class WhoisRegistrarClient(RegistrarClient):
         connect_timeout: float = DEFAULT_CONNECT_TIMEOUT,
         throttle: HostThrottle | None = None,
         breaker: HostCircuitBreaker | None = None,
+        max_retries: int = 1,
+        random: Callable[[], float] = _random.random,
     ) -> None:
         self._delay = delay
         self._timeout = timeout
@@ -238,12 +245,19 @@ class WhoisRegistrarClient(RegistrarClient):
         self._servers = servers
         self._connect = connect
         self._throttle = throttle if throttle is not None else DEFAULT_THROTTLE
+        # Never more than one retry: WHOIS servers punish eager clients.
+        self._max_retries = min(max_retries, 1)
+        self._random = random
 
     def supports(self, tld: str) -> bool:
         return tld.lower() in self._servers
 
+    def server_for(self, tld: str) -> WhoisServer | None:
+        """The server that answers for ``tld``, or None if it is not configured."""
+        return self._servers.get(tld.lower())
+
     def check_availability(self, domain: DomainHack) -> DomainCheckResult:
-        server = self._servers.get(domain.tld.suffix.lower())
+        server = self.server_for(domain.tld.suffix)
         if server is None:
             return _error(domain, f"No WHOIS server configured for .{domain.tld.suffix}")
         title = f"whois {server.host}"
@@ -256,7 +270,32 @@ class WhoisRegistrarClient(RegistrarClient):
         except UnsafeWhoisQueryError as e:
             return _error(domain, f"Refused to send WHOIS query: {e}", title)
 
-        self._throttle.wait(server.host, max(self._delay, server.min_interval))
+        # As for RDAP: one check slows the host down at most once and counts
+        # at most once for the breaker, however many attempts it takes.
+        attempt = 0
+        while True:
+            self._throttle.wait(server.host, max(self._delay, server.min_interval))
+            result, outcome = self._query(domain, server, query, title)
+            if outcome is _Outcome.ANSWERED:
+                self._throttle.record_success(server.host)
+                self._breaker.record_success(server.host)
+                return result
+            if outcome is _Outcome.REFUSED:
+                return result
+            if outcome is _Outcome.SLOW_DOWN:
+                if attempt == 0:
+                    self._throttle.slow_down(server.host)
+                if attempt < self._max_retries:
+                    self._throttle.defer(server.host, full_jitter_backoff(attempt, self._random))
+                    attempt += 1
+                    continue
+            self._breaker.record_failure(server.host)
+            return result
+
+    def _query(
+        self, domain: DomainHack, server: WhoisServer, query: str, title: str
+    ) -> tuple[DomainCheckResult, _Outcome]:
+        """One WHOIS round trip, classified for the throttle and the breaker."""
         try:
             text = whois_query(
                 server.host,
@@ -266,32 +305,31 @@ class WhoisRegistrarClient(RegistrarClient):
                 self._connect_timeout,
             )
         except UnsafeWhoisQueryError as e:
-            return _error(domain, f"Refused to send WHOIS query: {e}", title)
+            return _error(domain, f"Refused to send WHOIS query: {e}", title), _Outcome.REFUSED
         except (OSError, TimeoutError) as e:
-            self._breaker.record_failure(server.host)
-            return _error(domain, f"WHOIS query failed: {e or type(e).__name__}", title)
+            outcome = _Outcome.SLOW_DOWN if isinstance(e, TimeoutError) else _Outcome.FAILED
+            return _error(domain, f"WHOIS query failed: {e or type(e).__name__}", title), outcome
 
         if not text.strip():
-            self._breaker.record_failure(server.host)
-            return _error(domain, "Empty WHOIS response", title)
+            return _error(domain, "Empty WHOIS response", title), _Outcome.FAILED
         if server.not_found.search(text):
-            self._breaker.record_success(server.host)
-            return DomainCheckResult(
+            available = DomainCheckResult(
                 domain=domain, availability=Availability.AVAILABLE, raw_title=title
             )
+            return available, _Outcome.ANSWERED
         if domain.fqdn.lower() not in text.lower() and _ERROR_PATTERNS.search(text):
-            self._breaker.record_failure(server.host)
-            return _error(domain, "WHOIS server refused or rate-limited the query", title)
-        self._breaker.record_success(server.host)
+            message = "WHOIS server refused or rate-limited the query"
+            return _error(domain, message, title), _Outcome.SLOW_DOWN
         if server.taken is not None and not server.taken.search(text):
-            return _error(domain, "Unrecognised WHOIS response", title)
-        return DomainCheckResult(
+            return _error(domain, "Unrecognised WHOIS response", title), _Outcome.ANSWERED
+        taken = DomainCheckResult(
             domain=domain,
             availability=Availability.TAKEN,
             raw_title=title,
             statuses=parse_whois_statuses(text),
             expires_at=parse_whois_expiration(text),
         )
+        return taken, _Outcome.ANSWERED
 
 
 def parse_whois_statuses(text: str) -> tuple[str, ...]:
@@ -314,6 +352,13 @@ def parse_whois_expiration(text: str) -> datetime | None:
         if when is not None:
             return when
     return None
+
+
+class _Outcome(Enum):
+    ANSWERED = "answered"  # a real answer: the host is healthy
+    REFUSED = "refused"  # never sent: says nothing about the host
+    FAILED = "failed"  # a failure for the breaker
+    SLOW_DOWN = "slow_down"  # a failure that also asks us to slow down (retried once)
 
 
 def _error(domain: DomainHack, message: str, title: str = "") -> DomainCheckResult:

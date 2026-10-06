@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import random as _random
 import time
 from collections.abc import Callable
 from datetime import datetime
@@ -15,7 +16,14 @@ import httpx
 from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters._http import identity_headers
 from domainhack.adapters._registration import normalize_statuses, parse_datetime_utc
-from domainhack.adapters._throttle import DEFAULT_THROTTLE, HostThrottle
+from domainhack.adapters._throttle import (
+    DEFAULT_BACKOFF_BASE,
+    DEFAULT_BACKOFF_CAP,
+    DEFAULT_MAX_INTERVAL,
+    DEFAULT_THROTTLE,
+    HostThrottle,
+    full_jitter_backoff,
+)
 from domainhack.domain.entities import Availability, DomainCheckResult, DomainHack
 from domainhack.ports.registrar import RegistrarClient
 
@@ -24,6 +32,11 @@ _STATUS_TAKEN = 200
 _STATUS_AVAILABLE = 404
 _STATUS_TOO_MANY = 429
 _STATUS_SERVER_ERROR = 500
+_STATUS_UNAVAILABLE = 503
+# Answers that tell us to send less: they slow the host's throttle down.
+_SLOW_DOWN_STATUSES = frozenset({_STATUS_TOO_MANY, _STATUS_UNAVAILABLE})
+# Transport errors worth one more try: timeouts and dropped connections.
+_RETRYABLE_ERRORS = (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError)
 DEFAULT_CONNECT_TIMEOUT = 5.0
 
 
@@ -47,14 +60,21 @@ class RdapRegistrarClient(RegistrarClient):
 
     The HTTP status decides: 404 -> AVAILABLE, 200 with a JSON domain object
     whose ``ldhName`` matches -> TAKEN, anything else (429, 5xx, timeouts,
-    HTML 200 pages) -> ERROR. A 429 with a short ``Retry-After`` is retried a
-    bounded number of times. ``raw_title`` holds ``"HTTP <status>"``.
+    HTML 200 pages) -> ERROR. ``raw_title`` holds ``"HTTP <status>"``.
     TAKEN results carry the domain's ``status`` values and ``expiration``
     event when the body has them; malformed parts are ignored.
 
-    Transport errors, a final 429 and 5xx answers count as failures for the
-    per-host circuit ``breaker``; while a host's circuit is open its domains
-    get an ERROR without any network call.
+    429, 5xx, timeouts and dropped connections are retried up to
+    ``max_retries`` times. A ``Retry-After`` header is honored (it defers the
+    host on the shared ``throttle``); a 429 whose ``Retry-After`` exceeds
+    ``max_retry_after`` is not retried. Without the header the retry waits a
+    full-jitter exponential backoff, ``random(0, min(backoff_cap,
+    backoff_base * 2**n))``. A 429, a 503 or a timeout also slows the host's
+    throttle down; a real answer helps it recover.
+
+    A check that still fails after its retries counts as one failure for the
+    per-host circuit ``breaker`` (transport errors, 429, 5xx); while a host's
+    circuit is open its domains get an ERROR without any network call.
     """
 
     def __init__(
@@ -68,7 +88,9 @@ class RdapRegistrarClient(RegistrarClient):
         max_retry_after: float = 30.0,
         throttle: HostThrottle | None = None,
         breaker: HostCircuitBreaker | None = None,
-        sleep: Callable[[float], None] = time.sleep,
+        random: Callable[[], float] = _random.random,
+        backoff_base: float = DEFAULT_BACKOFF_BASE,
+        backoff_cap: float = DEFAULT_BACKOFF_CAP,
         contact: str | None = None,
     ) -> None:
         self._headers = {**_ACCEPT, **identity_headers(contact)}
@@ -86,7 +108,9 @@ class RdapRegistrarClient(RegistrarClient):
         self._max_retry_after = max_retry_after
         self._throttle = throttle if throttle is not None else DEFAULT_THROTTLE
         self._breaker = breaker if breaker is not None else HostCircuitBreaker()
-        self._sleep = sleep
+        self._random = random
+        self._backoff_base = backoff_base
+        self._backoff_cap = backoff_cap
 
     @property
     def base_url(self) -> str:
@@ -103,33 +127,59 @@ class RdapRegistrarClient(RegistrarClient):
         # fqdn is already a validated ASCII name; quoting the path segment is
         # defence in depth so no name can add path segments or a query string.
         url = f"{self._base_url}domain/{quote(domain.fqdn, safe='')}"
+        # One check is one outcome: however many attempts it takes, it slows
+        # the host down at most once and counts at most once for the breaker.
+        slowed = False
         attempt = 0
         while True:
             self._throttle.wait(self._host, self._delay)
             try:
                 response = self._client.get(url, headers=self._headers)
             except httpx.HTTPError as e:
+                if isinstance(e, httpx.TimeoutException) and not slowed:
+                    slowed = True
+                    self._throttle.slow_down(self._host)
+                if isinstance(e, _RETRYABLE_ERRORS) and attempt < self._max_retries:
+                    self._backoff(attempt)
+                    attempt += 1
+                    continue
                 self._breaker.record_failure(self._host)
                 return _error(domain, f"RDAP request failed: {e or type(e).__name__}")
 
-            if response.status_code == _STATUS_TOO_MANY:
-                wait = parse_retry_after(response.headers.get("Retry-After"))
-                if (
-                    attempt < self._max_retries
-                    and wait is not None
-                    and wait <= self._max_retry_after
-                ):
-                    attempt += 1
-                    self._sleep(wait)
-                    continue
-                self._breaker.record_failure(self._host)
-                return _error(domain, "RDAP rate limited (429)", response.status_code)
-
-            if response.status_code >= _STATUS_SERVER_ERROR:
-                self._breaker.record_failure(self._host)
-            else:
+            status = response.status_code
+            if status != _STATUS_TOO_MANY and status < _STATUS_SERVER_ERROR:
+                self._throttle.record_success(self._host)
                 self._breaker.record_success(self._host)
+                return self._interpret(domain, response)
+
+            if status in _SLOW_DOWN_STATUSES and not slowed:
+                slowed = True
+                self._throttle.slow_down(self._host)
+            retry_after = parse_retry_after(response.headers.get("Retry-After"))
+            if retry_after is not None:
+                # RFC 7480 §5.5: honor Retry-After, for every client of this host.
+                self._throttle.defer(self._host, min(retry_after, DEFAULT_MAX_INTERVAL))
+            may_retry = retry_after is None or retry_after <= self._max_retry_after
+            if may_retry and attempt < self._max_retries:
+                if retry_after is None:
+                    self._backoff(attempt)
+                attempt += 1
+                continue
+            self._breaker.record_failure(self._host)
+            if status == _STATUS_TOO_MANY:
+                return _error(domain, "RDAP rate limited (429)", status)
             return self._interpret(domain, response)
+
+    def _backoff(self, attempt: int) -> None:
+        """Full-jitter exponential backoff before retry ``attempt`` (0-based).
+
+        The wait goes through the throttle, so it overlaps with (rather than
+        adds to) any slow-down already pending for the host.
+        """
+        delay = full_jitter_backoff(
+            attempt, self._random, base=self._backoff_base, cap=self._backoff_cap
+        )
+        self._throttle.defer(self._host, delay)
 
     def _interpret(self, domain: DomainHack, response: httpx.Response) -> DomainCheckResult:
         status = response.status_code

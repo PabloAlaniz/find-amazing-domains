@@ -29,9 +29,14 @@ def _check(*extra: str) -> list[str]:
     return ["check", "--range-max", "1", "--range-end", "c", "--no-progress", "--no-cache", *extra]
 
 
+def _without_estimate(err: str) -> list[str]:
+    """stderr lines, minus the cost estimate printed before every range run."""
+    return [line for line in err.strip().splitlines() if not line.startswith("Estimated ")]
+
+
 def _assert_one_clean_error(err: str, needle: str) -> None:
     assert "Traceback" not in err
-    lines = err.strip().splitlines()
+    lines = _without_estimate(err)
     assert len(lines) == 1, err
     assert lines[0].startswith("error: ")
     assert needle in lines[0]
@@ -70,7 +75,7 @@ class TestStdoutStderrSplit:
             "  AVAILABLE: a.to (word: 'ato')",
             "  TAKEN:     c.to",
         ]
-        err_lines = [line for line in captured.err.splitlines() if line.strip()]
+        err_lines = [line for line in _without_estimate(captured.err) if line.strip()]
         assert err_lines[0] == "  ERROR:     b.to -- boom"
         assert err_lines[-1].startswith("Done. Checked 3 domains")
 

@@ -9,7 +9,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from domainhack.adapters.registrar_router import RegistrarRouter
-from domainhack.adapters.tonic_registrar import TonicRegistrarClient
 from domainhack.cli.app import (
     _build_domains,
     _progress_total,
@@ -137,15 +136,16 @@ class TestProgressTotalMultiTld:
 
 
 class TestRegistrarFactory:
-    def test_to_gets_tonic(self) -> None:
-        client = _registrar_factory(argparse.Namespace(delay=0.0))(TO)
-        assert isinstance(client, TonicRegistrarClient)
-        client.close()
+    def test_delegates_to_catalog_with_delay(self) -> None:
+        sentinel = MagicMock()
+        with patch("domainhack.cli.app.build_registrar_for", return_value=sentinel) as catalog:
+            client = _registrar_factory(argparse.Namespace(delay=2.5))(IN)
+        assert client is sentinel
+        catalog.assert_called_once_with(IN, delay=2.5)
 
-    def test_other_tlds_unsupported(self) -> None:
-        factory = _registrar_factory(argparse.Namespace(delay=0.0))
-        assert factory(IN) is None
-        assert factory(IO) is None
+    def test_unsupported_tld_is_none(self) -> None:
+        with patch("domainhack.cli.app.build_registrar_for", return_value=None):
+            assert _registrar_factory(argparse.Namespace(delay=0.0))(IO) is None
 
 
 def _fake_tonic() -> MagicMock:
@@ -154,6 +154,11 @@ def _fake_tonic() -> MagicMock:
         domain=d, availability=Availability.AVAILABLE
     )
     return client
+
+
+def _only_to(client: MagicMock) -> MagicMock:
+    """Patch target for the catalog: only .to is supported, served by ``client``."""
+    return MagicMock(side_effect=lambda tld, **_: client if tld.suffix == "to" else None)
 
 
 def _check_args(tlds: str, **kwargs: object) -> argparse.Namespace:
@@ -174,16 +179,16 @@ def _check_args(tlds: str, **kwargs: object) -> argparse.Namespace:
 
 class TestCmdCheckMultiTld:
     def test_dry_run_prints_all_tlds(self, capsys: pytest.CaptureFixture[str]) -> None:
-        with patch("domainhack.cli.app.TonicRegistrarClient") as tonic:
+        with patch("domainhack.cli.app.build_registrar_for") as catalog:
             cmd_check(_check_args("to,in", dry_run=True))
-        tonic.assert_not_called()
+        catalog.assert_not_called()
         out = capsys.readouterr().out
         assert [line.split()[0] for line in out.splitlines()] == ["a.to", "a.in", "b.to", "b.in"]
 
     def test_in_domains_never_reach_tonic(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Regression: .in domains used to be sent to tonic.to's .to-only form."""
         tonic = _fake_tonic()
-        with patch("domainhack.cli.app.TonicRegistrarClient", return_value=tonic):
+        with patch("domainhack.cli.app.build_registrar_for", _only_to(tonic)):
             cmd_check(_check_args("to,in"))
         checked = [c.args[0].fqdn for c in tonic.check_availability.call_args_list]
         assert checked == ["a.to", "b.to"]
@@ -194,7 +199,7 @@ class TestCmdCheckMultiTld:
 
     def test_progress_total_uses_supported_tlds(self) -> None:
         with (
-            patch("domainhack.cli.app.TonicRegistrarClient", return_value=_fake_tonic()),
+            patch("domainhack.cli.app.build_registrar_for", _only_to(_fake_tonic())),
             patch("domainhack.cli.app.CheckDomainsUseCase") as uc_cls,
         ):
             cmd_check(_check_args("to,in,io"))
@@ -204,6 +209,7 @@ class TestCmdCheckMultiTld:
         argv = ["domainhack", "--tld", "in,io", "check", "--range-max", "1", "--no-progress"]
         with (
             patch("sys.argv", argv),
+            patch("domainhack.cli.app.build_registrar_for", return_value=None),
             patch("domainhack.cli.app.CheckDomainsUseCase") as uc_cls,
             pytest.raises(SystemExit) as exc_info,
         ):
@@ -216,7 +222,7 @@ class TestCmdCheckMultiTld:
         tonic = _fake_tonic()
         args = _check_args("to", no_cache=False, cache_path=tmp_path / "c.sqlite3")
         with (
-            patch("domainhack.cli.app.TonicRegistrarClient", return_value=tonic),
+            patch("domainhack.cli.app.build_registrar_for", _only_to(tonic)),
             patch("domainhack.cli.app.CheckDomainsUseCase") as uc_cls,
         ):
             cmd_check(args)

@@ -49,7 +49,7 @@ class TestCmdCheckWiresProgress:
         )
 
         with (
-            patch("domainhack.cli.app.TonicRegistrarClient", return_value=mock_registrar),
+            patch("domainhack.cli.app.build_registrar_for", return_value=mock_registrar),
             patch("domainhack.cli.app.ConsoleResultWriter"),
             patch("domainhack.cli.app.CheckDomainsUseCase") as mock_uc_cls,
         ):

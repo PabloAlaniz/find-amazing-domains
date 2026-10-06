@@ -9,8 +9,8 @@ from domainhack.adapters.console_writer import ConsoleResultWriter
 from domainhack.adapters.csv_writer import CsvResultWriter
 from domainhack.adapters.file_word_source import FileWordSource
 from domainhack.adapters.json_writer import JsonResultWriter
+from domainhack.adapters.registrar_catalog import build_registrar_for
 from domainhack.adapters.registrar_router import RegistrarFactory, RegistrarRouter
-from domainhack.adapters.tonic_registrar import TonicRegistrarClient
 from domainhack.adapters.tqdm_progress import TqdmProgressReporter
 from domainhack.domain.entities import TLD, DomainHack
 from domainhack.ports.progress import NullProgressReporter, ProgressReporter
@@ -195,9 +195,7 @@ def _registrar_factory(args: argparse.Namespace) -> RegistrarFactory:
     delay: float = args.delay
 
     def factory(tld: TLD) -> RegistrarClient | None:
-        if tld.suffix == "to":
-            return TonicRegistrarClient(delay=delay)
-        return None
+        return build_registrar_for(tld, delay=delay)
 
     return factory
 

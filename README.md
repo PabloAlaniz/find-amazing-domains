@@ -107,6 +107,48 @@ domainhack --tld to check --range-max 3 --range-end "ba"
 domainhack --tld to check --range-max 2 --dry-run
 ```
 
+### Multiple TLDs
+
+Pass a comma-separated list to `--tld`. Each TLD is routed to a registrar that supports it; unsupported TLDs are skipped with a warning.
+
+```bash
+# Words that form .to, .io or .it hacks (prints "word -> sld.tld")
+domainhack --tld to,io,it filter data/words_en.txt
+
+# Check all of them
+domainhack --tld to,io,it check --file data/words_en.txt
+```
+
+### Saving results
+
+```bash
+# CSV (format inferred from the extension)
+domainhack --tld to check --file data/words_es.txt --output results.csv
+
+# JSON Lines
+domainhack --tld to check --file data/words_es.txt --output results.jsonl
+```
+
+Rows are written as they are checked, so an interrupted run keeps everything checked so far.
+
+### Progress and caching
+
+- A progress bar is shown on stderr when running in a terminal. Disable it with `--no-progress`.
+- Results are cached in SQLite (`$XDG_CACHE_HOME/domainhack/results.sqlite3`, default 7 days). Re-runs skip domains already checked. Use `--no-cache`, `--cache-ttl HOURS` or `--cache-path PATH` to control it. Errors are never cached.
+
+## Supported TLDs
+
+Availability is checked against the registry directly, with no captchas or API keys:
+
+| Source | TLDs |
+|--------|------|
+| RDAP (registry endpoints, incl. manual overrides) | to, io, sh, ac, me, co, de, ch, li, so, ws |
+| RDAP (via the IANA bootstrap) | ai, in, is, ly, fm, tv, cc, pw, re, fr, nl, uk, ar, ... and all gTLDs |
+| WHOIS (port 43) | it, am, at, be, gg, im, la, ma, mx, nu, pe, st |
+| Not supported | es, al |
+
+Note: "available" means *not registered*. Premium or reserved names may still show as available; confirm with a registrar before buying.
+
 ## Word Lists
 
 The sample files in `data/samples/` contain ~20 words each for quick testing. For serious domain hunting, you'll need full dictionaries:
@@ -124,7 +166,8 @@ Built with **Clean Architecture** and **SOLID principles**:
 domain/       Pure entities: TLD, DomainHack, Availability
 ports/        Abstract interfaces: WordSource, RegistrarClient, ResultWriter
 usecases/     Business logic: FilterWords, CheckDomains
-adapters/     Implementations: FileWordSource, TonicRegistrar, ConsoleWriter
+adapters/     Implementations: FileWordSource, RDAP/WHOIS/Tonic registrars,
+              RegistrarRouter, CachedRegistrar, Console/CSV/JSON writers, tqdm progress
 cli/          Composition root: argparse + dependency injection
 ```
 
@@ -134,7 +177,7 @@ Adding support for a new TLD registrar or output format requires implementing a 
 
 `.to` is the country code top-level domain (ccTLD) for Tonga. It's popular for domain hacks because many Spanish words end in "-to" (a common suffix in verb conjugations and nouns). English has plenty too: veto, photo, gusto, motto.
 
-The tool is designed to be TLD-agnostic. Use `--tld in` for `.in` (India) domains, or extend it to any other TLD by implementing the `RegistrarClient` interface.
+The tool is TLD-agnostic: see [Supported TLDs](#supported-tlds), or add a new source by implementing the `RegistrarClient` interface and registering it in `adapters/registrar_catalog.py`.
 
 ## Development
 
@@ -144,7 +187,8 @@ pre-commit install              # enable git hooks
 ```
 
 ```bash
-pytest                          # 69 tests, 99% coverage
+pytest                          # 285 tests, 99% coverage
+pytest -m integration           # live registry tests (network)
 ruff check src tests            # linting
 ruff format --check src tests   # formatting
 mypy                            # strict type checking
@@ -154,14 +198,16 @@ CI runs lint, type-check, and tests on Python 3.10/3.11/3.12 via GitHub Actions.
 
 ## Roadmap
 
-| Phase | Feature | Value | Effort |
-|-------|---------|-------|--------|
-| 1 | CSV/JSON ResultWriter | High | Low |
-| 2 | Multi-TLD support (`--tld to,in,io`) | High | Low-Med |
-| 3 | Progress bar (rich/tqdm) | Med-High | Low |
-| 4 | Async HTTP (`httpx.AsyncClient`) | High | Med |
-| 5 | More registrar adapters (generic WHOIS) | Med | Med |
-| 6 | Result caching (decorator pattern) | Med | Low-Med |
+| Feature | Status |
+|---------|--------|
+| CSV/JSON ResultWriter | Done |
+| Multi-TLD support (`--tld to,in,io`) | Done |
+| Progress bar (tqdm) | Done |
+| RDAP + WHOIS registrar adapters | Done |
+| Result caching (decorator pattern) | Done |
+| DNS pre-filter (skip domains with NS records) | Planned |
+| Porkbun API adapter (confirm hits, premium pricing) | Planned |
+| Async HTTP (`httpx.AsyncClient`) | Planned |
 
 ## License
 

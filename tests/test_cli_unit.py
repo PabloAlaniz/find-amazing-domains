@@ -123,7 +123,7 @@ class TestCmdCheck:
         )
 
         with (
-            patch("domainhack.cli.app.TonicRegistrarClient", return_value=mock_registrar),
+            patch("domainhack.cli.app.build_registrar_for", return_value=mock_registrar),
             patch("domainhack.cli.app.ConsoleResultWriter"),
             patch("domainhack.cli.app.CheckDomainsUseCase") as mock_uc_cls,
         ):
@@ -228,7 +228,7 @@ class TestCmdCheckOutput:
 
     def test_writes_csv_file(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         out = tmp_path / "results.csv"
-        with patch("domainhack.cli.app.TonicRegistrarClient", return_value=self._fake_registrar()):
+        with patch("domainhack.cli.app.build_registrar_for", return_value=self._fake_registrar()):
             cmd_check(self._args(out))
         lines = out.read_text(encoding="utf-8").splitlines()
         assert lines[0] == "fqdn,word,sld,tld,availability,error_message"
@@ -238,14 +238,14 @@ class TestCmdCheckOutput:
 
     def test_writes_jsonl_file(self, tmp_path: Path) -> None:
         out = tmp_path / "results.jsonl"
-        with patch("domainhack.cli.app.TonicRegistrarClient", return_value=self._fake_registrar()):
+        with patch("domainhack.cli.app.build_registrar_for", return_value=self._fake_registrar()):
             cmd_check(self._args(out))
         records = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
         assert [r["fqdn"] for r in records] == ["a.to", "b.to"]
 
     def test_bad_extension_fails_before_network(self, tmp_path: Path) -> None:
         with (
-            patch("domainhack.cli.app.TonicRegistrarClient") as mock_client,
+            patch("domainhack.cli.app.build_registrar_for") as mock_client,
             pytest.raises(OutputFormatError),
         ):
             cmd_check(self._args(tmp_path / "results.txt"))
@@ -257,7 +257,7 @@ class TestCmdCheckOutput:
         argv = ["domainhack", "check", "--range-max", "1", "--output", str(tmp_path / "r.txt")]
         with (
             patch("sys.argv", argv),
-            patch("domainhack.cli.app.TonicRegistrarClient") as mock_client,
+            patch("domainhack.cli.app.build_registrar_for") as mock_client,
             pytest.raises(SystemExit) as exc_info,
         ):
             main()

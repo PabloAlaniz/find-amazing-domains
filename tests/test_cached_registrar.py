@@ -197,7 +197,7 @@ class TestCliCacheFlags:
             domain=_hack("a"), availability=Availability.TAKEN
         )
         # The router creates per-TLD clients lazily, so the patch must cover usage.
-        with patch("domainhack.cli.app.TonicRegistrarClient", return_value=inner):
+        with patch("domainhack.cli.app.build_registrar_for", return_value=inner):
             registrar = _build_registrar(args)
             assert isinstance(registrar, CachedRegistrarClient)
             assert isinstance(registrar._inner, RegistrarRouter)
@@ -211,7 +211,7 @@ class TestCliCacheFlags:
     def test_build_registrar_no_cache(self) -> None:
         args = build_parser().parse_args(["check", "--range-max", "1", "--no-cache"])
         inner = MagicMock(spec=RegistrarClient)
-        with patch("domainhack.cli.app.TonicRegistrarClient", return_value=inner):
+        with patch("domainhack.cli.app.build_registrar_for", return_value=inner):
             registrar = _build_registrar(args)
             assert isinstance(registrar, RegistrarRouter)
             registrar.check_availability(_hack("a"))
@@ -223,7 +223,7 @@ class TestCliCacheFlags:
         inner.check_availability.return_value = DomainCheckResult(
             domain=_hack("a"), availability=Availability.TAKEN
         )
-        with patch("domainhack.cli.app.TonicRegistrarClient", return_value=inner):
+        with patch("domainhack.cli.app.build_registrar_for", return_value=inner):
             registrar = _build_registrar(args)
             with registrar:
                 registrar.check_availability(_hack("a"))

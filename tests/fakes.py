@@ -6,7 +6,7 @@ import os
 import subprocess
 import sys
 import threading
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +22,7 @@ from domainhack.domain.entities import (
     DomainHack,
 )
 from domainhack.ports.dns_lookup import DnsLookup
+from domainhack.ports.known_tlds import KnownTlds
 from domainhack.ports.registrar import RegistrarClient
 from domainhack.ports.result_cache import ResultCache
 from domainhack.ports.result_writer import ResultWriter
@@ -340,6 +341,21 @@ class FakeCatalog:
         return self.default
 
 
+class FakeKnownTlds(KnownTlds):
+    """A fixed set of suffixes (multi-label ones allowed: ``"com.ar"``)."""
+
+    def __init__(self, suffixes: Iterable[str]) -> None:
+        self._suffixes = frozenset(s.lower() for s in suffixes)
+        self._by_letters = {s.replace(".", ""): s for s in self._suffixes}
+
+    def is_known(self, suffix: str) -> bool:
+        return suffix.lower().lstrip(".") in self._suffixes
+
+    def suffixes_of(self, name: str) -> list[str]:
+        name = name.lower()
+        return [s for i in range(1, len(name)) if (s := self._by_letters.get(name[i:]))]
+
+
 def guarded_env() -> dict[str, str]:
     """Environment for a subprocess that blocks the network (see ``netguard_site``)."""
     env = dict(os.environ)
@@ -392,6 +408,11 @@ class FakeDnsLookup(DnsLookup):
         if self._raises is not None:
             raise self._raises("resolver exploded")
         return self._answers.get(fqdn, self._default)
+
+    @property
+    def lookups(self) -> list[str]:
+        """Alias of ``calls``."""
+        return self.calls
 
 
 @dataclass(frozen=True)

@@ -16,7 +16,8 @@ class ConsoleResultWriter(ResultWriter):
     details are known: ``TAKEN:     sumanda.com (since 2015-11-12, expires
     2026-11-12, parked: domainrecover)``. An AVAILABLE name that DNS shows as
     delegated (``dns_conflict``, see ``--confirm-dns``) prints as
-    ``AVAILABLE?`` with a warning instead. The run summary is printed by the CLI, from the use case's
+    ``AVAILABLE?`` with a warning instead. The run summary is printed by the
+    CLI, from the use case's
     ``CheckSummary``.
     """
 

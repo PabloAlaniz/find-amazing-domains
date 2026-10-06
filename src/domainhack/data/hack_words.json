@@ -1,0 +1,20 @@
+{
+  "_comment": "Words appended to a name to form a domain hack: name + word must end in a known TLD (sumanda + studio -> sumandastud.io). A word whose ending is not a known TLD is simply never used. Each word maps to the short meaning shown in the report.",
+  "studio": "a creative or production studio",
+  "radio": "a radio show or podcast",
+  "audio": "audio, music or sound",
+  "folio": "a portfolio",
+  "portfolio": "a portfolio of work",
+  "demo": "a demo or showcase",
+  "labs": "a lab or experiments",
+  "online": "an online presence",
+  "games": "games",
+  "apps": "apps",
+  "tech": "technology",
+  "design": "design",
+  "team": "the team",
+  "store": "a store or shop",
+  "house": "a house, home or venue",
+  "news": "news or a newsletter",
+  "zone": "a zone or community space"
+}

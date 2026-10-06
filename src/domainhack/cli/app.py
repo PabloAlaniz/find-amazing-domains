@@ -5,7 +5,7 @@ import re
 import sys
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from domainhack import __version__
 from domainhack.adapters._circuit import HostCircuitBreaker
@@ -51,6 +51,9 @@ from domainhack.usecases.generate_range import (
     RangeWordSource,
 )
 from domainhack.usecases.rank_candidates import CandidateOrder, RankCandidatesUseCase
+
+if TYPE_CHECKING:
+    from domainhack.cli.name_cmd import NameServices
 
 OUTPUT_FORMATS = ("csv", "json")
 _FORMAT_BY_SUFFIX = {".csv": "csv", ".json": "json", ".jsonl": "json"}
@@ -200,6 +203,63 @@ def _add_encoding_option(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def add_run_options(parser: argparse.ArgumentParser) -> None:
+    """Options shared by every command that queries registries (``check``, ``name``):
+    pacing, parallelism, progress, cache and contact."""
+    parser.add_argument(
+        "--delay",
+        type=_non_negative_float,
+        default=1.0,
+        help="Seconds between requests (default: 1.0)",
+    )
+    parser.add_argument(
+        "--no-progress",
+        action="store_true",
+        help="Hide the progress bar (auto-hidden when stderr is not a TTY)",
+    )
+    parser.add_argument(
+        "--parallel",
+        type=_positive_int,
+        default=DEFAULT_PARALLEL,
+        metavar="N",
+        help="Check up to N registry hosts at once, never more than one request per "
+        f"host (default: {DEFAULT_PARALLEL}); results print as they complete. "
+        "--parallel 1 checks one domain at a time, in order",
+    )
+    parser.add_argument("--no-cache", action="store_true", help="Disable the result cache")
+    parser.add_argument(
+        "--cache-ttl",
+        type=_non_negative_float,
+        default=None,
+        metavar="HOURS",
+        help="Never reuse cached results older than HOURS (default: no cap). Without it, "
+        "taken names are kept until their expiration date (at most 90 days; 30 days "
+        "when unknown), and dropping names for 24 hours",
+    )
+    parser.add_argument(
+        "--cache-ttl-available",
+        type=_non_negative_float,
+        default=AVAILABLE_TTL_SECONDS / 3600,
+        metavar="HOURS",
+        help="Reuse cached AVAILABLE results younger than HOURS "
+        f"(default: {AVAILABLE_TTL_SECONDS / 3600:g})",
+    )
+    parser.add_argument(
+        "--cache-path",
+        type=Path,
+        default=None,
+        help="SQLite cache file (default: $XDG_CACHE_HOME/domainhack/results.sqlite3)",
+    )
+    parser.add_argument(
+        "--contact",
+        type=_contact,
+        default=os.environ.get(CONTACT_ENV) or None,
+        metavar="EMAIL",
+        help="Send EMAIL as the HTTP From header on RDAP requests so registry "
+        f"operators can reach you (default: ${CONTACT_ENV})",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="domainhack",
@@ -231,12 +291,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    chk.add_argument(
-        "--delay",
-        type=_non_negative_float,
-        default=1.0,
-        help="Seconds between requests (default: 1.0)",
-    )
+    add_run_options(chk)
     chk.add_argument("--show-taken", action="store_true", help="Also print taken domains")
     chk.add_argument(
         "--show-dropping",
@@ -245,11 +300,6 @@ def build_parser() -> argparse.ArgumentParser:
         "soon be free (implied by --show-taken)",
     )
     chk.add_argument("--dry-run", action="store_true", help="List domains without checking")
-    chk.add_argument(
-        "--no-progress",
-        action="store_true",
-        help="Hide the progress bar (auto-hidden when stderr is not a TTY)",
-    )
 
     source_group = chk.add_mutually_exclusive_group(required=True)
     source_group.add_argument("--file", type=Path, help="Word list file (list mode)")
@@ -273,15 +323,6 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="N",
         help="Check at most N domains per TLD, taken in --order",
-    )
-    chk.add_argument(
-        "--parallel",
-        type=_positive_int,
-        default=DEFAULT_PARALLEL,
-        metavar="N",
-        help="Check up to N registry hosts at once, never more than one request per "
-        f"host (default: {DEFAULT_PARALLEL}); results print as they complete. "
-        "--parallel 1 checks one domain at a time, in order",
     )
     chk.add_argument(
         "--keep-order",
@@ -308,39 +349,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Also look up each available or taken name in public DNS (NS, A/AAAA). "
         "An available name with NS records prints as 'AVAILABLE?': do not trust it as free",
     )
-    chk.add_argument("--no-cache", action="store_true", help="Disable the result cache")
-    chk.add_argument(
-        "--cache-ttl",
-        type=_non_negative_float,
-        default=None,
-        metavar="HOURS",
-        help="Never reuse cached results older than HOURS (default: no cap). Without it, "
-        "taken names are kept until their expiration date (at most 90 days; 30 days "
-        "when unknown), and dropping names for 24 hours",
-    )
-    chk.add_argument(
-        "--cache-ttl-available",
-        type=_non_negative_float,
-        default=AVAILABLE_TTL_SECONDS / 3600,
-        metavar="HOURS",
-        help="Reuse cached AVAILABLE results younger than HOURS "
-        f"(default: {AVAILABLE_TTL_SECONDS / 3600:g})",
-    )
-    chk.add_argument(
-        "--cache-path",
-        type=Path,
-        default=None,
-        help="SQLite cache file (default: $XDG_CACHE_HOME/domainhack/results.sqlite3)",
-    )
-    chk.add_argument(
-        "--contact",
-        type=_contact,
-        default=os.environ.get(CONTACT_ENV) or None,
-        metavar="EMAIL",
-        help="Send EMAIL as the HTTP From header on RDAP requests so registry "
-        f"operators can reach you (default: ${CONTACT_ENV})",
-    )
+    # Imported here: name_cmd imports this module's helpers.
+    from domainhack.cli import name_cmd
 
+    name_cmd.register(sub, epilog=_EPILOG)
     return parser
 
 
@@ -446,13 +458,15 @@ def _build_writer(args: argparse.Namespace) -> ResultWriter:
     if output is None:
         return console
     fmt = _resolve_output_format(output, getattr(args, "format", None))
+    return CompositeResultWriter([console, build_file_writer(output, fmt)])
+
+
+def build_file_writer(output: Path, fmt: str) -> ResultWriter:
+    """The CSV or JSON Lines writer for ``output``; CliError when it cannot be opened."""
     try:
-        file_writer: ResultWriter = (
-            CsvResultWriter(output) if fmt == "csv" else JsonResultWriter(output)
-        )
+        return CsvResultWriter(output) if fmt == "csv" else JsonResultWriter(output)
     except OSError as exc:
         raise CliError(f"cannot write output file '{output}': {exc.strerror or exc}") from exc
-    return CompositeResultWriter([console, file_writer])
 
 
 def _range_totals(args: argparse.Namespace, tlds: Sequence[TLD]) -> dict[TLD, int]:
@@ -735,11 +749,14 @@ def main(
     *,
     catalog: RegistrarCatalog | None = None,
     dns_lookup: DnsLookup | None = None,
+    services: "NameServices | None" = None,
 ) -> int:
     """Run the CLI and return its exit status (see the ``--help`` epilog).
 
-    ``catalog`` replaces ``build_registrar_for`` (the registrar catalog) and
-    ``dns_lookup`` replaces ``DnsPythonLookup`` (for ``--confirm-dns``) in ``check``.
+    ``catalog`` replaces ``build_registrar_for`` (the registrar catalog) for
+    ``check`` and ``name``; ``dns_lookup`` replaces ``DnsPythonLookup`` (for
+    ``check --confirm-dns``); ``services`` replaces the ``name`` command's TLD
+    list and DNS lookup.
     """
     parser = build_parser()
     try:
@@ -751,6 +768,10 @@ def main(
     try:
         if args.command == "filter":
             return cmd_filter(args)
+        if args.command == "name":
+            from domainhack.cli import name_cmd
+
+            return name_cmd.cmd_name(args, catalog=catalog, services=services)
         return cmd_check(args, catalog=catalog, dns_lookup=dns_lookup)
     except OutputFormatError as exc:
         parser.print_usage(sys.stderr)

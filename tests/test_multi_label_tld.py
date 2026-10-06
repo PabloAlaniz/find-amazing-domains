@@ -109,7 +109,7 @@ class TestCli:
         assert parse_tld_list(".COM.AR,to,com.ar") == [COM_AR, TLD("to")]
 
     def test_parse_tld_list_names_the_bad_suffix(self) -> None:
-        with pytest.raises(argparse.ArgumentTypeError, match="comm.ar"):
+        with pytest.raises(argparse.ArgumentTypeError, match=r"comm\.ar"):
             parse_tld_list("to,comm.ar")
 
     def test_parser_accepts_tld_com_ar(self) -> None:

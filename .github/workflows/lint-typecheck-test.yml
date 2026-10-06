@@ -9,37 +9,80 @@ on:
 permissions:
   contents: read
 
-jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install ruff
-      - run: ruff check src tests
-      - run: ruff format --check src tests
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
-  type-check:
+jobs:
+  lint-typecheck:
+    # ruff, ruff-format and mypy run through pre-commit, so CI uses exactly the
+    # revs pinned in .pre-commit-config.yaml (the same ones local hooks use).
+    name: pre-commit (ruff + mypy)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install .[dev]
-      - run: mypy
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+      - run: pip install "pre-commit>=4.0"
+      - run: pre-commit run --all-files --show-diff-on-failure
 
   test:
+    name: test (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install .[dev]
-      - run: pytest
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]"
+      # Unit tests only (addopts deselects `integration`); enforce the coverage floor.
+      - run: pytest --cov-fail-under=95
+
+  build:
+    name: build + wheel smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install build
+      - run: python -m build
+      - name: Wheel contains py.typed and the RDAP bootstrap snapshot
+        run: |
+          python - <<'EOF'
+          import glob, zipfile
+          (whl,) = glob.glob("dist/*.whl")
+          names = set(zipfile.ZipFile(whl).namelist())
+          for required in ("domainhack/py.typed", "domainhack/data/rdap_dns.json"):
+              assert required in names, f"{required} missing from {whl}"
+              print("ok:", required)
+          EOF
+      - name: Install the wheel into a fresh venv and run it
+        # Run from a temp dir so the checkout's src/ can't shadow the installed package.
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -m venv smoke
+          smoke/bin/pip install "$GITHUB_WORKSPACE"/dist/*.whl
+          smoke/bin/domainhack --version
+          smoke/bin/python -m domainhack --help
+          smoke/bin/domainhack check --dry-run --range-max 1 --no-cache --no-progress | tee out.txt
+          grep -q "a.to" out.txt

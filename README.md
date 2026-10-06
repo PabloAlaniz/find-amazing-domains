@@ -217,9 +217,18 @@ pytest -m integration           # live registry tests (network)
 ruff check src tests            # linting
 ruff format --check src tests   # formatting
 mypy                            # strict type checking
+pre-commit run --all-files      # exactly what CI runs for lint + types
 ```
 
-CI runs lint, type-check, and tests on Python 3.10/3.11/3.12 via GitHub Actions.
+The ruff and mypy revs in `.pre-commit-config.yaml` are the source of truth. The `dev` extra pins matching ranges, so update both together.
+
+CI (GitHub Actions) does the following:
+
+- runs pre-commit;
+- runs the unit tests on Python 3.10 to 3.14, with a 95% coverage floor;
+- builds the wheel and smoke-tests it in a fresh venv.
+
+A separate weekly workflow runs the live `integration` tests against real registries. It is non-blocking and skips the `.it` case, because whois.nic.it throttles hard. See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## Roadmap
 

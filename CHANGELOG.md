@@ -1,0 +1,70 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- `check --output FILE` with `--format {csv,json}` (CSV or JSON Lines), inferred
+  from the `.csv` / `.json` / `.jsonl` extension. Results also go to the console.
+- Multi-TLD support: `--tld` accepts a comma-separated list (`to,io,in`). A TLD
+  router sends each domain to the registrar for its TLD and skips unsupported
+  TLDs with a warning.
+- tqdm progress bar for `check` on stderr, hidden automatically when stderr is not
+  a TTY. `--no-progress` turns it off.
+- SQLite result cache for AVAILABLE/TAKEN results, on by default. ERROR results are
+  never cached. Options: `--no-cache`, `--cache-ttl HOURS` (default 168) and
+  `--cache-path`.
+- RDAP and WHOIS registrar adapters with a per-TLD catalog. Lookups try RDAP first
+  (IANA bootstrap plus overrides), then fall back to port-43 WHOIS with per-TLD
+  "not found" patterns. Requests are paced per host.
+- The IANA RDAP bootstrap ships as package data, so routing works offline and
+  gives the same result as a live lookup. A failed refresh falls back to the
+  bundled snapshot.
+- Per-host circuit breaker. After 3 consecutive failures, domains for that host
+  are skipped until a 60 s cooldown passes. WHOIS servers can set a minimum query
+  interval (whois.nic.it: 4 s).
+- Domain label validation: LDH syntax, length, hyphen rules and per-TLD rules.
+  IDN support converts names with IDNA2008, and the console shows both the
+  Unicode and the A-label form. Invalid candidates are skipped and counted.
+- Documented exit codes: 0 ok, 1 some checks errored or the run failed, 2 usage
+  error, 130 interrupted. Ctrl-C keeps partial output.
+- Errors print as one line without a traceback. Results go to stdout; warnings,
+  errors and the summary go to stderr.
+- `--encoding` for word lists, and `--contact EMAIL` (or `$DOMAINHACK_CONTACT`) to
+  send a `From` header with RDAP requests.
+- `domainhack --version` and `python -m domainhack`.
+- PEP 561 `py.typed` marker, full project metadata, and this changelog.
+- CI runs on Python 3.10 to 3.14, with pre-commit lint and type-check, a coverage
+  floor, a wheel build smoke test, a weekly live-registry check and Dependabot.
+
+### Changed
+
+- Honest User-Agent:
+  `domainhack/<version> (+https://github.com/PabloAlaniz/find-amazing-domains)`.
+  It is built from `domainhack.__version__`, which is the single source of the
+  version.
+- `.to` domains are checked through the official Tonic RDAP endpoint.
+- The ruff and mypy versions are pinned in the `dev` extra and match
+  `.pre-commit-config.yaml`.
+
+### Removed
+
+- `TonicRegistrarClient`, which scraped the tonic.to web form with a spoofed
+  browser User-Agent, and the unused `beautifulsoup4` dependency.
+
+## [0.1.0]
+
+The version in the initial commit. It was never tagged or published.
+
+### Added
+
+- Initial release: `filter` finds words that end in a TLD, and `check` tests
+  domain availability from a word list or a generated letter range.
+
+[Unreleased]: https://github.com/PabloAlaniz/find-amazing-domains/commits/main
+[0.1.0]: https://github.com/PabloAlaniz/find-amazing-domains/commit/4af9a40

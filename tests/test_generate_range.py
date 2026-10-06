@@ -49,3 +49,34 @@ class TestRangeWordSource:
         gen = source.words()
         assert next(gen) == "a"
         assert next(gen) == "b"
+
+
+class TestRangeWordSourceTotal:
+    @pytest.mark.parametrize(
+        ("max_length", "end_at"),
+        [
+            (1, None),
+            (2, None),
+            (3, None),
+            (1, "c"),
+            (2, "ac"),
+            (2, "z"),
+            (2, "zz"),
+            (3, "ba"),
+            (3, "mzq"),
+            (2, "abc"),  # longer than max_length: never matched, runs to exhaustion
+            (2, "A"),  # not lowercase: never matched
+            (2, "a1"),
+            (2, ""),
+        ],
+    )
+    def test_matches_generated_count(self, max_length: int, end_at: str | None) -> None:
+        source = RangeWordSource(max_length=max_length, end_at=end_at)
+        assert source.total() == len(list(source.words()))
+
+    def test_max_length_six(self) -> None:
+        assert RangeWordSource(max_length=6).total() == sum(26**k for k in range(1, 7))
+
+    def test_end_at_within_six(self) -> None:
+        # 26 + 26**2 + 26**3 (all shorter) + index of "aaaa" (0) + 1
+        assert RangeWordSource(max_length=6, end_at="aaaa").total() == 26 + 676 + 17576 + 1

@@ -1,0 +1,175 @@
+"""Shared test doubles and helpers."""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from collections.abc import Iterator, Mapping
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+from domainhack.adapters._circuit import HostCircuitBreaker
+from domainhack.domain.entities import TLD, Availability, DomainCheckResult, DomainHack
+from domainhack.ports.registrar import RegistrarClient
+from domainhack.ports.result_writer import ResultWriter
+from domainhack.ports.word_source import WordSource
+
+TESTS_DIR = Path(__file__).resolve().parent
+SAMPLES_DIR = TESTS_DIR.parent / "data" / "samples"
+NETGUARD_SITE_DIR = TESTS_DIR / "netguard_site"
+
+
+def hack(sld: str = "pla", tld: str = "to") -> DomainHack:
+    return DomainHack.from_sld(sld, TLD(tld))
+
+
+class FakeWordSource(WordSource):
+    def __init__(self, words: list[str]) -> None:
+        self._words = words
+
+    def words(self) -> Iterator[str]:
+        return iter(self._words)
+
+
+class FakeRegistrarClient(RegistrarClient):
+    """Returns a prepared result per fqdn (KeyError for anything else)."""
+
+    def __init__(self, results: dict[str, DomainCheckResult]) -> None:
+        self._results = results
+
+    def check_availability(self, domain: DomainHack) -> DomainCheckResult:
+        return self._results[domain.fqdn]
+
+
+Outcome = Availability | type[BaseException]
+
+
+class ScriptedRegistrar(RegistrarClient):
+    """Answers from a script keyed by fqdn or SLD, recording calls and ``close()``.
+
+    Unscripted domains get ``default``. A script value that is an exception
+    class is raised instead of answering. ERROR results carry ``"boom"``.
+    """
+
+    def __init__(
+        self,
+        script: Mapping[str, Outcome] | None = None,
+        *,
+        default: Outcome = Availability.TAKEN,
+        raw_title: str = "live",
+        fail_on_close: bool = False,
+    ) -> None:
+        self._script = dict(script or {})
+        self._default = default
+        self._raw_title = raw_title
+        self._fail_on_close = fail_on_close
+        self.calls: list[str] = []
+        self.closed = False
+
+    def check_availability(self, domain: DomainHack) -> DomainCheckResult:
+        self.calls.append(domain.fqdn)
+        outcome = self._script.get(domain.fqdn, self._script.get(domain.sld, self._default))
+        if not isinstance(outcome, Availability):
+            raise outcome()
+        message = "boom" if outcome is Availability.ERROR else ""
+        return DomainCheckResult(
+            domain=domain, availability=outcome, raw_title=self._raw_title, error_message=message
+        )
+
+    def close(self) -> None:
+        self.closed = True
+        if self._fail_on_close:
+            raise RuntimeError(f"{self._raw_title} close failed")
+
+
+class CollectingWriter(ResultWriter):
+    def __init__(self) -> None:
+        self.results: list[DomainCheckResult] = []
+        self.flushed = False
+
+    def write_result(self, result: DomainCheckResult) -> None:
+        self.results.append(result)
+
+    def flush(self) -> None:
+        self.flushed = True
+
+
+class FakeClock:
+    """Manual clock: ``clock()``/``clock.time()`` read it, ``clock.sleep(s)`` advances it."""
+
+    def __init__(self, now: float = 0.0) -> None:
+        self.now = now
+        self.sleeps: list[float] = []
+
+    def __call__(self) -> float:
+        return self.now
+
+    def time(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+
+@dataclass(frozen=True)
+class CatalogCall:
+    tld: TLD
+    delay: float
+    breaker: HostCircuitBreaker | None
+    contact: str | None
+
+
+@dataclass
+class FakeCatalog:
+    """Stands in for ``build_registrar_for`` (pass it as ``catalog=`` to the CLI).
+
+    Every TLD gets ``default``, unless ``by_tld`` is given: then only its
+    suffixes are supported. ``raises`` makes every call raise instead.
+    """
+
+    default: RegistrarClient | None = None
+    by_tld: Mapping[str, RegistrarClient] | None = None
+    raises: type[BaseException] | None = None
+    calls: list[CatalogCall] = field(default_factory=list)
+
+    def __call__(
+        self,
+        tld: TLD,
+        *,
+        delay: float,
+        breaker: HostCircuitBreaker | None,
+        contact: str | None,
+    ) -> RegistrarClient | None:
+        self.calls.append(CatalogCall(tld, delay, breaker, contact))
+        if self.raises is not None:
+            raise self.raises()
+        if self.by_tld is not None:
+            return self.by_tld.get(tld.suffix)
+        return self.default
+
+
+def guarded_env() -> dict[str, str]:
+    """Environment for a subprocess that blocks the network (see ``netguard_site``)."""
+    env = dict(os.environ)
+    paths = [str(NETGUARD_SITE_DIR), env.get("PYTHONPATH", "")]
+    env["PYTHONPATH"] = os.pathsep.join(p for p in paths if p)
+    return env
+
+
+def cli_command(*args: str) -> list[str]:
+    return [sys.executable, "-m", "domainhack", *args]
+
+
+def run_cli(*args: str, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+    """Run ``python -m domainhack ARGS`` with the network blocked."""
+    return subprocess.run(
+        cli_command(*args),
+        capture_output=True,
+        text=True,
+        check=False,
+        env=guarded_env(),
+        **kwargs,
+    )

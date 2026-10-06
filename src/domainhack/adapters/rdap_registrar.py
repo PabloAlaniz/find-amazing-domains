@@ -88,6 +88,11 @@ class RdapRegistrarClient(RegistrarClient):
     def base_url(self) -> str:
         return self._base_url
 
+    @property
+    def http_client(self) -> httpx.Client:
+        """The underlying HTTP client: the injected one, or the one this instance owns."""
+        return self._client
+
     def check_availability(self, domain: DomainHack) -> DomainCheckResult:
         if not self._breaker.allow(self._host):
             return _error(domain, self._breaker.skip_message(self._host))

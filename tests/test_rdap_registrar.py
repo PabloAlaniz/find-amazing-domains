@@ -6,27 +6,11 @@ import pytest
 from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters._throttle import HostThrottle
 from domainhack.adapters.rdap_registrar import RdapRegistrarClient, parse_retry_after
-from domainhack.domain.entities import TLD, Availability, DomainHack
+from domainhack.domain.entities import Availability
+from tests.fakes import FakeClock, hack
 
 BASE = "https://rdap.example.test/rdap/"
 Handler = Callable[[httpx.Request], httpx.Response]
-
-
-class FakeClock:
-    def __init__(self) -> None:
-        self.now = 0.0
-        self.sleeps: list[float] = []
-
-    def time(self) -> float:
-        return self.now
-
-    def sleep(self, seconds: float) -> None:
-        self.sleeps.append(seconds)
-        self.now += seconds
-
-
-def _hack(sld: str = "pla", tld: str = "io") -> DomainHack:
-    return DomainHack.from_sld(sld, TLD(tld))
 
 
 def _client(
@@ -53,55 +37,55 @@ def _client(
 class TestRdapVerdicts:
     def test_404_is_available(self) -> None:
         client, _ = _client(lambda r: httpx.Response(404, json={"errorCode": 404}))
-        result = client.check_availability(_hack())
+        result = client.check_availability(hack(tld="io"))
         assert result.availability == Availability.AVAILABLE
         assert result.raw_title == "HTTP 404"
 
     def test_html_404_is_still_available(self) -> None:
         # rdap.nic.ar answers 404 with text/html; the status code decides.
         client, _ = _client(lambda r: httpx.Response(404, html="<h1>Not found</h1>"))
-        assert client.check_availability(_hack()).availability == Availability.AVAILABLE
+        assert client.check_availability(hack(tld="io")).availability == Availability.AVAILABLE
 
     def test_200_matching_ldh_name_is_taken(self) -> None:
         body = {"objectClassName": "domain", "ldhName": "PLA.IO"}
         client, _ = _client(lambda r: httpx.Response(200, json=body))
-        result = client.check_availability(_hack())
+        result = client.check_availability(hack(tld="io"))
         assert result.availability == Availability.TAKEN
         assert result.raw_title == "HTTP 200"
 
     def test_200_trailing_dot_ldh_name_is_taken(self) -> None:
         client, _ = _client(lambda r: httpx.Response(200, json={"ldhName": "pla.io."}))
-        assert client.check_availability(_hack()).availability == Availability.TAKEN
+        assert client.check_availability(hack(tld="io")).availability == Availability.TAKEN
 
     def test_200_domain_object_without_ldh_name_is_taken(self) -> None:
         client, _ = _client(lambda r: httpx.Response(200, json={"objectClassName": "domain"}))
-        assert client.check_availability(_hack()).availability == Availability.TAKEN
+        assert client.check_availability(hack(tld="io")).availability == Availability.TAKEN
 
     def test_200_mismatched_ldh_name_is_error(self) -> None:
         client, _ = _client(lambda r: httpx.Response(200, json={"ldhName": "other.io"}))
-        result = client.check_availability(_hack())
+        result = client.check_availability(hack(tld="io"))
         assert result.availability == Availability.ERROR
         assert "mismatch" in result.error_message
 
     def test_200_html_page_is_error(self) -> None:
         # rdap.gg returns an HTML page with 200 for every name.
         client, _ = _client(lambda r: httpx.Response(200, html="<html>hello</html>"))
-        result = client.check_availability(_hack())
+        result = client.check_availability(hack(tld="io"))
         assert result.availability == Availability.ERROR
         assert "not JSON" in result.error_message
 
     def test_200_non_object_json_is_error(self) -> None:
         client, _ = _client(lambda r: httpx.Response(200, json=["x"]))
-        assert client.check_availability(_hack()).availability == Availability.ERROR
+        assert client.check_availability(hack(tld="io")).availability == Availability.ERROR
 
     def test_200_json_without_domain_markers_is_error(self) -> None:
         client, _ = _client(lambda r: httpx.Response(200, json={"foo": "bar"}))
-        assert client.check_availability(_hack()).availability == Availability.ERROR
+        assert client.check_availability(hack(tld="io")).availability == Availability.ERROR
 
     @pytest.mark.parametrize("status", [400, 403, 500, 502, 503])
     def test_other_statuses_are_error(self, status: int) -> None:
         client, _ = _client(lambda r: httpx.Response(status))
-        result = client.check_availability(_hack())
+        result = client.check_availability(hack(tld="io"))
         assert result.availability == Availability.ERROR
         assert result.raw_title == f"HTTP {status}"
 
@@ -110,7 +94,7 @@ class TestRdapVerdicts:
             raise httpx.ReadTimeout("timed out", request=request)
 
         client, _ = _client(handler)
-        result = client.check_availability(_hack())
+        result = client.check_availability(hack(tld="io"))
         assert result.availability == Availability.ERROR
         assert "timed out" in result.error_message
 
@@ -119,7 +103,7 @@ class TestRdapVerdicts:
             raise httpx.ConnectError("connection refused")
 
         client, _ = _client(handler)
-        assert client.check_availability(_hack()).availability == Availability.ERROR
+        assert client.check_availability(hack(tld="io")).availability == Availability.ERROR
 
 
 class TestRdapRequest:
@@ -131,7 +115,7 @@ class TestRdapRequest:
             return httpx.Response(404)
 
         client, _ = _client(handler)
-        client.check_availability(_hack("goo", "gl"))
+        client.check_availability(hack("goo", "gl"))
         assert str(seen[0].url) == f"{BASE}domain/goo.gl"
         assert "application/rdap+json" in seen[0].headers["Accept"]
 
@@ -150,7 +134,7 @@ class TestRetryAfter:
             ]
         )
         client, clock = _client(lambda r: next(responses))
-        result = client.check_availability(_hack())
+        result = client.check_availability(hack(tld="io"))
         assert result.availability == Availability.TAKEN
         assert 3.0 in clock.sleeps
 
@@ -162,7 +146,7 @@ class TestRetryAfter:
             return httpx.Response(429, headers={"Retry-After": "1"})
 
         client, _ = _client(handler, max_retries=2)
-        result = client.check_availability(_hack())
+        result = client.check_availability(hack(tld="io"))
         assert result.availability == Availability.ERROR
         assert result.raw_title == "HTTP 429"
         assert len(calls) == 3
@@ -175,7 +159,7 @@ class TestRetryAfter:
             return httpx.Response(429)
 
         client, _ = _client(handler)
-        assert client.check_availability(_hack()).availability == Availability.ERROR
+        assert client.check_availability(hack(tld="io")).availability == Availability.ERROR
         assert len(calls) == 1
 
     def test_429_with_long_retry_after_is_error_immediately(self) -> None:
@@ -186,7 +170,7 @@ class TestRetryAfter:
             return httpx.Response(429, headers={"Retry-After": "3600"})
 
         client, clock = _client(handler)
-        assert client.check_availability(_hack()).availability == Availability.ERROR
+        assert client.check_availability(hack(tld="io")).availability == Availability.ERROR
         assert len(calls) == 1
         assert clock.sleeps == []
 
@@ -201,9 +185,9 @@ class TestRetryAfter:
 class TestRdapDelay:
     def test_no_sleep_on_first_request_then_delay(self) -> None:
         client, clock = _client(lambda r: httpx.Response(404), delay=0.5)
-        client.check_availability(_hack())
+        client.check_availability(hack(tld="io"))
         assert clock.sleeps == []
-        client.check_availability(_hack())
+        client.check_availability(hack(tld="io"))
         assert clock.sleeps == [0.5]
 
     def test_delay_is_shared_per_host_across_instances(self) -> None:
@@ -211,8 +195,8 @@ class TestRdapDelay:
         shared = HostThrottle(clock=clock.time, sleep=clock.sleep)
         a, _ = _client(lambda r: httpx.Response(404), delay=1.0, clock=clock, throttle=shared)
         b, _ = _client(lambda r: httpx.Response(404), delay=1.0, clock=clock, throttle=shared)
-        a.check_availability(_hack())
-        b.check_availability(_hack())
+        a.check_availability(hack(tld="io"))
+        b.check_availability(hack(tld="io"))
         assert clock.sleeps == [1.0]
 
 
@@ -221,7 +205,7 @@ class TestRdapLifecycle:
         client = RdapRegistrarClient(BASE, delay=0.0)
         with client:
             pass
-        assert client._client.is_closed
+        assert client.http_client.is_closed
 
     def test_close_leaves_injected_client_open(self) -> None:
         http = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(404)))
@@ -232,8 +216,8 @@ class TestRdapLifecycle:
 
     def test_owned_client_has_a_short_connect_timeout(self) -> None:
         client = RdapRegistrarClient(BASE, delay=0.0, timeout=10.0)
-        assert client._client.timeout.connect == 5.0
-        assert client._client.timeout.read == 10.0
+        assert client.http_client.timeout.connect == 5.0
+        assert client.http_client.timeout.read == 10.0
         client.close()
 
 
@@ -274,8 +258,8 @@ class TestRdapCircuitBreaker:
         warnings: list[str] = []
         client, _ = self._breaker_client(handler, warnings)
         for sld in ("a", "b", "c"):
-            assert client.check_availability(_hack(sld)).availability == Availability.ERROR
-        result = client.check_availability(_hack("d"))
+            assert client.check_availability(hack(sld, "io")).availability == Availability.ERROR
+        result = client.check_availability(hack("d", "io"))
         assert len(calls) == 3
         assert result.availability == Availability.ERROR
         assert result.error_message == "skipped: rdap.example.test unresponsive (circuit open)"
@@ -286,7 +270,7 @@ class TestRdapCircuitBreaker:
         warnings: list[str] = []
         client, _ = self._breaker_client(handler, warnings)
         for sld in ("a", "b", "c", "d"):
-            client.check_availability(_hack(sld))
+            client.check_availability(hack(sld, "io"))
         assert len(calls) == 4
         assert warnings == []
 
@@ -300,12 +284,12 @@ class TestRdapCircuitBreaker:
 
         client, clock = self._breaker_client(handler, [])
         for sld in ("a", "b", "c"):
-            client.check_availability(_hack(sld))
+            client.check_availability(hack(sld, "io"))
         state["fail"] = False
-        assert client.check_availability(_hack("d")).availability == Availability.ERROR
+        assert client.check_availability(hack("d", "io")).availability == Availability.ERROR
         clock.now += 60.0
-        assert client.check_availability(_hack("e")).availability == Availability.AVAILABLE
-        assert client.check_availability(_hack("f")).availability == Availability.AVAILABLE
+        assert client.check_availability(hack("e", "io")).availability == Availability.AVAILABLE
+        assert client.check_availability(hack("f", "io")).availability == Availability.AVAILABLE
 
     def test_clients_sharing_a_breaker_share_the_circuit(self) -> None:
         clock = FakeClock()
@@ -315,6 +299,6 @@ class TestRdapCircuitBreaker:
         a, _ = _client(handler, clock=clock, breaker=breaker)
         b, _ = _client(handler, clock=clock, breaker=breaker)
         for sld in ("a", "b", "c"):
-            a.check_availability(_hack(sld, "io"))
-        assert "circuit open" in b.check_availability(_hack("x", "sh")).error_message
+            a.check_availability(hack(sld, "io"))
+        assert "circuit open" in b.check_availability(hack("x", "sh")).error_message
         assert len(calls) == 3

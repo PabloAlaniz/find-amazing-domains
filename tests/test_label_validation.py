@@ -5,7 +5,7 @@ import sqlite3
 import unicodedata
 from contextlib import closing
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import httpx
 import idna
@@ -33,7 +33,7 @@ from domainhack.domain.label_rules import DEFAULT_LABEL_RULE, label_rule_for
 from domainhack.ports.registrar import RegistrarClient
 from domainhack.usecases.filter_words import FilterWordsUseCase
 from domainhack.usecases.generate_range import RangeCandidatesUseCase, RangeWordSource
-from tests.conftest import FakeWordSource
+from tests.fakes import FakeCatalog, FakeWordSource, ScriptedRegistrar
 
 TO, IT, DE, IO = TLD("to"), TLD("it"), TLD("de"), TLD("io")
 
@@ -244,10 +244,9 @@ class TestRangeMode:
         args = build_parser().parse_args(
             ["--tld", "it", "check", "--range-max", "2", "--no-progress", "--no-cache"]
         )
-        inner = MagicMock(spec=RegistrarClient)
-        with patch("domainhack.cli.app.build_registrar_for", return_value=inner):
-            cmd_check(args)
-        inner.check_availability.assert_not_called()
+        inner = ScriptedRegistrar()
+        cmd_check(args, catalog=FakeCatalog(inner))
+        assert inner.calls == []
         captured = capsys.readouterr()
         assert "skipped 702 invalid candidates" in captured.err
         assert "Checked 0 domains" in captured.err
@@ -294,14 +293,9 @@ class TestCliReporting:
         args = build_parser().parse_args(
             ["--tld", "de", "check", "--file", str(words), "--no-progress", "--no-cache"]
         )
-        inner = MagicMock(spec=RegistrarClient)
-        inner.check_availability.side_effect = lambda d: DomainCheckResult(
-            domain=d, availability=Availability.AVAILABLE
-        )
-        with patch("domainhack.cli.app.build_registrar_for", return_value=inner):
-            cmd_check(args)
-        (domain,) = [c.args[0] for c in inner.check_availability.call_args_list]
-        assert domain.fqdn == "xn--and-6ma2c.de"
+        inner = ScriptedRegistrar(default=Availability.AVAILABLE)
+        cmd_check(args, catalog=FakeCatalog(inner))
+        assert inner.calls == ["xn--and-6ma2c.de"]
         assert "AVAILABLE: ñandú.de (xn--and-6ma2c.de)" in capsys.readouterr().out
 
 

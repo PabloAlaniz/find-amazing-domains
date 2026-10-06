@@ -17,6 +17,7 @@ from domainhack.adapters.whois_registrar import (
     whois_query,
 )
 from domainhack.domain.entities import TLD, Availability, DomainHack
+from tests.fakes import FakeClock
 
 
 class FakeConn:
@@ -56,19 +57,6 @@ class FakeConnector:
         conn = FakeConn(self.reply)
         self.conns.append(conn)
         return conn
-
-
-class FakeClock:
-    def __init__(self) -> None:
-        self.now = 0.0
-        self.sleeps: list[float] = []
-
-    def time(self) -> float:
-        return self.now
-
-    def sleep(self, seconds: float) -> None:
-        self.sleeps.append(seconds)
-        self.now += seconds
 
 
 def _client(

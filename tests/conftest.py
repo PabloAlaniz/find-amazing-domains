@@ -3,38 +3,27 @@ from pathlib import Path
 
 import pytest
 
-from domainhack.domain.entities import DomainCheckResult, DomainHack
-from domainhack.ports.registrar import RegistrarClient
-from domainhack.ports.result_writer import ResultWriter
-from domainhack.ports.word_source import WordSource
+from tests.netguard import NetworkGuard
 
 
-class FakeWordSource(WordSource):
-    def __init__(self, words: list[str]) -> None:
-        self._words = words
+@pytest.fixture(autouse=True)
+def network_guard(request: pytest.FixtureRequest) -> Iterator[NetworkGuard | None]:
+    """Unit tests must not touch the network; ``integration`` tests are exempt.
 
-    def words(self) -> Iterator[str]:
-        return iter(self._words)
-
-
-class FakeRegistrarClient(RegistrarClient):
-    def __init__(self, results: dict[str, DomainCheckResult]) -> None:
-        self._results = results
-
-    def check_availability(self, domain: DomainHack) -> DomainCheckResult:
-        return self._results[domain.fqdn]
-
-
-class CollectingWriter(ResultWriter):
-    def __init__(self) -> None:
-        self.results: list[DomainCheckResult] = []
-        self.flushed = False
-
-    def write_result(self, result: DomainCheckResult) -> None:
-        self.results.append(result)
-
-    def flush(self) -> None:
-        self.flushed = True
+    Any attempt raises ``NetworkBlockedError``, and the test also fails at
+    teardown in case the code under test swallowed that error.
+    """
+    if request.node.get_closest_marker("integration") is not None:
+        yield None
+        return
+    guard = NetworkGuard()
+    guard.install()
+    try:
+        yield guard
+    finally:
+        guard.uninstall()
+    if guard.attempts:
+        pytest.fail(f"unit test attempted network access: {guard.attempts}", pytrace=False)
 
 
 @pytest.fixture(autouse=True)

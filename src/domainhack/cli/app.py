@@ -5,6 +5,7 @@ import re
 import sys
 from collections.abc import Iterable, Sequence
 from pathlib import Path
+from typing import Protocol
 
 from domainhack import __version__
 from domainhack.adapters._circuit import HostCircuitBreaker
@@ -52,6 +53,23 @@ Results go to stdout; errors, warnings, progress and the summary go to stderr.
 
 _RANGE_END_RE = re.compile(r"[a-z]+")
 _EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+
+
+class RegistrarCatalog(Protocol):
+    """Builds the registrar client for one TLD, or None when unsupported.
+
+    The production catalog is ``build_registrar_for``; ``main`` and
+    ``cmd_check`` accept another one (tests pass a fake).
+    """
+
+    def __call__(
+        self,
+        tld: TLD,
+        *,
+        delay: float,
+        breaker: HostCircuitBreaker | None,
+        contact: str | None,
+    ) -> RegistrarClient | None: ...
 
 
 class CliError(Exception):
@@ -343,31 +361,39 @@ def _build_progress(args: argparse.Namespace) -> ProgressReporter:
     return TqdmProgressReporter()
 
 
-def _registrar_factory(args: argparse.Namespace) -> RegistrarFactory:
+def _registrar_factory(
+    args: argparse.Namespace, catalog: RegistrarCatalog | None = None
+) -> RegistrarFactory:
     """Map a TLD to a fresh RegistrarClient, or None when no registrar supports it."""
+    build: RegistrarCatalog = catalog if catalog is not None else build_registrar_for
     delay: float = args.delay
     contact: str | None = getattr(args, "contact", None)
     # One breaker per run: a host that stops answering is skipped for every TLD it serves.
     breaker = HostCircuitBreaker()
 
     def factory(tld: TLD) -> RegistrarClient | None:
-        return build_registrar_for(tld, delay=delay, breaker=breaker, contact=contact)
+        return build(tld, delay=delay, breaker=breaker, contact=contact)
 
     return factory
 
 
-def _build_router(args: argparse.Namespace) -> RegistrarRouter:
-    return RegistrarRouter(_registrar_factory(args))
+def _build_router(
+    args: argparse.Namespace, catalog: RegistrarCatalog | None = None
+) -> RegistrarRouter:
+    return RegistrarRouter(_registrar_factory(args, catalog))
 
 
 def _build_registrar(
-    args: argparse.Namespace, router: RegistrarRouter | None = None
+    args: argparse.Namespace,
+    router: RegistrarRouter | None = None,
+    *,
+    catalog: RegistrarCatalog | None = None,
 ) -> RegistrarClient:
     """The TLD router, wrapped in the result cache unless ``--no-cache``.
 
     The cache is keyed by fqdn, so a single cache serves every TLD.
     """
-    registrar: RegistrarClient = router if router is not None else _build_router(args)
+    registrar: RegistrarClient = router if router is not None else _build_router(args, catalog)
     if getattr(args, "no_cache", False):
         return registrar
     return CachedRegistrarClient(
@@ -395,7 +421,8 @@ def _supported_tlds(router: RegistrarRouter, tlds: Sequence[TLD]) -> list[TLD]:
     return supported
 
 
-def cmd_check(args: argparse.Namespace) -> int:
+def cmd_check(args: argparse.Namespace, *, catalog: RegistrarCatalog | None = None) -> int:
+    """Check availability; ``catalog`` defaults to ``build_registrar_for``."""
     tlds = _selected_tlds(args)
 
     if args.dry_run:
@@ -411,7 +438,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     if args.file:
         _word_source(args, args.file).check_readable()
 
-    router = _build_router(args)
+    router = _build_router(args, catalog)
     tlds = _supported_tlds(router, tlds)
     try:
         writer = _build_writer(args)
@@ -457,8 +484,11 @@ def _silence_stdout() -> None:
         pass
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    """Run the CLI and return its exit status (see the ``--help`` epilog)."""
+def main(argv: Sequence[str] | None = None, *, catalog: RegistrarCatalog | None = None) -> int:
+    """Run the CLI and return its exit status (see the ``--help`` epilog).
+
+    ``catalog`` replaces ``build_registrar_for`` (the registrar catalog) for ``check``.
+    """
     parser = build_parser()
     try:
         args = parser.parse_args(argv)
@@ -469,7 +499,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.command == "filter":
             return cmd_filter(args)
-        return cmd_check(args)
+        return cmd_check(args, catalog=catalog)
     except OutputFormatError as exc:
         parser.print_usage(sys.stderr)
         _stderr(f"{parser.prog}: error: {exc}")

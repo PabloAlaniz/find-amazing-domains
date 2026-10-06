@@ -7,7 +7,7 @@ from domainhack.adapters.tqdm_progress import TqdmProgressReporter
 from domainhack.domain.entities import TLD, Availability, DomainCheckResult, DomainHack
 from domainhack.ports.progress import NullProgressReporter, ProgressReporter
 from domainhack.usecases.check_domains import CheckDomainsUseCase
-from tests.conftest import CollectingWriter, FakeRegistrarClient
+from tests.fakes import CollectingWriter, FakeRegistrarClient
 
 
 def _result(sld: str, availability: Availability) -> DomainCheckResult:

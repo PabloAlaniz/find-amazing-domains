@@ -3,7 +3,6 @@
 import os
 import subprocess
 import sys
-from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import patch
 
@@ -17,44 +16,13 @@ from domainhack.cli.app import (
     build_parser,
     main,
 )
-from domainhack.domain.entities import Availability, DomainCheckResult, DomainHack
+from domainhack.domain.entities import Availability
 from domainhack.ports.registrar import RegistrarClient
-
-SAMPLES_DIR = Path(__file__).resolve().parent.parent / "data" / "samples"
-
-Outcome = Callable[[DomainHack], DomainCheckResult]
+from tests.fakes import FakeCatalog, Outcome, ScriptedRegistrar, cli_command, guarded_env, run_cli
 
 
-def _result(domain: DomainHack, availability: Availability) -> DomainCheckResult:
-    message = "boom" if availability is Availability.ERROR else ""
-    return DomainCheckResult(domain=domain, availability=availability, error_message=message)
-
-
-class ScriptedRegistrar(RegistrarClient):
-    """Answers by SLD; an SLD mapped to an exception class raises it instead."""
-
-    def __init__(self, script: dict[str, Availability | type[BaseException]]) -> None:
-        self._script = script
-        self.calls: list[str] = []
-        self.closed = False
-
-    def check_availability(self, domain: DomainHack) -> DomainCheckResult:
-        self.calls.append(domain.fqdn)
-        outcome = self._script.get(domain.sld, Availability.TAKEN)
-        if isinstance(outcome, Availability):
-            return _result(domain, outcome)
-        raise outcome()
-
-    def close(self) -> None:
-        self.closed = True
-
-
-def _run(
-    argv: list[str], registrar: RegistrarClient | None
-) -> tuple[int, ScriptedRegistrar | None]:
-    with patch("domainhack.cli.app.build_registrar_for", return_value=registrar):
-        code = main(argv)
-    return code, registrar if isinstance(registrar, ScriptedRegistrar) else None
+def _run(argv: list[str], registrar: RegistrarClient | None) -> int:
+    return main(argv, catalog=FakeCatalog(registrar))
 
 
 def _check(*extra: str) -> list[str]:
@@ -72,7 +40,7 @@ def _assert_one_clean_error(err: str, needle: str) -> None:
 class TestCompletedRuns:
     def test_all_ok_exits_0(self, capsys: pytest.CaptureFixture[str]) -> None:
         registrar = ScriptedRegistrar({"a": Availability.AVAILABLE})
-        code, _ = _run(_check(), registrar)
+        code = _run(_check(), registrar)
         assert code == EXIT_OK
         captured = capsys.readouterr()
         assert captured.out == "  AVAILABLE: a.to (word: 'ato')\n"
@@ -80,13 +48,13 @@ class TestCompletedRuns:
 
     def test_some_errors_exit_1(self, capsys: pytest.CaptureFixture[str]) -> None:
         registrar = ScriptedRegistrar({"a": Availability.AVAILABLE, "b": Availability.ERROR})
-        code, _ = _run(_check(), registrar)
+        code = _run(_check(), registrar)
         assert code == EXIT_FAILURE
         assert "1 errors" in capsys.readouterr().err
 
     def test_all_errors_exit_1(self, capsys: pytest.CaptureFixture[str]) -> None:
         script = dict.fromkeys("abc", Availability.ERROR)
-        code, _ = _run(_check(), ScriptedRegistrar(script))
+        code = _run(_check(), ScriptedRegistrar(script))
         assert code == EXIT_FAILURE
         captured = capsys.readouterr()
         assert captured.out == ""
@@ -107,12 +75,7 @@ class TestStdoutStderrSplit:
         assert err_lines[-1].startswith("Done. Checked 3 domains")
 
     def test_dry_run_is_pipeable(self) -> None:
-        result = subprocess.run(
-            [sys.executable, "-m", "domainhack", "check", "--range-max", "1", "--dry-run"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        result = run_cli("check", "--range-max", "1", "--dry-run")
         assert result.returncode == EXIT_OK
         assert len(result.stdout.splitlines()) == 26
         assert result.stderr == ""
@@ -123,12 +86,12 @@ class TestInterrupt:
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         out = tmp_path / "partial.csv"
-        script: dict[str, Availability | type[BaseException]] = {
+        script: dict[str, Outcome] = {
             "a": Availability.AVAILABLE,
             "c": KeyboardInterrupt,
         }
         registrar = ScriptedRegistrar(script)
-        code, _ = _run(_check("--output", str(out)), registrar)
+        code = _run(_check("--output", str(out)), registrar)
 
         assert code == EXIT_INTERRUPTED
         assert registrar.calls == ["a.to", "b.to", "c.to"]
@@ -145,8 +108,7 @@ class TestInterrupt:
         assert captured.out == "  AVAILABLE: a.to (word: 'ato')\n"
 
     def test_ctrl_c_outside_the_check_loop(self, capsys: pytest.CaptureFixture[str]) -> None:
-        with patch("domainhack.cli.app.build_registrar_for", side_effect=KeyboardInterrupt):
-            assert main(_check()) == EXIT_INTERRUPTED
+        assert main(_check(), catalog=FakeCatalog(raises=KeyboardInterrupt)) == EXIT_INTERRUPTED
         assert capsys.readouterr().err == "Interrupted.\n"
 
     def test_ctrl_c_during_filter(self, capsys: pytest.CaptureFixture[str]) -> None:
@@ -164,9 +126,9 @@ class TestRuntimeErrors:
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
         argv = ["check", "--file", "/nonexistent/words.txt", "--no-progress"]
-        with patch("domainhack.cli.app.build_registrar_for") as catalog:
-            assert main(argv) == EXIT_FAILURE
-        catalog.assert_not_called()
+        catalog = FakeCatalog()
+        assert main(argv, catalog=catalog) == EXIT_FAILURE
+        assert catalog.calls == []
         _assert_one_clean_error(capsys.readouterr().err, "cannot read word list")
 
     @pytest.mark.skipif(sys.platform == "win32" or os.geteuid() == 0, reason="needs POSIX non-root")
@@ -200,13 +162,13 @@ class TestRuntimeErrors:
     def test_bad_output_dir(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         out = tmp_path / "missing" / "r.csv"
         registrar = ScriptedRegistrar({})
-        code, _ = _run(_check("--output", str(out)), registrar)
+        code = _run(_check("--output", str(out)), registrar)
         assert code == EXIT_FAILURE
         assert registrar.calls == []
         _assert_one_clean_error(capsys.readouterr().err, "cannot write output file")
 
     def test_unsupported_tlds_only(self, capsys: pytest.CaptureFixture[str]) -> None:
-        code, _ = _run(["--tld", "in", *_check()], None)
+        code = _run(["--tld", "in", *_check()], None)
         assert code == EXIT_FAILURE
         _assert_one_clean_error(capsys.readouterr().err, "no registrar supports .in")
 
@@ -227,9 +189,10 @@ class TestRuntimeErrors:
     def test_broken_pipe_subprocess_is_quiet(self) -> None:
         """``domainhack ... | head -1``: no traceback, no 'Exception ignored' noise."""
         proc = subprocess.Popen(
-            [sys.executable, "-m", "domainhack", "check", "--range-max", "3", "--dry-run"],
+            cli_command("check", "--range-max", "3", "--dry-run"),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=guarded_env(),
         )
         assert proc.stdout is not None and proc.stderr is not None
         assert proc.stdout.readline().strip().startswith(b"a.to")
@@ -257,7 +220,7 @@ class TestCacheFallback:
             str(cache),
         ]
         registrar = ScriptedRegistrar({"a": Availability.AVAILABLE})
-        code, _ = _run(argv, registrar)
+        code = _run(argv, registrar)
         assert code == EXIT_OK
         assert registrar.calls == ["a.to", "b.to"]
         captured = capsys.readouterr()
@@ -270,7 +233,7 @@ class TestCacheFallback:
     ) -> None:
         argv = ["check", "--range-max", "1", "--range-end", "a", "--no-progress"]
         registrar = ScriptedRegistrar({})
-        code, _ = _run([*argv, "--cache-path", str(tmp_path)], registrar)
+        code = _run([*argv, "--cache-path", str(tmp_path)], registrar)
         assert code == EXIT_OK
         assert capsys.readouterr().err.count("warning: result cache disabled") == 1
 
@@ -300,9 +263,9 @@ class TestUsageErrors:
         ],
     )
     def test_exit_2(self, argv: list[str], capsys: pytest.CaptureFixture[str]) -> None:
-        with patch("domainhack.cli.app.build_registrar_for") as catalog:
-            assert main(argv) == EXIT_USAGE
-        catalog.assert_not_called()
+        catalog = FakeCatalog()
+        assert main(argv, catalog=catalog) == EXIT_USAGE
+        assert catalog.calls == []
         err = capsys.readouterr().err
         assert "usage:" in err
         assert "Traceback" not in err
@@ -328,12 +291,7 @@ class TestSubprocessExitCodes:
     """Through ``python -m domainhack``, i.e. the real interpreter exit path."""
 
     def _run(self, *args: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            [sys.executable, "-m", "domainhack", *args],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        return run_cli(*args)
 
     def test_missing_file_is_one_line_exit_1(self) -> None:
         result = self._run("filter", "/nonexistent/words.txt")

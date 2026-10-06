@@ -1,14 +1,12 @@
 import argparse
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from domainhack.adapters.composite_writer import CompositeResultWriter
 from domainhack.adapters.console_writer import ConsoleResultWriter
-from domainhack.adapters.csv_writer import CsvResultWriter
-from domainhack.adapters.json_writer import JsonResultWriter
 from domainhack.cli.app import (
     OutputFormatError,
     _build_domains,
@@ -20,8 +18,8 @@ from domainhack.cli.app import (
     main,
 )
 from domainhack.domain.entities import TLD, Availability, DomainCheckResult
-
-SAMPLES_DIR = Path(__file__).resolve().parent.parent / "data" / "samples"
+from domainhack.ports.result_writer import ResultWriter
+from tests.fakes import SAMPLES_DIR, FakeCatalog, ScriptedRegistrar, hack
 
 
 class TestBuildParser:
@@ -107,11 +105,8 @@ class TestCmdCheck:
         assert "aba.to" in output
         assert "abe.to" in output
 
-    def test_live_uses_registrar(self) -> None:
-        mock_registrar = MagicMock()
-        mock_registrar.__enter__ = MagicMock(return_value=mock_registrar)
-        mock_registrar.__exit__ = MagicMock(return_value=False)
-
+    def test_live_uses_registrar(self, capsys: pytest.CaptureFixture[str]) -> None:
+        registrar = ScriptedRegistrar({"a": Availability.AVAILABLE})
         args = argparse.Namespace(
             tld="to",
             file=None,
@@ -122,13 +117,10 @@ class TestCmdCheck:
             show_taken=False,
         )
 
-        with (
-            patch("domainhack.cli.app.build_registrar_for", return_value=mock_registrar),
-            patch("domainhack.cli.app.ConsoleResultWriter"),
-            patch("domainhack.cli.app.CheckDomainsUseCase") as mock_uc_cls,
-        ):
-            cmd_check(args)
-            mock_uc_cls.return_value.execute.assert_called_once()
+        assert cmd_check(args, catalog=FakeCatalog(registrar)) == 0
+        assert registrar.calls == ["a.to", "b.to"]
+        assert registrar.closed
+        assert "AVAILABLE: a.to" in capsys.readouterr().out
 
 
 class TestMain:
@@ -190,17 +182,24 @@ class TestBuildWriter:
     def test_console_only_without_output(self) -> None:
         assert isinstance(_build_writer(self._args()), ConsoleResultWriter)
 
-    def test_composite_with_csv(self, tmp_path: Path) -> None:
-        writer = _build_writer(self._args(output=tmp_path / "r.csv"))
-        assert isinstance(writer, CompositeResultWriter)
-        assert any(isinstance(w, CsvResultWriter) for w in writer._writers)
+    @staticmethod
+    def _write_one(writer: ResultWriter) -> None:
+        writer.write_result(DomainCheckResult(domain=hack("a"), availability=Availability.TAKEN))
         writer.flush()
 
-    def test_composite_with_json(self, tmp_path: Path) -> None:
-        writer = _build_writer(self._args(output=tmp_path / "r.out", format="json"))
+    def test_composite_with_csv(self, tmp_path: Path) -> None:
+        out = tmp_path / "r.csv"
+        writer = _build_writer(self._args(output=out))
         assert isinstance(writer, CompositeResultWriter)
-        assert any(isinstance(w, JsonResultWriter) for w in writer._writers)
-        writer.flush()
+        self._write_one(writer)
+        assert out.read_text(encoding="utf-8").splitlines()[1] == "a.to,a.to,ato,a,to,taken,"
+
+    def test_composite_with_json(self, tmp_path: Path) -> None:
+        out = tmp_path / "r.out"
+        writer = _build_writer(self._args(output=out, format="json"))
+        assert isinstance(writer, CompositeResultWriter)
+        self._write_one(writer)
+        assert json.loads(out.read_text(encoding="utf-8"))["fqdn"] == "a.to"
 
 
 class TestCmdCheckOutput:
@@ -217,19 +216,12 @@ class TestCmdCheckOutput:
             format=fmt,
         )
 
-    def _fake_registrar(self) -> MagicMock:
-        registrar = MagicMock()
-        registrar.__enter__ = MagicMock(return_value=registrar)
-        registrar.__exit__ = MagicMock(return_value=False)
-        registrar.check_availability.side_effect = lambda d: DomainCheckResult(
-            domain=d, availability=Availability.AVAILABLE
-        )
-        return registrar
+    def _catalog(self) -> FakeCatalog:
+        return FakeCatalog(ScriptedRegistrar(default=Availability.AVAILABLE))
 
     def test_writes_csv_file(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         out = tmp_path / "results.csv"
-        with patch("domainhack.cli.app.build_registrar_for", return_value=self._fake_registrar()):
-            cmd_check(self._args(out))
+        cmd_check(self._args(out), catalog=self._catalog())
         lines = out.read_text(encoding="utf-8").splitlines()
         assert lines[0] == "fqdn,display,word,sld,tld,availability,error_message"
         assert lines[1:] == ["a.to,a.to,ato,a,to,available,", "b.to,b.to,bto,b,to,available,"]
@@ -238,24 +230,21 @@ class TestCmdCheckOutput:
 
     def test_writes_jsonl_file(self, tmp_path: Path) -> None:
         out = tmp_path / "results.jsonl"
-        with patch("domainhack.cli.app.build_registrar_for", return_value=self._fake_registrar()):
-            cmd_check(self._args(out))
+        cmd_check(self._args(out), catalog=self._catalog())
         records = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
         assert [r["fqdn"] for r in records] == ["a.to", "b.to"]
 
     def test_bad_extension_fails_before_network(self, tmp_path: Path) -> None:
-        with (
-            patch("domainhack.cli.app.build_registrar_for") as mock_client,
-            pytest.raises(OutputFormatError),
-        ):
-            cmd_check(self._args(tmp_path / "results.txt"))
-        mock_client.assert_not_called()
+        catalog = FakeCatalog()
+        with pytest.raises(OutputFormatError):
+            cmd_check(self._args(tmp_path / "results.txt"), catalog=catalog)
+        assert catalog.calls == []
 
     def test_main_reports_bad_extension_as_usage_error(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         argv = ["check", "--range-max", "1", "--output", str(tmp_path / "r.txt")]
-        with patch("domainhack.cli.app.build_registrar_for") as mock_client:
-            assert main(argv) == 2
+        catalog = FakeCatalog()
+        assert main(argv, catalog=catalog) == 2
         assert "Cannot infer output format" in capsys.readouterr().err
-        mock_client.assert_not_called()
+        assert catalog.calls == []

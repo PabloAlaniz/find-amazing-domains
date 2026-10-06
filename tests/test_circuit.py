@@ -3,16 +3,9 @@ import threading
 import pytest
 
 from domainhack.adapters._circuit import HostCircuitBreaker
+from tests.fakes import FakeClock
 
 HOST = "whois.nic.it"
-
-
-class FakeClock:
-    def __init__(self) -> None:
-        self.now = 0.0
-
-    def __call__(self) -> float:
-        return self.now
 
 
 def _breaker(

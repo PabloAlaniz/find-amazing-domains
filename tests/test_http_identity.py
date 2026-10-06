@@ -2,13 +2,10 @@
 
 import importlib.metadata
 import json
-import subprocess
-import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import httpx
-import pytest
 
 import domainhack
 from domainhack.adapters import rdap_bootstrap, registrar_catalog
@@ -18,6 +15,7 @@ from domainhack.adapters._throttle import HostThrottle
 from domainhack.adapters.rdap_bootstrap import RdapBootstrap
 from domainhack.adapters.rdap_registrar import RdapRegistrarClient
 from domainhack.domain.entities import TLD, DomainHack
+from tests.fakes import run_cli
 
 BASE = "https://rdap.example.test/rdap/"
 
@@ -75,23 +73,22 @@ class TestRdapHeaders:
     def test_owned_client_defaults_carry_identity(self) -> None:
         client = RdapRegistrarClient(BASE, contact="me@example.com")
         try:
-            assert client._client.headers["User-Agent"] == USER_AGENT
-            assert client._client.headers["From"] == "me@example.com"
+            assert client.http_client.headers["User-Agent"] == USER_AGENT
+            assert client.http_client.headers["From"] == "me@example.com"
         finally:
             client.close()
 
-    def test_catalog_passes_contact(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_catalog_passes_contact(self, tmp_path: Path) -> None:
         boot = RdapBootstrap(
             cache_path=tmp_path / "rdap.json",
             fetcher=lambda: json.dumps({"services": []}).encode(),
         )
-        monkeypatch.setattr(registrar_catalog, "_default_bootstrap", lambda: boot)
         client = registrar_catalog.build_registrar_for(
-            TLD("io"), delay=0.0, contact="me@example.com"
+            TLD("io"), delay=0.0, contact="me@example.com", bootstrap=boot
         )
         assert isinstance(client, RdapRegistrarClient)
         try:
-            assert client._client.headers["From"] == "me@example.com"
+            assert client.http_client.headers["From"] == "me@example.com"
         finally:
             client.close()
 
@@ -107,11 +104,6 @@ class TestBootstrapFetch:
 
 class TestVersionFlag:
     def test_python_dash_m_version(self) -> None:
-        result = subprocess.run(
-            [sys.executable, "-m", "domainhack", "--version"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        result = run_cli("--version")
         assert result.returncode == 0
         assert result.stdout.strip() == f"domainhack {domainhack.__version__}"

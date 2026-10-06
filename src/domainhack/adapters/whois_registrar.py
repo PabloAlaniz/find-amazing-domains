@@ -8,11 +8,15 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
+from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters._throttle import DEFAULT_THROTTLE, HostThrottle
 from domainhack.domain.entities import Availability, DomainCheckResult, DomainHack
 from domainhack.ports.registrar import RegistrarClient
 
 WHOIS_PORT = 43
+DEFAULT_CONNECT_TIMEOUT = 5.0
+# Most registries document roughly 1 query/s per client (see registrar research).
+DEFAULT_MIN_INTERVAL = 1.0
 _MAX_RESPONSE_BYTES = 256 * 1024
 
 
@@ -21,31 +25,43 @@ class WhoisServer:
     """How to query one registry and recognise an unregistered name.
 
     ``taken`` is optional: when set, a response matching neither pattern is
-    an ERROR instead of TAKEN.
+    an ERROR instead of TAKEN. ``min_interval`` is the minimum spacing in
+    seconds between queries to ``host``; the client uses the larger of it and
+    its own ``delay``.
     """
 
     host: str
     not_found: re.Pattern[str]
     query_format: str = "{fqdn}\r\n"
     taken: re.Pattern[str] | None = None
+    min_interval: float = DEFAULT_MIN_INTERVAL
 
 
 def _server(
-    host: str, not_found: str, query_format: str = "{fqdn}\r\n", taken: str | None = None
+    host: str,
+    not_found: str,
+    query_format: str = "{fqdn}\r\n",
+    taken: str | None = None,
+    min_interval: float = DEFAULT_MIN_INTERVAL,
 ) -> WhoisServer:
     return WhoisServer(
         host=host,
         not_found=re.compile(not_found, re.MULTILINE),
         query_format=query_format,
         taken=re.compile(taken, re.MULTILINE) if taken else None,
+        min_interval=min_interval,
     )
 
 
 # Servers and "not found" patterns verified live (see registrar research,
 # 2026-10-06). Patterns are case-sensitive on purpose: e.g. "NOT FOUND" must
 # not match prose in a registered domain's legal disclaimer.
+#
+# min_interval: every server gets the documented ~1 query/s floor. whois.nic.it
+# silently stopped answering after ~50 queries at 1 query/s in a live run
+# (2026-10-06), so it is paced at 4 s.
 WHOIS_SERVERS: Mapping[str, WhoisServer] = {
-    "it": _server("whois.nic.it", r"Status:\s+AVAILABLE"),
+    "it": _server("whois.nic.it", r"Status:\s+AVAILABLE", min_interval=4.0),
     "am": _server("whois.amnic.net", r"^No match"),
     "at": _server("whois.nic.at", r"% nothing found"),
     "be": _server("whois.dns.be", r"Status:\s+AVAILABLE"),
@@ -87,6 +103,7 @@ _ERROR_PATTERNS = re.compile(
 
 
 class Connection(Protocol):
+    def settimeout(self, value: float | None, /) -> None: ...
     def sendall(self, data: bytes, /) -> None: ...
     def recv(self, bufsize: int, /) -> bytes: ...
     def close(self) -> None: ...
@@ -104,10 +121,16 @@ def whois_query(
     query: str,
     timeout: float,
     connect: Connector = _default_connect,
+    connect_timeout: float | None = None,
 ) -> str:
-    """Send ``query`` to ``host:43`` and read the reply until EOF."""
-    conn = connect((host, WHOIS_PORT), timeout)
+    """Send ``query`` to ``host:43`` and read the reply until EOF.
+
+    ``connect_timeout`` (default: ``timeout``) bounds the TCP handshake, so an
+    unreachable server fails fast; ``timeout`` bounds each read.
+    """
+    conn = connect((host, WHOIS_PORT), timeout if connect_timeout is None else connect_timeout)
     try:
+        conn.settimeout(timeout)
         conn.sendall(query.encode("utf-8"))
         chunks: list[bytes] = []
         size = 0
@@ -133,6 +156,11 @@ class WhoisRegistrarClient(RegistrarClient):
     (or ERROR if the server has a ``taken`` pattern that does not match);
     empty answers, socket errors, timeouts and rate-limit text -> ERROR.
     ``raw_title`` holds ``"whois <host>"``.
+
+    Queries to one host are spaced by max(``delay``, the server's
+    ``min_interval``). Empty answers, socket errors, timeouts and rate-limit
+    text count as failures for the per-host circuit ``breaker``; while a
+    host's circuit is open its domains get an ERROR without any network call.
     """
 
     def __init__(
@@ -142,10 +170,14 @@ class WhoisRegistrarClient(RegistrarClient):
         servers: Mapping[str, WhoisServer] = WHOIS_SERVERS,
         connect: Connector = _default_connect,
         *,
+        connect_timeout: float = DEFAULT_CONNECT_TIMEOUT,
         throttle: HostThrottle | None = None,
+        breaker: HostCircuitBreaker | None = None,
     ) -> None:
         self._delay = delay
         self._timeout = timeout
+        self._connect_timeout = min(connect_timeout, timeout)
+        self._breaker = breaker if breaker is not None else HostCircuitBreaker()
         self._servers = servers
         self._connect = connect
         self._throttle = throttle if throttle is not None else DEFAULT_THROTTLE
@@ -158,26 +190,34 @@ class WhoisRegistrarClient(RegistrarClient):
         if server is None:
             return _error(domain, f"No WHOIS server configured for .{domain.tld.suffix}")
         title = f"whois {server.host}"
+        if not self._breaker.allow(server.host):
+            return _error(domain, self._breaker.skip_message(server.host), title)
 
-        self._throttle.wait(server.host, self._delay)
+        self._throttle.wait(server.host, max(self._delay, server.min_interval))
         try:
             text = whois_query(
                 server.host,
                 server.query_format.format(fqdn=domain.fqdn),
                 self._timeout,
                 self._connect,
+                self._connect_timeout,
             )
         except (OSError, TimeoutError) as e:
+            self._breaker.record_failure(server.host)
             return _error(domain, f"WHOIS query failed: {e or type(e).__name__}", title)
 
         if not text.strip():
+            self._breaker.record_failure(server.host)
             return _error(domain, "Empty WHOIS response", title)
         if server.not_found.search(text):
+            self._breaker.record_success(server.host)
             return DomainCheckResult(
                 domain=domain, availability=Availability.AVAILABLE, raw_title=title
             )
         if domain.fqdn.lower() not in text.lower() and _ERROR_PATTERNS.search(text):
+            self._breaker.record_failure(server.host)
             return _error(domain, "WHOIS server refused or rate-limited the query", title)
+        self._breaker.record_success(server.host)
         if server.taken is not None and not server.taken.search(text):
             return _error(domain, "Unrecognised WHOIS response", title)
         return DomainCheckResult(domain=domain, availability=Availability.TAKEN, raw_title=title)

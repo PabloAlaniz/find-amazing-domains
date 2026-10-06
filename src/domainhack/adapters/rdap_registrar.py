@@ -10,6 +10,7 @@ from typing import Any
 
 import httpx
 
+from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters._throttle import DEFAULT_THROTTLE, HostThrottle
 from domainhack.domain.entities import Availability, DomainCheckResult, DomainHack
 from domainhack.ports.registrar import RegistrarClient
@@ -21,6 +22,8 @@ _HEADERS = {
 _STATUS_TAKEN = 200
 _STATUS_AVAILABLE = 404
 _STATUS_TOO_MANY = 429
+_STATUS_SERVER_ERROR = 500
+DEFAULT_CONNECT_TIMEOUT = 5.0
 
 
 def parse_retry_after(value: str | None, now: float | None = None) -> float | None:
@@ -45,6 +48,10 @@ class RdapRegistrarClient(RegistrarClient):
     whose ``ldhName`` matches -> TAKEN, anything else (429, 5xx, timeouts,
     HTML 200 pages) -> ERROR. A 429 with a short ``Retry-After`` is retried a
     bounded number of times. ``raw_title`` holds ``"HTTP <status>"``.
+
+    Transport errors, a final 429 and 5xx answers count as failures for the
+    per-host circuit ``breaker``; while a host's circuit is open its domains
+    get an ERROR without any network call.
     """
 
     def __init__(
@@ -57,6 +64,7 @@ class RdapRegistrarClient(RegistrarClient):
         max_retries: int = 2,
         max_retry_after: float = 30.0,
         throttle: HostThrottle | None = None,
+        breaker: HostCircuitBreaker | None = None,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self._base_url = base_url if base_url.endswith("/") else base_url + "/"
@@ -65,11 +73,14 @@ class RdapRegistrarClient(RegistrarClient):
         self._timeout = timeout
         self._owns_client = client is None
         self._client = client or httpx.Client(
-            headers=_HEADERS, timeout=timeout, follow_redirects=True
+            headers=_HEADERS,
+            timeout=httpx.Timeout(timeout, connect=min(DEFAULT_CONNECT_TIMEOUT, timeout)),
+            follow_redirects=True,
         )
         self._max_retries = max_retries
         self._max_retry_after = max_retry_after
         self._throttle = throttle if throttle is not None else DEFAULT_THROTTLE
+        self._breaker = breaker if breaker is not None else HostCircuitBreaker()
         self._sleep = sleep
 
     @property
@@ -77,6 +88,8 @@ class RdapRegistrarClient(RegistrarClient):
         return self._base_url
 
     def check_availability(self, domain: DomainHack) -> DomainCheckResult:
+        if not self._breaker.allow(self._host):
+            return _error(domain, self._breaker.skip_message(self._host))
         url = f"{self._base_url}domain/{domain.fqdn}"
         attempt = 0
         while True:
@@ -84,6 +97,7 @@ class RdapRegistrarClient(RegistrarClient):
             try:
                 response = self._client.get(url, headers=_HEADERS)
             except httpx.HTTPError as e:
+                self._breaker.record_failure(self._host)
                 return _error(domain, f"RDAP request failed: {e or type(e).__name__}")
 
             if response.status_code == _STATUS_TOO_MANY:
@@ -96,8 +110,13 @@ class RdapRegistrarClient(RegistrarClient):
                     attempt += 1
                     self._sleep(wait)
                     continue
+                self._breaker.record_failure(self._host)
                 return _error(domain, "RDAP rate limited (429)", response.status_code)
 
+            if response.status_code >= _STATUS_SERVER_ERROR:
+                self._breaker.record_failure(self._host)
+            else:
+                self._breaker.record_success(self._host)
             return self._interpret(domain, response)
 
     def _interpret(self, domain: DomainHack, response: httpx.Response) -> DomainCheckResult:

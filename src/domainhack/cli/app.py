@@ -3,6 +3,7 @@ import sys
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
+from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters.cached_registrar import CachedRegistrarClient
 from domainhack.adapters.composite_writer import CompositeResultWriter
 from domainhack.adapters.console_writer import ConsoleResultWriter
@@ -193,9 +194,11 @@ def _build_progress(args: argparse.Namespace) -> ProgressReporter:
 def _registrar_factory(args: argparse.Namespace) -> RegistrarFactory:
     """Map a TLD to a fresh RegistrarClient, or None when no registrar supports it."""
     delay: float = args.delay
+    # One breaker per run: a host that stops answering is skipped for every TLD it serves.
+    breaker = HostCircuitBreaker()
 
     def factory(tld: TLD) -> RegistrarClient | None:
-        return build_registrar_for(tld, delay=delay)
+        return build_registrar_for(tld, delay=delay, breaker=breaker)
 
     return factory
 

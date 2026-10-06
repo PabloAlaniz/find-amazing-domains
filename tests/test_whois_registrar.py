@@ -1,7 +1,9 @@
 import pytest
 
+from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters._throttle import HostThrottle
 from domainhack.adapters.whois_registrar import (
+    DEFAULT_MIN_INTERVAL,
     WHOIS_PORT,
     WHOIS_SERVERS,
     WhoisRegistrarClient,
@@ -16,6 +18,10 @@ class FakeConn:
         self._chunk = chunk
         self.sent = b""
         self.closed = False
+        self.read_timeout: float | None = None
+
+    def settimeout(self, value: float | None, /) -> None:
+        self.read_timeout = value
 
     def sendall(self, data: bytes, /) -> None:
         self.sent += data
@@ -140,6 +146,7 @@ def test_sends_fqdn_with_crlf_and_closes() -> None:
     assert connector.conns[0].sent == b"pla.am\r\n"
     assert connector.conns[0].closed
     assert connector.timeouts == [5.0]
+    assert connector.conns[0].read_timeout == 5.0
 
 
 def test_de_requires_connect_status_for_taken() -> None:
@@ -213,3 +220,127 @@ def test_whois_query_decodes_latin1_fallback() -> None:
     conn = FakeConn("Dueño: José\n".encode("latin-1"))
     text = whois_query("h", "q\r\n", 1.0, lambda addr, t: conn)
     assert "José" in text
+
+
+def _timeout_client(timeout: float, **kwargs: float) -> tuple[WhoisRegistrarClient, FakeConnector]:
+    clock = FakeClock()
+    connector = FakeConnector(b"No match\n")
+    client = WhoisRegistrarClient(
+        delay=0.0,
+        timeout=timeout,
+        connect=connector,
+        throttle=HostThrottle(clock=clock.time, sleep=clock.sleep),
+        **kwargs,
+    )
+    return client, connector
+
+
+def test_connect_timeout_is_shorter_than_read_timeout() -> None:
+    client, connector = _timeout_client(10.0, connect_timeout=3.0)
+    client.check_availability(_hack("pla", "am"))
+    assert connector.timeouts == [3.0]
+    assert connector.conns[0].read_timeout == 10.0
+
+
+def test_connect_timeout_never_exceeds_read_timeout() -> None:
+    client, connector = _timeout_client(2.0)
+    client.check_availability(_hack("pla", "am"))
+    assert connector.timeouts == [2.0]
+
+
+def test_every_server_has_a_min_interval() -> None:
+    assert all(s.min_interval >= DEFAULT_MIN_INTERVAL for s in WHOIS_SERVERS.values())
+    assert WHOIS_SERVERS["it"].min_interval >= 4.0
+
+
+def test_server_min_interval_overrides_a_smaller_delay() -> None:
+    clock = FakeClock()
+    client, _, _ = _client(b"Status: AVAILABLE\n", delay=1.0, clock=clock)
+    for sld in ("a", "b", "c"):
+        client.check_availability(_hack(sld, "it"))
+    assert clock.sleeps == [WHOIS_SERVERS["it"].min_interval] * 2
+
+
+def test_delay_larger_than_min_interval_wins() -> None:
+    clock = FakeClock()
+    client, _, _ = _client(b"Status: AVAILABLE\n", delay=7.0, clock=clock)
+    client.check_availability(_hack("a", "it"))
+    client.check_availability(_hack("b", "it"))
+    assert clock.sleeps == [7.0]
+
+
+def _breaker_client(
+    reply: bytes | Exception, warnings: list[str]
+) -> tuple[WhoisRegistrarClient, FakeConnector, FakeClock]:
+    clock = FakeClock()
+    connector = FakeConnector(reply)
+    client = WhoisRegistrarClient(
+        delay=0.0,
+        timeout=5.0,
+        connect=connector,
+        throttle=HostThrottle(clock=clock.time, sleep=clock.sleep),
+        breaker=HostCircuitBreaker(threshold=3, clock=clock.time, on_open=warnings.append),
+    )
+    return client, connector, clock
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [TimeoutError("timed out"), ConnectionResetError("reset"), b"", b"Too many queries\n"],
+)
+def test_breaker_skips_host_after_three_failures(reply: bytes | Exception) -> None:
+    warnings: list[str] = []
+    client, connector, _ = _breaker_client(reply, warnings)
+    for sld in ("a", "b", "c"):
+        assert client.check_availability(_hack(sld, "it")).availability == Availability.ERROR
+    assert len(connector.addresses) == 3
+    assert len(warnings) == 1
+
+    skipped = [client.check_availability(_hack(sld, "it")) for sld in ("d", "e", "f")]
+    assert len(connector.addresses) == 3  # no network call while open
+    for result in skipped:
+        assert result.availability == Availability.ERROR
+        assert result.error_message == "skipped: whois.nic.it unresponsive (circuit open)"
+        assert result.raw_title == "whois whois.nic.it"
+    assert len(warnings) == 1
+
+
+def test_open_circuit_does_not_wait_on_the_throttle() -> None:
+    client, _, clock = _breaker_client(TimeoutError("timed out"), [])
+    for sld in ("a", "b", "c"):
+        client.check_availability(_hack(sld, "it"))
+    sleeps = list(clock.sleeps)
+    client.check_availability(_hack("d", "it"))
+    assert clock.sleeps == sleeps
+
+
+def test_breaker_is_per_host() -> None:
+    client, connector, _ = _breaker_client(TimeoutError("timed out"), [])
+    for sld in ("a", "b", "c"):
+        client.check_availability(_hack(sld, "it"))
+    client.check_availability(_hack("a", "am"))
+    assert connector.addresses[-1] == ("whois.amnic.net", WHOIS_PORT)
+
+
+def test_breaker_half_open_recovers_after_cooldown() -> None:
+    client, connector, clock = _breaker_client(TimeoutError("timed out"), [])
+    for sld in ("a", "b", "c"):
+        client.check_availability(_hack(sld, "it"))
+    connector.reply = b"Status: AVAILABLE\n"
+    assert "circuit open" in client.check_availability(_hack("d", "it")).error_message
+    clock.now += 60.0
+    assert client.check_availability(_hack("e", "it")).availability == Availability.AVAILABLE
+    assert client.check_availability(_hack("f", "it")).availability == Availability.AVAILABLE
+
+
+def test_real_answers_reset_the_failure_count() -> None:
+    warnings: list[str] = []
+    client, connector, _ = _breaker_client(TimeoutError("timed out"), warnings)
+    for i in range(5):
+        connector.reply = TimeoutError("timed out")
+        client.check_availability(_hack(f"a{i}", "it"))
+        client.check_availability(_hack(f"b{i}", "it"))
+        connector.reply = b"Domain: x.it\nStatus: ok\n"
+        result = client.check_availability(_hack(f"c{i}", "it"))
+        assert result.availability == Availability.TAKEN
+    assert warnings == []

@@ -1,0 +1,215 @@
+import pytest
+
+from domainhack.adapters._throttle import HostThrottle
+from domainhack.adapters.whois_registrar import (
+    WHOIS_PORT,
+    WHOIS_SERVERS,
+    WhoisRegistrarClient,
+    whois_query,
+)
+from domainhack.domain.entities import TLD, Availability, DomainHack
+
+
+class FakeConn:
+    def __init__(self, reply: bytes, chunk: int = 7) -> None:
+        self._reply = reply
+        self._chunk = chunk
+        self.sent = b""
+        self.closed = False
+
+    def sendall(self, data: bytes, /) -> None:
+        self.sent += data
+
+    def recv(self, bufsize: int, /) -> bytes:
+        out, self._reply = self._reply[: self._chunk], self._reply[self._chunk :]
+        return out
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class FakeConnector:
+    def __init__(self, reply: bytes | Exception) -> None:
+        self.reply = reply
+        self.addresses: list[tuple[str, int]] = []
+        self.timeouts: list[float] = []
+        self.conns: list[FakeConn] = []
+
+    def __call__(self, address: tuple[str, int], timeout: float) -> FakeConn:
+        self.addresses.append(address)
+        self.timeouts.append(timeout)
+        if isinstance(self.reply, Exception):
+            raise self.reply
+        conn = FakeConn(self.reply)
+        self.conns.append(conn)
+        return conn
+
+
+class FakeClock:
+    def __init__(self) -> None:
+        self.now = 0.0
+        self.sleeps: list[float] = []
+
+    def time(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+
+def _client(
+    reply: bytes | Exception, delay: float = 0.0, clock: FakeClock | None = None
+) -> tuple[WhoisRegistrarClient, FakeConnector, FakeClock]:
+    clock = clock or FakeClock()
+    connector = FakeConnector(reply)
+    client = WhoisRegistrarClient(
+        delay=delay,
+        timeout=5.0,
+        connect=connector,
+        throttle=HostThrottle(clock=clock.time, sleep=clock.sleep),
+    )
+    return client, connector, clock
+
+
+def _hack(sld: str, tld: str) -> DomainHack:
+    return DomainHack.from_sld(sld, TLD(tld))
+
+
+# One realistic "unregistered" reply per TLD in the table.
+NOT_FOUND_SAMPLES = {
+    "it": "Domain:             zq.it\nStatus:             AVAILABLE\n",
+    "am": "No match\n",
+    "at": "% Copyright (c)2026 by NIC.AT\n% nothing found\n",
+    "be": "Domain:\tzq.be\nStatus:\tAVAILABLE\n",
+    "gg": "NOT FOUND\n",
+    "im": "The domain zq.im was not found.\n",
+    "la": "DOMAIN NOT FOUND\n",
+    "ma": "No Object Found\n",
+    "mx": "Object_Not_Found\n",
+    "nu": 'domain "zq.nu" not found.\n',
+    "pe": "Domain Status: No Object Found\n",
+    "st": "No entries found for domain zq.st\n",
+    "fm": "DOMAIN NOT FOUND\n",
+    "re": "%% NOT FOUND\n",
+    "tv": "No Data Found\n",
+    "ly": "No Object Found\n",
+    "so": "No Object Found\n",
+    "is": "% No entries found for query 'zq.is'.\n",
+    "in": "Domain zq.in is available for registration\n",
+    "ar": "El dominio no se encuentra registrado en NIC Argentina\n",
+    "co": "DOMAIN NOT FOUND\n",
+    "io": "Domain not found.\n",
+    "sh": "Domain not found.\n",
+    "ac": "Domain not found.\n",
+    "me": "Domain not found.\n",
+    "de": "Domain: zq.de\nStatus: free\n",
+    "to": "zq.to is available for registration\n",
+}
+
+
+def test_every_server_has_a_sample() -> None:
+    assert set(NOT_FOUND_SAMPLES) == set(WHOIS_SERVERS)
+
+
+@pytest.mark.parametrize("tld", sorted(NOT_FOUND_SAMPLES))
+def test_not_found_pattern_means_available(tld: str) -> None:
+    client, connector, _ = _client(NOT_FOUND_SAMPLES[tld].encode())
+    result = client.check_availability(_hack("zq", tld))
+    assert result.availability == Availability.AVAILABLE, tld
+    assert connector.addresses == [(WHOIS_SERVERS[tld].host, WHOIS_PORT)]
+    assert result.raw_title == f"whois {WHOIS_SERVERS[tld].host}"
+
+
+def test_registered_reply_is_taken() -> None:
+    reply = b"Domain:             google.it\nStatus:             ok\nCreated: 1999-12-10\n"
+    client, _, _ = _client(reply)
+    assert client.check_availability(_hack("google", "it")).availability == Availability.TAKEN
+
+
+def test_uppercase_not_found_in_prose_does_not_match_lowercase_pattern() -> None:
+    # gg pattern is case-sensitive "NOT FOUND"; a disclaimer saying "not found" is fine.
+    reply = b"Domain:\n     google.gg\nIf a record is not found, contact us.\n"
+    client, _, _ = _client(reply)
+    assert client.check_availability(_hack("google", "gg")).availability == Availability.TAKEN
+
+
+def test_sends_fqdn_with_crlf_and_closes() -> None:
+    client, connector, _ = _client(b"No match\n")
+    client.check_availability(_hack("pla", "am"))
+    assert connector.conns[0].sent == b"pla.am\r\n"
+    assert connector.conns[0].closed
+    assert connector.timeouts == [5.0]
+
+
+def test_de_requires_connect_status_for_taken() -> None:
+    client, _, _ = _client(b"Domain: google.de\nStatus: connect\n")
+    assert client.check_availability(_hack("google", "de")).availability == Availability.TAKEN
+    client, _, _ = _client(b"Something unexpected\n")
+    assert client.check_availability(_hack("google", "de")).availability == Availability.ERROR
+
+
+@pytest.mark.parametrize("reply", [b"", b"   \r\n"])
+def test_empty_reply_is_error(reply: bytes) -> None:
+    client, _, _ = _client(reply)
+    result = client.check_availability(_hack("pla", "it"))
+    assert result.availability == Availability.ERROR
+    assert "Empty" in result.error_message
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        b"Query rate limit exceeded. Try again later.\n",
+        b"Requests of this client are not permitted\n",
+        b"Too many queries from your IP\n",
+    ],
+)
+def test_rate_limit_text_is_error(reply: bytes) -> None:
+    client, _, _ = _client(reply)
+    assert client.check_availability(_hack("pla", "it")).availability == Availability.ERROR
+
+
+def test_throttling_boilerplate_in_a_record_is_still_taken() -> None:
+    # Identity Digital / CentralNic append throttling notes to every reply.
+    reply = (
+        b"Domain Name: google.io\r\nRegistrar: MarkMonitor\r\n"
+        b"Queries to the Whois services are throttled. If too many queries are received...\r\n"
+        b"Access to the whois service is rate limited.\r\n"
+    )
+    client, _, _ = _client(reply)
+    assert client.check_availability(_hack("google", "io")).availability == Availability.TAKEN
+
+
+@pytest.mark.parametrize("exc", [TimeoutError("timed out"), ConnectionRefusedError("refused")])
+def test_socket_errors_are_error(exc: Exception) -> None:
+    client, _, _ = _client(exc)
+    result = client.check_availability(_hack("pla", "it"))
+    assert result.availability == Availability.ERROR
+    assert "WHOIS query failed" in result.error_message
+
+
+def test_unknown_tld_is_error_without_connecting() -> None:
+    client, connector, _ = _client(b"x")
+    result = client.check_availability(_hack("pla", "zz"))
+    assert result.availability == Availability.ERROR
+    assert connector.addresses == []
+    assert client.supports("it")
+    assert not client.supports("zz")
+
+
+def test_delay_per_host() -> None:
+    clock = FakeClock()
+    client, _, _ = _client(b"No match\n", delay=1.5, clock=clock)
+    client.check_availability(_hack("a", "am"))
+    assert clock.sleeps == []
+    client.check_availability(_hack("b", "am"))
+    assert clock.sleeps == [1.5]
+    client.check_availability(_hack("c", "it"))  # different host: no wait
+    assert clock.sleeps == [1.5]
+
+
+def test_whois_query_decodes_latin1_fallback() -> None:
+    conn = FakeConn("Dueño: José\n".encode("latin-1"))
+    text = whois_query("h", "q\r\n", 1.0, lambda addr, t: conn)
+    assert "José" in text

@@ -75,6 +75,19 @@ TLD_LABEL_RULES: Mapping[str, LabelRule] = {
     # 200 (TAKEN) for registry-held names, so a short query cannot produce a
     # false AVAILABLE.
     "to": LabelRule(max_length=61, idn=False),
+    # NIC Argentina, second-level zones (com.ar, net.ar, org.ar...): the
+    # Reglamento approved by Resolución DNRDI 43/2019, Art. 13, as amended by
+    # Resolución SLYT 2/2022: a name has "UNO (1) y CINCUENTA (50)" characters,
+    # not counting the zone (1-3 character names are registered after NIC.ar
+    # reviews them, so a short query is still worth an answer).
+    # https://www.boletinoficial.gob.ar/detalleAviso/primera/255797/20220106
+    # Valid characters are "las letras de los alfabetos español y portugués
+    # (incluidas la 'ñ' y la 'ç'), las vocales acentuadas y con diéresis, los
+    # números y el guión" (Resolución 110/2016, Art. 9).
+    # https://www.boletinoficial.gob.ar/detalleAviso/primera/148316/20160720
+    # Other second-level suffixes (com.mx, co.uk...) use DEFAULT_LABEL_RULE
+    # until their registry's rules are checked.
+    **dict.fromkeys(("com.ar", "net.ar", "org.ar"), LabelRule(max_length=50, idn=True)),
 }
 
 

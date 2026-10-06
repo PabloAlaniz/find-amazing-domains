@@ -37,7 +37,9 @@ class TestParseTldList:
     def test_normalizes_whitespace_case_and_dots(self) -> None:
         assert parse_tld_list(" .TO , io ,") == [TO, IO]
 
-    @pytest.mark.parametrize("value", ["t", "to,x", "to,i0", "", ",,", "co.uk"])
+    @pytest.mark.parametrize(
+        "value", ["t", "to,x", "to,i0", "", ",,", "co..uk", "comm.ar", "a.b.ar"]
+    )
     def test_rejects_invalid(self, value: str) -> None:
         with pytest.raises(argparse.ArgumentTypeError):
             parse_tld_list(value)

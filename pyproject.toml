@@ -31,6 +31,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
+    "dnspython>=2.6,<3",  # 2.6+ supports 3.10-3.14; used by `check --confirm-dns`
     "httpx>=0.27",
     "idna>=3.7",
     "tqdm>=4.66",
@@ -66,9 +67,10 @@ version = {attr = "domainhack.__version__"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-# Bundled IANA RDAP bootstrap snapshot (see adapters/rdap_bootstrap.py) and the
-# PEP 561 marker that tells type checkers the package ships inline types.
-domainhack = ["data/*.json", "py.typed"]
+# Bundled IANA RDAP bootstrap snapshot (see adapters/rdap_bootstrap.py), the
+# IANA TLD list and curated second-level suffixes (see adapters/iana_tlds.py),
+# and the PEP 561 marker that tells type checkers the package ships inline types.
+domainhack = ["data/*.json", "data/*.txt", "py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

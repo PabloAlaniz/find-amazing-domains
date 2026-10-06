@@ -1,0 +1,59 @@
+{
+  "objectClassName": "domain",
+  "handle": "google.com.ar",
+  "ldhName": "google.com.ar",
+  "status": [
+    "active"
+  ],
+  "events": [
+    {
+      "eventAction": "registration",
+      "eventDate": "1999-06-08T00:00:00+00:00"
+    },
+    {
+      "eventAction": "expiration",
+      "eventDate": "2027-07-08T09:00:00+00:00"
+    }
+  ],
+  "nameservers": [
+    {
+      "objectClassName": "nameserver",
+      "handle": "ns1.google.com",
+      "ldhName": "ns1.google.com"
+    },
+    {
+      "objectClassName": "nameserver",
+      "handle": "ns2.google.com",
+      "ldhName": "ns2.google.com"
+    }
+  ],
+  "entities": [
+    {
+      "objectClassName": "entity",
+      "handle": "50037928906",
+      "roles": [
+        "registrant"
+      ]
+    },
+    {
+      "objectClassName": "entity",
+      "handle": "nicar",
+      "roles": [
+        "registrar"
+      ]
+    }
+  ],
+  "port43": "",
+  "rdapConformance": [
+    "rdap_level_0",
+    "fred_version_0"
+  ],
+  "links": [
+    {
+      "href": "https://rdap.nic.ar/domain/google.com.ar",
+      "type": "application/rdap+json",
+      "rel": "self",
+      "value": "https://rdap.nic.ar/domain/google.com.ar"
+    }
+  ]
+}

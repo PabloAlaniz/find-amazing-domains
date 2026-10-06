@@ -14,7 +14,9 @@ class ConsoleResultWriter(ResultWriter):
     status and expiry date, and ``show_dropping`` prints them even without
     ``show_taken``. Other TAKEN names print with whatever registration
     details are known: ``TAKEN:     sumanda.com (since 2015-11-12, expires
-    2026-11-12, parked: domainrecover)``. The run summary is printed by the CLI, from the use case's
+    2026-11-12, parked: domainrecover)``. An AVAILABLE name that DNS shows as
+    delegated (``dns_conflict``, see ``--confirm-dns``) prints as
+    ``AVAILABLE?`` with a warning instead. The run summary is printed by the CLI, from the use case's
     ``CheckSummary``.
     """
 
@@ -28,7 +30,13 @@ class ConsoleResultWriter(ResultWriter):
     def write_result(self, result: DomainCheckResult) -> None:
         match result.availability:
             case Availability.AVAILABLE:
-                print(f"  AVAILABLE: {_name(result.domain)} (word: {result.domain.word!r})")
+                if result.dns_conflict:
+                    print(
+                        f"  AVAILABLE? {_name(result.domain)} -- registry says free "
+                        "but DNS has NS records"
+                    )
+                else:
+                    print(f"  AVAILABLE: {_name(result.domain)} (word: {result.domain.word!r})")
             case Availability.TAKEN:
                 if result.is_dropping:
                     if self._show_taken or self._show_dropping:

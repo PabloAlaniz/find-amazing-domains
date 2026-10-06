@@ -24,6 +24,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The result cache stores registration date, registrar, nameservers and parking
   hint (schema version 2; older cache files are upgraded in place). DNS
   evidence is never cached.
+- Second-level suffixes such as `com.ar`, `com.mx`, `com.br`, `co.uk`, `com.co`
+  and `com.pe`: `--tld com.ar` works, and every label is validated. Words match
+  by plain concatenation (`fotocomar` -> `foto.com.ar`). Each suffix is routed
+  to the registry of its top-level domain (`com.ar` -> `rdap.nic.ar`,
+  `com.mx` -> `whois.mx`), and the query names the whole domain. `.com.ar`/
+  `.net.ar`/`.org.ar` follow NIC Argentina's rules: at most 50 characters,
+  with `ñ` and accents accepted.
+- Bundled TLD knowledge: a snapshot of IANA's TLD list
+  (`data/iana_tlds.txt`) and a curated list of common second-level suffixes,
+  Latin America first (`data/second_level.json`, checked against the Public
+  Suffix List). `IanaTldList` answers `is_known()` and `suffixes_of()`
+  (`plato` -> `to`). The lists are snapshot-only and need no network.
+- `check --confirm-dns` looks up each available or taken name in public DNS
+  (NS and A/AAAA, with dnspython) as results stream in. A name the registry
+  calls available but that has NS records prints as `AVAILABLE? x.io --
+  registry says free but DNS has NS records`, and the summary counts these
+  names. DNS failures never stop the run. New dependency: `dnspython`.
+- The final summary names every registry that failed, e.g. `warning: registry
+  for .com.ar did not respond (3 errors); re-run later`, so an unreachable
+  registry is never silent.
 
 - Parallel checks across registry hosts: `check --parallel N` (default 4)
   checks up to N hosts at once, never more than one request in flight per

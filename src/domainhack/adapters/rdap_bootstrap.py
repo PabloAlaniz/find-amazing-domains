@@ -161,7 +161,20 @@ class RdapBootstrap:
         self._services: dict[str, str] | None = None
 
     def base_url_for(self, tld: str) -> str | None:
+        """The RDAP base URL for ``tld``, or None.
+
+        A multi-label suffix (``com.ar``) is served by the registry of its
+        top-level domain (``ar`` -> https://rdap.nic.ar/) unless it has an
+        entry of its own; the query still names the whole domain
+        (``{base}domain/sumanda.com.ar``).
+        """
         key = tld.lower().lstrip(".")
+        url = self._resolve(key)
+        if url is None and "." in key:
+            url = self._resolve(key.rsplit(".", 1)[1])
+        return url
+
+    def _resolve(self, key: str) -> str | None:
         if key in self._denylist:
             return None
         if key in self._overrides:

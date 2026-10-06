@@ -159,6 +159,26 @@ domainhack --tld to,io,it filter data/words_en.txt
 domainhack --tld to,io,it check --file data/words_en.txt
 ```
 
+Second-level suffixes work too: `--tld com.ar,com.mx,co.uk`. A word matches by plain concatenation, ignoring the suffix's dots (`fotocomar` -> `foto.com.ar`). Each one is checked against the registry of its top-level domain (`com.ar` -> `rdap.nic.ar`, `com.mx` -> `whois.mx`), with the whole name in the query.
+
+#### DNS confirmation
+
+```bash
+domainhack --tld io,com.ar check --file words.txt --confirm-dns
+```
+
+`--confirm-dns` looks up every available or taken name in public DNS (NS, then A/AAAA, 3 s timeout, system resolver) as results come in. DNS is a second opinion, never the verdict. If the registry says a name is available but it has NS records, it prints as
+
+```
+  AVAILABLE? x.io -- registry says free but DNS has NS records
+```
+
+and the summary counts these names. Treat them as taken until a registrar confirms otherwise. NXDOMAIN means "not in DNS". It is not an error, because many registered names are not delegated. Timeouts and SERVFAIL are recorded as DNS errors and never stop the run.
+
+#### Unreachable registries
+
+When a registry does not answer (timeouts, rate limits, an open circuit breaker), the summary names it, e.g. `warning: registry for .com.ar did not respond (3 errors); re-run later`. A TLD with only some failed checks gets `registry for .io failed 2 of 10 checks`. Errors are never cached, so the re-run checks only those names again.
+
 #### Parallel checks
 
 Different registry hosts are checked in parallel, each with one request in flight at a time. TLDs served by the same host share it: `.io`, `.sh`, `.ac` and `.me` (Identity Digital) are checked one after another, while `.to` and `.it` go ahead independently. One slow or unresponsive host (e.g. `whois.nic.it` at one query per 4 s) no longer holds up the others.
@@ -206,7 +226,7 @@ Only results go to stdout; warnings, errors and the final summary go to stderr, 
 
 ### Name validation and international names
 
-Candidates are validated before any query: letters, digits and hyphens only, 1-63 characters, plus per-TLD rules (e.g. `.it` requires at least 3 characters). Names with accents or `ñ` are converted to their IDN form (`ñandú.de` -> `xn--and-6ma2c.de`) only for TLDs that accept IDNs; elsewhere they are skipped. Skipped candidates are counted on stderr.
+Candidates are validated before any query: letters, digits and hyphens only, 1-63 characters, plus per-TLD rules (e.g. `.it` requires at least 3 characters; `.com.ar` allows at most 50 and accepts `ñ` and accents, per NIC Argentina's rules). Names with accents or `ñ` are converted to their IDN form (`ñandú.de` -> `xn--and-6ma2c.de`) only for TLDs that accept IDNs; elsewhere they are skipped. Skipped candidates are counted on stderr.
 
 Word lists are read as UTF-8; use `--encoding latin-1` for older lists.
 
@@ -234,9 +254,12 @@ Availability is checked against the registry directly, with no captchas or API k
 | RDAP (registry endpoints, incl. manual overrides) | to, io, sh, ac, me, co, de, ch, li, so, ws |
 | RDAP (via the IANA bootstrap) | ai, in, is, ly, fm, tv, cc, pw, re, fr, nl, uk, ar, ... and all gTLDs |
 | WHOIS (port 43) | it, am, at, be, gg, im, la, ma, mx, nu, pe, st |
+| Second-level suffixes | com.ar, com.br, co.uk, com.mx, com.pe, ... (through their top-level registry) |
 | Not supported | es, al |
 
 A snapshot of the IANA RDAP bootstrap ships with the package, so the backend chosen for each TLD is the same online and offline.
+
+The package also bundles IANA's list of every TLD (`data/iana_tlds.txt`, snapshot with its `# Version` line) and a curated list of common registrable second-level suffixes, Latin America first (`data/second_level.json`, checked against the [Public Suffix List](https://publicsuffix.org/)). `adapters/iana_tlds.IanaTldList` answers "is this a public suffix?" and "which suffixes does this name end with?" (`plato` -> `to`, `fotocomar` -> `com.ar`, `ar`). Both lists are snapshot-only, so results are deterministic offline; refresh them by replacing the files.
 
 Note: "available" means *not registered*. Premium or reserved names may still show as available; confirm with a registrar before buying.
 
@@ -276,12 +299,13 @@ Built with **Clean Architecture** and **SOLID principles**:
 ```
 domain/       Pure entities: TLD, DomainHack, Availability
 ports/        Abstract interfaces: WordSource, RegistrarClient, ResultWriter,
-              ResultCache
+              ResultCache, DnsLookup, KnownTlds
 usecases/     Business logic: FilterWords, RangeCandidates, RankCandidates,
               EstimateRun, CheckDomains (sequential, or parallel lanes
-              per registry host)
+              per registry host), ConfirmWithDns
 adapters/     Implementations: FileWordSource, RDAP/WHOIS registrars,
-              RegistrarRouter, CachedRegistrar, Console/CSV/JSON writers, tqdm progress
+              RegistrarRouter, CachedRegistrar, Console/CSV/JSON writers, tqdm progress,
+              DnsPythonLookup (dnspython), IanaTldList
 cli/          Composition root: argparse + dependency injection
 ```
 
@@ -331,7 +355,8 @@ A separate weekly workflow runs the live `integration` tests against real regist
 | Best-first ordering (`--order`, `--limit`) | Done |
 | Adaptive per-host backoff with jitter | Done |
 | Word-frequency scoring (`Scorer` hook) | Planned |
-| DNS pre-filter (skip domains with NS records) | Planned |
+| DNS confirmation (`--confirm-dns`) | Done |
+| Second-level suffixes (`com.ar`, `co.uk`) | Done |
 | Porkbun API adapter (confirm hits, premium pricing) | Planned |
 | Async HTTP (`httpx.AsyncClient`) | Planned |
 

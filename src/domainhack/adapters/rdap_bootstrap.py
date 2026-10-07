@@ -33,31 +33,19 @@ from typing import Any
 import httpx
 
 from domainhack.adapters._http import identity_headers
+from domainhack.adapters.registry_sources import load_registry_sources
 
 IANA_BOOTSTRAP_URL = "https://data.iana.org/rdap/dns.json"
 DEFAULT_TTL_SECONDS: float = 24 * 60 * 60
 
-_IDENTITY_DIGITAL = "https://rdap.identitydigital.services/rdap/"
 
-# Verified live; none of these are in the IANA bootstrap except "to", which is
-# pinned so the most important TLD works even if the bootstrap fetch fails.
-RDAP_OVERRIDES: Mapping[str, str] = {
-    "io": _IDENTITY_DIGITAL,
-    "sh": _IDENTITY_DIGITAL,
-    "ac": _IDENTITY_DIGITAL,
-    "me": _IDENTITY_DIGITAL,
-    "co": "https://rdap.registry.co/co/",
-    "de": "https://rdap.denic.de/",
-    "ch": "https://rdap.nic.ch/",
-    "li": "https://rdap.nic.ch/",
-    "so": "https://rdap.nic.so/",
-    "ws": "https://rdap.website.ws/",
-    "to": "https://rdap.tonicregistry.to/rdap/",
-}
-
-# rdap.gg answers every name with an HTML 200 page; rdap.centralnic.com/la/
-# answers 404 for everything (even google.la). Both go to WHOIS instead.
-RDAP_DENYLIST: frozenset[str] = frozenset({"gg", "la"})
+# Registries missing from the IANA bootstrap (verified live) and known-broken
+# RDAP servers live in data/registry_sources.json. "to" is pinned there too so
+# the most important TLD works even if the bootstrap fetch fails; rdap.gg and
+# rdap.centralnic.com/la/ are denied (they answer every name the same way) and
+# those TLDs go to WHOIS instead.
+RDAP_OVERRIDES: Mapping[str, str] = load_registry_sources().rdap_overrides()
+RDAP_DENYLIST: frozenset[str] = load_registry_sources().rdap_denylist
 
 # Aggregators/redirectors are never a source of truth (rdap.org says
 # "No RDAP service" for .io, which would read as AVAILABLE).

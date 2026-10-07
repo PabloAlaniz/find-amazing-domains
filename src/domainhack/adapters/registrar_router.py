@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 from collections.abc import Callable
 
+from domainhack.adapters.registry_sources import unsupported_message
 from domainhack.domain.entities import TLD, Availability, DomainCheckResult, DomainHack
 from domainhack.ports.registrar import RegistrarClient
 
@@ -47,7 +48,7 @@ class RegistrarRouter(RegistrarClient):
             return DomainCheckResult(
                 domain=domain,
                 availability=Availability.ERROR,
-                error_message=f"No registrar supports .{domain.tld.suffix}",
+                error_message=_capitalized(unsupported_message(domain.tld.suffix)),
             )
         return client.check_availability(domain)
 
@@ -65,3 +66,7 @@ class RegistrarRouter(RegistrarClient):
                     first_error = exc
         if first_error is not None:
             raise first_error
+
+
+def _capitalized(message: str) -> str:
+    return message[:1].upper() + message[1:]

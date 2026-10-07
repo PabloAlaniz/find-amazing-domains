@@ -22,6 +22,7 @@ from domainhack.adapters.cached_registrar import CachedRegistrarClient
 from domainhack.adapters.dns_resolver import DnsPythonLookup
 from domainhack.adapters.iana_tlds import IanaTldList
 from domainhack.adapters.registrar_catalog import supported_tlds
+from domainhack.adapters.registry_sources import describe_unsupported, unsupported_message
 from domainhack.cli import app
 from domainhack.domain.entities import DomainCheckResult
 from domainhack.ports.dns_lookup import DnsLookup
@@ -167,11 +168,9 @@ def cmd_name(
     try:
         unsupported = {c.domain.tld for c in candidates if not router.supports(c.domain.tld)}
         domains = [c.domain for c in candidates if c.domain.tld not in unsupported]
-        requested_unsupported = [f".{t.suffix}" for t in selection.tlds if t in unsupported]
-        if requested_unsupported:
-            app._stderr(
-                f"warning: no registrar supports {', '.join(requested_unsupported)}; skipping"
-            )
+        requested = [t.suffix for t in selection.tlds if t in unsupported]
+        for message in describe_unsupported(requested):
+            app._stderr(f"warning: {message}; skipping")
         if not domains:
             raise app.NoSupportedTLDError(
                 f"no registrar supports any candidate TLD for {args.name!r}"
@@ -216,6 +215,7 @@ def cmd_name(
         variants_requested=args.variants,
         unsupported=unsupported,
         notes=notes,
+        unsupported_reasons={t: unsupported_message(t.suffix) for t in unsupported},
     )
     sys.stdout.write(RENDERERS[args.format](report))
     app._warn_skipped(generator.skipped)

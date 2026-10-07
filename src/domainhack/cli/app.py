@@ -24,6 +24,7 @@ from domainhack.adapters.json_writer import JsonResultWriter
 from domainhack.adapters.pacing import lane_for, pacing_for
 from domainhack.adapters.registrar_catalog import build_registrar_for
 from domainhack.adapters.registrar_router import RegistrarFactory, RegistrarRouter
+from domainhack.adapters.registry_sources import describe_unsupported
 from domainhack.adapters.tqdm_progress import TqdmProgressReporter
 from domainhack.domain.entities import TLD, DomainHack
 from domainhack.ports.dns_lookup import DnsLookup
@@ -350,9 +351,10 @@ def build_parser() -> argparse.ArgumentParser:
         "An available name with NS records prints as 'AVAILABLE?': do not trust it as free",
     )
     # Imported here: name_cmd imports this module's helpers.
-    from domainhack.cli import name_cmd
+    from domainhack.cli import name_cmd, tlds_cmd
 
     name_cmd.register(sub, epilog=_EPILOG)
+    tlds_cmd.register(sub, epilog=_EPILOG)
     return parser
 
 
@@ -606,15 +608,13 @@ def _supported_tlds(router: RegistrarRouter, tlds: Sequence[TLD]) -> list[TLD]:
     Raises NoSupportedTLDError when none is supported.
     """
     supported = [tld for tld in tlds if router.supports(tld)]
-    unsupported = [f".{tld.suffix}" for tld in tlds if tld not in supported]
+    unsupported = [tld for tld in tlds if tld not in supported]
     if unsupported and supported:
-        print(
-            f"warning: no registrar supports {', '.join(unsupported)}; skipping",
-            file=sys.stderr,
-        )
+        for message in describe_unsupported(t.suffix for t in unsupported):
+            print(f"warning: {message}; skipping", file=sys.stderr)
     if not supported:
         router.close()
-        raise NoSupportedTLDError(f"no registrar supports {', '.join(unsupported)}")
+        raise NoSupportedTLDError("; ".join(describe_unsupported(t.suffix for t in unsupported)))
     return supported
 
 
@@ -772,6 +772,10 @@ def main(
             from domainhack.cli import name_cmd
 
             return name_cmd.cmd_name(args, catalog=catalog, services=services)
+        if args.command == "tlds":
+            from domainhack.cli import tlds_cmd
+
+            return tlds_cmd.cmd_tlds(args)
         return cmd_check(args, catalog=catalog, dns_lookup=dns_lookup)
     except OutputFormatError as exc:
         parser.print_usage(sys.stderr)

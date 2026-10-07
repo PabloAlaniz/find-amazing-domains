@@ -32,7 +32,7 @@ service, if any) and dropping names.
 
 from __future__ import annotations
 
-from collections.abc import Collection, Iterable, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 
@@ -226,15 +226,20 @@ def build_brand_report(
     variants_requested: bool,
     unsupported: Collection[TLD] = (),
     notes: Sequence[str] = (),
+    unsupported_reasons: Mapping[TLD, str] | None = None,
 ) -> BrandReport:
     """Build the report. Candidates without a result are unverifiable: "no registrar
-    supports .x" when their TLD is in ``unsupported``, otherwise "not checked"."""
+    supports .x" when their TLD is in ``unsupported`` (or the message given for it
+    in ``unsupported_reasons``, which explains why), otherwise "not checked"."""
+    reasons = unsupported_reasons or {}
     by_fqdn = {r.domain.fqdn: r for r in results}
     entries = [
         _classify(
             c,
             by_fqdn.get(c.domain.fqdn),
-            f"no registrar supports .{c.domain.tld.suffix}" if c.domain.tld in unsupported else "",
+            (reasons.get(c.domain.tld) or f"no registrar supports .{c.domain.tld.suffix}")
+            if c.domain.tld in unsupported
+            else "",
         )
         for c in candidates
     ]

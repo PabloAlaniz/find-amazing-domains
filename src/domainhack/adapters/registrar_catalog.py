@@ -19,10 +19,13 @@ from __future__ import annotations
 
 import functools
 import sys
+from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 from domainhack.adapters._circuit import HostCircuitBreaker
 from domainhack.adapters.rdap_bootstrap import RdapBootstrap
 from domainhack.adapters.rdap_registrar import RdapRegistrarClient
+from domainhack.adapters.registry_sources import load_registry_sources
 from domainhack.adapters.whois_registrar import (
     WHOIS_FALLBACK_SERVERS,
     WHOIS_SERVERS,
@@ -82,3 +85,37 @@ def supported_tlds(bootstrap: RdapBootstrap | None = None) -> set[str]:
     """All TLDs ``build_registrar_for`` can serve (may fetch the IANA bootstrap)."""
     rdap = bootstrap if bootstrap is not None else _default_bootstrap()
     return rdap.known_tlds() | set(WHOIS_SERVERS) | set(WHOIS_FALLBACK_SERVERS)
+
+
+@dataclass(frozen=True)
+class Backend:
+    """How ``build_registrar_for`` would check a TLD, without creating a client.
+
+    ``kind`` is ``"rdap"``, ``"whois"``, ``"whois-fallback"`` (RDAP TLD whose
+    RDAP server could not be resolved) or ``"unsupported"``. ``detail`` is the
+    date the source was verified, or the reason a TLD is unsupported.
+    """
+
+    tld: str
+    kind: str
+    host: str
+    detail: str
+
+
+def describe_backend(suffix: str, bootstrap: RdapBootstrap | None = None) -> Backend:
+    """The backend for ``suffix`` (``"cl"``, ``"com.ar"``), mirroring ``build_registrar_for``."""
+    rdap = bootstrap if bootstrap is not None else _default_bootstrap()
+    sources = load_registry_sources()
+    suffix = suffix.lower().lstrip(".")
+    top = suffix.rsplit(".", 1)[-1]
+    entry = sources.get(suffix) or sources.get(top)
+    verified = entry.verified_on if entry is not None and entry.verified_on else ""
+    base_url = rdap.base_url_for(suffix)
+    if base_url is not None:
+        detail = verified or "IANA RDAP bootstrap"
+        return Backend(suffix, "rdap", urlsplit(base_url).hostname or base_url, detail)
+    if top in WHOIS_SERVERS:
+        return Backend(suffix, "whois", WHOIS_SERVERS[top].host, verified)
+    if top in WHOIS_FALLBACK_SERVERS:
+        return Backend(suffix, "whois-fallback", WHOIS_FALLBACK_SERVERS[top].host, verified)
+    return Backend(suffix, "unsupported", "", sources.unsupported_reason(top) or "no source known")

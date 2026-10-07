@@ -18,6 +18,7 @@ from domainhack.adapters._registration import (
     parse_datetime_utc,
 )
 from domainhack.adapters._throttle import DEFAULT_THROTTLE, HostThrottle, full_jitter_backoff
+from domainhack.adapters.registry_sources import WhoisSpec, load_registry_sources
 from domainhack.domain.entities import Availability, DomainCheckResult, DomainHack
 from domainhack.domain.parking import parking_hint_for
 from domainhack.ports.registrar import RegistrarClient
@@ -77,53 +78,30 @@ def _server(
     )
 
 
-# Servers and "not found" patterns verified live (see registrar research,
-# 2026-10-06). Patterns are case-sensitive on purpose: e.g. "NOT FOUND" must
-# not match prose in a registered domain's legal disclaimer.
-#
-# min_interval: every server gets the documented ~1 query/s floor. whois.nic.it
-# silently stopped answering after ~50 queries at 1 query/s in a live run
-# (2026-10-06), so it is paced at 4 s.
+def _from_spec(spec: WhoisSpec) -> WhoisServer:
+    return _server(spec.host, spec.not_found, spec.query_format, spec.taken, spec.min_interval)
+
+
+# Servers, "not found" patterns and pacing live in data/registry_sources.json,
+# each verified live against a registered and a random name. Patterns are
+# case-sensitive on purpose: e.g. "NOT FOUND" must not match prose in a
+# registered domain's legal disclaimer. whois.nic.it is paced at 4 s: it
+# silently stopped answering after ~50 queries at 1 query/s (2026-10-06).
 #
 # Which table a TLD is in is a routing decision (see registrar_catalog):
 #
 # * WHOIS_SERVERS: TLDs with no usable RDAP server (none published, or one on
-#   RDAP_DENYLIST such as gg/la). WHOIS is their primary and only backend.
+#   the RDAP denylist such as gg/la). WHOIS is their primary and only backend.
 # * WHOIS_FALLBACK_SERVERS: TLDs that RDAP serves through the IANA bootstrap
 #   (always available offline thanks to the bundled snapshot). Used only if
 #   RDAP resolution ever yields nothing for them, and the catalog warns on
 #   stderr when it happens, so the protocol never changes silently.
-#
-# TLDs pinned in RDAP_OVERRIDES (ac, co, de, io, me, sh, so, to) have no
-# WHOIS entry: the override always wins, so an entry could never be reached.
-# Their verified servers, for reference: whois.nic.{io,sh,ac,me}
-# ("^Domain not found\."), whois.registry.co ("DOMAIN NOT FOUND"),
-# whois.denic.de ("Status:\s*free" / taken "Status:\s*connect"),
-# whois.nic.so ("No Object Found"), whois.tonicregistry.to
-# ("is available for registration").
 WHOIS_SERVERS: Mapping[str, WhoisServer] = {
-    "it": _server("whois.nic.it", r"Status:\s+AVAILABLE", min_interval=4.0),
-    "am": _server("whois.amnic.net", r"^No match"),
-    "at": _server("whois.nic.at", r"% nothing found"),
-    "be": _server("whois.dns.be", r"Status:\s+AVAILABLE"),
-    "gg": _server("whois.gg", r"NOT FOUND"),
-    "im": _server("whois.nic.im", r"was not found"),
-    "la": _server("whois.nic.la", r"DOMAIN NOT FOUND"),
-    "ma": _server("whois.registre.ma", r"No Object Found"),
-    "mx": _server("whois.mx", r"Object_Not_Found"),
-    "nu": _server("whois.iis.nu", r"not found\."),
-    "pe": _server("kero.yachay.pe", r"Domain Status: No Object Found"),
-    "st": _server("whois.nic.st", r"No entries found for domain"),
+    tld: _from_spec(spec) for tld, spec in load_registry_sources().whois_primary().items()
 }
 
 WHOIS_FALLBACK_SERVERS: Mapping[str, WhoisServer] = {
-    "ar": _server("whois.nic.ar", r"no se encuentra registrado"),
-    "fm": _server("whois.nic.fm", r"DOMAIN NOT FOUND"),
-    "in": _server("whois.nixiregistry.in", r"is available for registration"),
-    "is": _server("whois.isnic.is", r"No entries found for query"),
-    "ly": _server("whois.nic.ly", r"No Object Found"),
-    "re": _server("whois.nic.re", r"NOT FOUND"),
-    "tv": _server("whois.nic.tv", r"No Data Found"),
+    tld: _from_spec(spec) for tld, spec in load_registry_sources().whois_fallback().items()
 }
 
 ALL_WHOIS_SERVERS: Mapping[str, WhoisServer] = {**WHOIS_SERVERS, **WHOIS_FALLBACK_SERVERS}

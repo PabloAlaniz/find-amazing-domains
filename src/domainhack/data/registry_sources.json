@@ -1,0 +1,495 @@
+{
+  "_comment": [
+    "Registry backends for TLDs the IANA RDAP bootstrap does not cover (or covers badly).",
+    "status: rdap | whois | restricted | unavailable.",
+    "rdap: base URL (base + 'domain/<fqdn>'); null with status rdap means 'use the IANA bootstrap'.",
+    "whois: port-43 server; with status rdap it is only a fallback if RDAP resolution yields nothing.",
+    "Only entries verified live (a registered name vs a random one) may be rdap/whois: a wrong",
+    "not_found pattern produces false 'available' results.",
+    "reason: user-facing explanation, required for restricted/unavailable."
+  ],
+  "rdap_denylist": {
+    "tlds": [
+      "gg",
+      "la"
+    ],
+    "reason": "rdap.gg answers every name with an HTML 200 page; rdap.centralnic.com/la/ answers 404 for everything (even google.la). Both go to WHOIS instead."
+  },
+  "default_whois_min_interval": 1.0,
+  "tlds": {
+    "ac": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.identitydigital.services/rdap/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "am": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.amnic.net",
+        "not_found": "^No match",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "ar": {
+      "status": "rdap",
+      "whois": {
+        "host": "whois.nic.ar",
+        "not_found": "no se encuentra registrado",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>); RDAP via IANA bootstrap, WHOIS kept as fallback"
+    },
+    "at": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.at",
+        "not_found": "% nothing found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "be": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.dns.be",
+        "not_found": "Status:\\s+AVAILABLE",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "ch": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.nic.ch/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "co": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.registry.co/co/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "de": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.denic.de/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "fm": {
+      "status": "rdap",
+      "whois": {
+        "host": "whois.nic.fm",
+        "not_found": "DOMAIN NOT FOUND",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>); RDAP via IANA bootstrap, WHOIS kept as fallback"
+    },
+    "gg": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.gg",
+        "not_found": "NOT FOUND",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "im": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.im",
+        "not_found": "was not found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "in": {
+      "status": "rdap",
+      "whois": {
+        "host": "whois.nixiregistry.in",
+        "not_found": "is available for registration",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>); RDAP via IANA bootstrap, WHOIS kept as fallback"
+    },
+    "io": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.identitydigital.services/rdap/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "is": {
+      "status": "rdap",
+      "whois": {
+        "host": "whois.isnic.is",
+        "not_found": "No entries found for query",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>); RDAP via IANA bootstrap, WHOIS kept as fallback"
+    },
+    "it": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.it",
+        "not_found": "Status:\\s+AVAILABLE",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 4.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "la": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.la",
+        "not_found": "DOMAIN NOT FOUND",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "li": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.nic.ch/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "ly": {
+      "status": "rdap",
+      "whois": {
+        "host": "whois.nic.ly",
+        "not_found": "No Object Found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>); RDAP via IANA bootstrap, WHOIS kept as fallback"
+    },
+    "ma": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.registre.ma",
+        "not_found": "No Object Found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "me": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.identitydigital.services/rdap/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "mx": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.mx",
+        "not_found": "Object_Not_Found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "nu": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.iis.nu",
+        "not_found": "not found\\.",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "pe": {
+      "status": "whois",
+      "whois": {
+        "host": "kero.yachay.pe",
+        "not_found": "Domain Status: No Object Found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "re": {
+      "status": "rdap",
+      "whois": {
+        "host": "whois.nic.re",
+        "not_found": "NOT FOUND",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>); RDAP via IANA bootstrap, WHOIS kept as fallback"
+    },
+    "sh": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.identitydigital.services/rdap/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "so": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.nic.so/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "st": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.st",
+        "not_found": "No entries found for domain",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "to": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.tonicregistry.to/rdap/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "tv": {
+      "status": "rdap",
+      "whois": {
+        "host": "whois.nic.tv",
+        "not_found": "No Data Found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>); RDAP via IANA bootstrap, WHOIS kept as fallback"
+    },
+    "ws": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.website.ws/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-06",
+        "taken_probe": null,
+        "free_probe": null
+      },
+      "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    }
+  }
+}

@@ -1,0 +1,39 @@
+Domain Name: GOOGLE.COM.MM
+Registry Domain ID: DO2223-MM
+Registrar WHOIS Server:
+Registrar URL: http://www.mtg.com.mm/
+Updated Date: 2019-10-02T05:12:54.0Z
+Creation Date: 2018-09-30T00:00:00.0Z
+Registry Expiry Date: 2027-09-30T23:59:59.0Z
+Registrar: Myanmar Technology Gateway
+Registrar IANA ID:
+Registrar Abuse Contact Email:
+Registrar Abuse Contact Phone:
+Domain Status: ok https://icann.org/epp#ok
+Domain Status: autoRenewPeriod https://icann.org/epp#autoRenewPeriod
+Registrant Country: MM
+Registrant Email:
+Admin Email:
+Tech Email:
+Name Server: NS1.GOOGLE.COM
+Name Server: NS2.GOOGLE.COM
+Name Server: NS3.GOOGLE.COM
+Name Server: NS4.GOOGLE.COM
+DNSSEC: unsigned
+URL of the ICANN Whois Inaccuracy Complaint Form: https://www.icann.org/wicf/
+>>> Last update of WHOIS database: 2026-10-07T00:46:59.0Z <<<
+
+For more information on Whois status codes, please visit https://icann.org/epp
+
+Please query the RDDS service of the Registrar of Record identified in this output for information on how to contact the Registrant, Admin, or Tech contact of the queried domain name.
+
+This whois service is provided by MM Registry and only contains
+information pertaining to Internet domain names we have registered for
+our customers. By using this service you are agreeing (1) not to use any
+information presented here for any purpose other than determining
+ownership of domain names, (2) not to store or reproduce this data in
+any way, (3) not to use any high-volume, automated, electronic processes
+to obtain data from this service. Abuse of this service is monitored and
+actions in contravention of these terms will result in being permanently
+blacklisted. All data is www.registry.gov.mm
+

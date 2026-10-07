@@ -1,0 +1,14 @@
+% This is the WHOIS server for Example Registry.
+% Queries are subject to terms of use.
+%
+Domain Name:    NIC.DZ
+Registrar:      wissal
+Registrant:     Net work Internet Center
+Admin Name:    administrateur
+Admin Email:      dznic@nic.dz
+Tech Name:   administrateur
+Tech Email:     dznic@nic.dz
+Creation Date:  N/A
+Expiry Date:    N/A
+
+% Query served at 2026-10-07T01:51:30.467128863+01:00

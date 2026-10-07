@@ -596,7 +596,7 @@ def _range_guardrail(
         return None
     _stderr(
         f"error: refusing to send more than {GUARDRAIL_MAX_QUERIES:,} queries without --yes; "
-        "registries' terms of use forbid bulk querying. Narrow the run with --range-end "
+        "registries ask clients not to bulk-query. Narrow the run with --range-end "
         "or --limit, preview it with --dry-run, or pass --yes."
     )
     return EXIT_USAGE

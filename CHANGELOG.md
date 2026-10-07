@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 76 more country-code TLDs can be checked (ccTLD coverage 94 -> 170 of 248):
+  RDAP for af, ag, aw, ci, ga, gi, ki, kn, kz, mr, mz, pr, sb, sc, sy, td,
+  tl, us, vc, vu and WHOIS for ax, bf, bg, bi, bj, by, cl, cn, dz, ee, eu,
+  ge, gf, gh, gl, gn, hk, hr, hu, ie, ir, je, jp, kw, ls, lt, lu, lv, mc, md,
+  mk, mm, mn, mo, mq, my, nc, nz, pk, qa, rs, ru, sa, se, sk, sl, sm, su, sx,
+  tc, tg, tm, tn, tr, ug, ve. Each was verified live with domainhack's own
+  clients (a registered and a random name), and the real WHOIS replies are
+  kept as test fixtures.
+- `domainhack tlds`: which TLDs can be checked, how (RDAP/WHOIS, host,
+  verification date) and why not; `--unsupported`, `--all`, `--json`. Offline.
+- TLDs that cannot be checked now say why and where to check them by hand
+  (e.g. `.es`: automated lookups are for accredited users; `.ro`: the
+  registry's terms of use do not cover automated lookups), in warnings and in
+  the `name` report.
+
+### Changed
+- RDAP overrides, the RDAP denylist and the WHOIS server tables moved from
+  code to `data/registry_sources.json`, validated on load.
 
 - `domainhack name NAME`: find a domain for a name in one command. It checks
   the exact name under a set of TLDs (`--tlds` mixes presets `startup`,
@@ -155,8 +173,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- `TonicRegistrarClient`, which scraped the tonic.to web form with a spoofed
-  browser User-Agent, and the unused `beautifulsoup4` dependency.
+- `TonicRegistrarClient`, which used the tonic.to web form with a browser-like
+  User-Agent (replaced by Tonic's official RDAP service), and the unused
+  `beautifulsoup4` dependency.
 
 ## [0.1.0]
 

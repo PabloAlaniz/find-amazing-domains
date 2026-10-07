@@ -1,0 +1,13 @@
+# WHOIS .PK Domains (PKNIC)
+
+    Domain: google.pk
+    Status: Domain is Registered
+    
+
+    Creation Date: 2005-12-01
+    Expiry Date: 2026-12-01
+    Name Server: ns1.google.com
+    Name Server: ns2.google.com
+    Name Server: ns3.google.com
+    Name Server: ns4.google.com
+

@@ -1,0 +1,18 @@
+Domain name: cctld.by
+Registrar: Belarusian Cloud Technologies LLC
+Org: Оперативно-аналитический центр при Президенте Республики Беларусь
+Country: BY
+Address: 220030, -, г.Минск, ул. Кирова, 49, -
+Registration or other identification number: 100830935
+Phone: +375173092464
+Email: admin-c@oac.gov.by
+Name Server: ns1.g-cloud.by
+Name Server: ns2.g-cloud.by
+Name Server: ns3.g-cloud.by
+Update Date: 2025-10-21
+Creation Date: 2023-11-13
+Expiration Date: 2027-11-13
+
+-------------------------------------------
+Service provided by Belarusian Cloud Technologies LLC
+

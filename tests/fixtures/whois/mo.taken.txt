@@ -1,0 +1,15 @@
+% Domain Information over Whois protocol
+%
+% Monic Whois Server Version 1.0
+
+Domain Name: monic.mo
+Record created on 1993-01-01 08:00:00
+Record expires on 2027-12-31
+
+Domain name servers:
+ -----------------------------------------------------
+ns1.monic.mo
+ns2.monic.mo
+ns3.monic.mo
+ns4.monic.mo
+

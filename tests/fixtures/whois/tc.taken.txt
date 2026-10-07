@@ -1,0 +1,20 @@
+Domain Name: nic.tc
+WHOIS Server: whois.nic.tc
+Creation Date: 1998-08-26T04:00:00.0Z
+Registry Expiry Date: 2035-01-01T05:00:00.0Z
+Sponsoring Registrar: NICTC Internal
+Domain Status: ok
+Registrant Organization: NICTC Internet Services LTD
+Name Server: ns1.nic.tc
+Name Server: ns2.nic.tc
+Name Server: ns3.nic.tc
+Name Server: ns4.nic.tc
+DNSSEC: unsigned
+Additional Section
+Sponsoring Registrar URL: https://www.nic.tc
+Sponsoring Registrar Country: TC
+Sponsoring Registrar Customer Service Email:
+&gt;&gt;&gt; Last update of WHOIS database: 2026-10-07T00:50:10.716Z &lt;&lt;&lt;
+
+The data in the WHOIS database of TC Registry is provided by NICTC Registry LTD for information purposes, and to assist persons in obtaining information about or related to domain name registration records. By submitting a WHOIS query, you agree that you will use this data only for lawful purposes and that, under no circumstances, you will use this data to enable high volume, automated, electronic processes that apply to NICTC Registry or its systems. NIC TC Registry LTD reserves the right to modify these terms.
+By submitting this query, you agree to abide by this policy.

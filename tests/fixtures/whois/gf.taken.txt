@@ -1,0 +1,70 @@
+This is JWhoisServer serving ccTLD tld;mq;gf;gp
+Java Whois Server 0.4.1.3    (c) 2006 - 2015 Klaus Zerwes zero-sys.net
+#########################################################################
+# All data copyright of the organization unit running this server!
+# By querying this server, you agree that you :
+#	-may use this data only for lawful purposes;
+#	-will not re-use data for any kind of support
+#	  for the transmission of unsolicited advertising
+#	  via e-mail, telephone, or facsimile;
+#	-will not reproduce and/or store any part of the data
+#	  without prior permission of the copyright holders;
+#	-are aware of and agree to the fact that all access to the
+#	  server is under constant monitoring and will be logged
+#	  for the purpose of prosecution in case of missuse!
+#########################################################################
+
+domain:     nic.gf
+mntnr:      MNTNR1
+changed:    2026-08-17 00:00:00.0
+nameserver: ns1-gp.mediaserv.net
+nameserver: ns1-mq.mediaserv.net
+
+[holder]
+mntnr:      MNTNR71
+type:       ORGANISATION
+name:       Service Web
+address:    Moudong
+pcode:      97122
+country:    GP
+phone:      +590.590571010
+fax:        +590.590571011
+email:      serviceweb@canalplustelecom.com
+changed:    2026-10-06 20:50:04.0
+
+[admin_c]
+mntnr:      MNTNR71
+type:       ORGANISATION
+name:       Mediaserv
+address:    Tour Secid 6eme ?tage
+pcode:      97110
+country:    GP
+phone:      +590.590571010
+fax:        +590.590571001
+email:      domreg@canalplustelecom.com
+changed:    2026-10-06 20:50:04.0
+
+[tech_c]
+mntnr:      MNTNR71
+type:       ORGANISATION
+name:       Mediaserv
+address:    Tour Secid 6eme ?tage
+pcode:      97110
+country:    GP
+phone:      +590.590571010
+fax:        +590.590571001
+email:      domreg@canalplustelecom.com
+changed:    2026-10-06 20:50:04.0
+
+[zone_c]
+mntnr:      MNTNR1
+type:       ORGANISATION
+name:       Web_ingenieurie3 Service_web2
+address:    ZI les mangles
+pcode:      97232
+country:    MQ
+phone:      +33.0596371049
+fax:        
+email:      cplustelecom.serviceweb@canal-plus.com
+changed:    2026-10-06 20:50:04.0
+

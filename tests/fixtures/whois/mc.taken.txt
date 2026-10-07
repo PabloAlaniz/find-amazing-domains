@@ -1,0 +1,45 @@
+>>
+>> Welcome to the NIC Monaco Whois server.
+>>
+>> Complete date format : YYYY-MM-DDThh:mm:ssZ
+>>
+>> You are not allowed to duplicate these information without
+>> authorization of NIC Monaco.
+>> See https://www.nic.mc for informations about .mc domains.
+>> Please contact nic@gouv.mc for any question.
+>>
+>>
+--------------------------------------------------------------
+Domain             : NIC.MC
+Status             : ACTIVE
+DNSSEC             : Signed
+Owner-c            : Restricted
+Admin-c            : Restricted
+Tech-c             : Restricted
+Registrar          : NIC Monaco
+
+nserver            : ns1.nic.mc
+nserver            : ns2.nic.mc
+nserver            : ns3.nic.mc
+nserver            : mc.cctld.authdns.ripe.net
+
+Created            : 2007-01-08T11:06:00Z
+Expires on         : 2027-01-08
+Last update        : 2026-01-08T00:10:01Z
+
+Registrar          : NIC Monaco
+Registrar          : 2 rue du Gabian
+Registrar          : c/o DITN
+Registrar          : 98000 Monaco
+Registrar          : Monaco
+Registrar email    : nic@gouv.mc
+Registrar Phone    : +377 98988800
+--------------------------------------------------------------
+
+>>>> Last update of WHOIS Database : 2026-10-06T17:53:33Z <<<<
+
+>> The information contained in the WHOIS database is provided
+>> as is. The NIC Monaco cannot be held responsible for any
+>> errors. For more information about a domain, please contact
+>> the responsible registrar.
+

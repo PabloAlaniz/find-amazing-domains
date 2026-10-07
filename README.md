@@ -162,7 +162,7 @@ Other taken names print with what the registry says about them, so you can tell 
 
 Only the known parts are shown. `parked:` names the parking or aftermarket service the nameservers point to (`domainrecover`, `sedo`, `parkingcrew`, `bodis`, `afternic`, `dan.com`, `hugedomains`, `godaddy-parked`, `namebright`, ...; the curated list is in `domain/parking.py`). RDAP gives the registration date, registrar and nameservers; WHOIS gives the creation date and nameservers when the reply has `Creation Date:`/`Created:` in ISO form and `Name Server:`/`nserver:` lines.
 
-Registries throttle hard (whois.nic.it stopped answering after about 50 queries in a test run), so the best candidates are checked first. `--order` picks the order:
+Registries rightly limit how many automated lookups a client may make, so the best candidates are checked first. `--order` picks the order:
 
 - `score` (default): shortest SLD first, then shortest full word, then alphabetical. The order is deterministic.
 - `alpha`: alphabetical by domain name.
@@ -298,15 +298,23 @@ Word lists are read as UTF-8; use `--encoding latin-1` for older lists.
 
 ## Supported TLDs
 
-Availability is checked against the registry directly, with no captchas or API keys:
+Availability is checked against the registry directly, with no captchas or API keys. Ask the tool what it covers; it answers offline:
 
-| Source | TLDs |
-|--------|------|
-| RDAP (registry endpoints, incl. manual overrides) | to, io, sh, ac, me, co, de, ch, li, so, ws |
-| RDAP (via the IANA bootstrap) | ai, in, is, ly, fm, tv, cc, pw, re, fr, nl, uk, ar, ... and all gTLDs |
-| WHOIS (port 43) | it, am, at, be, gg, im, la, ma, mx, nu, pe, st |
-| Second-level suffixes | com.ar, com.br, co.uk, com.mx, com.pe, ... (through their top-level registry) |
-| Not supported | es, al |
+```bash
+domainhack tlds                    # summary + every country-code TLD
+domainhack tlds cl es com.ar it    # how these are checked
+domainhack tlds --unsupported      # what cannot be checked, and why
+domainhack tlds --all --json       # every TLD, machine-readable
+```
+
+```
+170 of 248 TLDs can be checked (102 rdap, 68 whois, 78 unsupported)
+  .cl      whois        whois.nic.cl           2026-10-07
+  .es      unsupported                         restricted: the registry provides automated lookups to accredited users only; ...
+  .com.ar  rdap         rdap.nic.ar            2026-10-06
+```
+
+Every generic TLD (com, app, dev...) is covered through the IANA RDAP bootstrap. Registries missing from it live in `data/registry_sources.json`: RDAP endpoints, WHOIS servers with their "not found" patterns and pacing, and the TLDs that cannot be checked with the reason why (no published lookup service, lookups for accredited users only, terms of use that do not cover automated lookups...), plus a link to check by hand where there is one. Each supported entry was verified live with a registered and a random name, and `tests/fixtures/whois/` keeps the real replies so a wrong pattern (which would mean false "available" results) fails the tests. A weekly CI job re-checks a rotating sample against the live registries.
 
 A snapshot of the IANA RDAP bootstrap ships with the package, so the backend chosen for each TLD is the same online and offline.
 

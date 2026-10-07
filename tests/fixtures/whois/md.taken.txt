@@ -1,0 +1,18 @@
+% © NIC.MD
+% Whois Server  v2.8.1
+% Website       https://nic.md/en/whois/
+% Terms of use  https://nic.md/img/legal/Rules_registration_subdomain_md.pdf
+% Last  update  2026-10-07T03:38:00+03:00
+
+Domain  name:   nic.md
+Domain state:   OK
+Registrant:     I.P. SERVICIUL TEHNOLOGIA INFORMATIEI SI SECURITATE CIBERNETICÃÂ
+
+Registered on:  1998-09-05
+Expires on:     2030-09-05
+
+NameServer:     annabel.ns.cloudflare.com
+NameServer:     kipp.ns.cloudflare.com
+
+DNSSEC:         active
+

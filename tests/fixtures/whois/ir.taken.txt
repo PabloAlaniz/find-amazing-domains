@@ -1,0 +1,42 @@
+% This is the IRNIC Whois server v2.0.0.
+% Available on web at http://whois.nic.ir/
+% Find the terms and conditions of use on http://www.nic.ir/
+% 
+% This server uses UTF-8 as the encoding for requests and responses.
+
+% NOTE: This output has been filtered.
+
+% Information related to 'nic.ir'
+
+domain:		nic.ir
+ascii:		nic.ir
+remarks:	(Domain Holder) Dot-IR (.ir) ccTLD Registry, Institute for Studies in Theoretical Physics and Mathematics (IPM)
+holder-c:	ir00-irnic
+admin-c:	as4867-irnic
+tech-c:		be130-irnic
+bill-c:		be130-irnic
+nserver:	ns3.nic.ir
+nserver:	ns4.nic.ir
+nserver:	ns1.nic.ir
+nserver:	ns2.nic.ir
+source:		IRNIC
+
+nic-hdl:	ir00-irnic
+org:		Dot-IR (.ir) ccTLD Registry, Institute for Studies in Theoretical Physics and Mathematics (IPM)
+e-mail:		info@nic.ir
+source:		IRNIC
+
+nic-hdl:	as4867-irnic
+person:		Amin Sadeghi Sefiddashti
+e-mail:		Sadeghi.amin@gmail.com
+source:		IRNIC
+
+nic-hdl:	be130-irnic
+person:		Baharak Esfahbod
+e-mail:		bhk_esfahbod@yahoo.com
+source:		IRNIC
+
+domain:		nic.ir
+ascii:		nic.ir
+remarks:	This domain is only available for registration under certain conditions
+source:		IRNIC

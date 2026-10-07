@@ -85,8 +85,8 @@ def _from_spec(spec: WhoisSpec) -> WhoisServer:
 # Servers, "not found" patterns and pacing live in data/registry_sources.json,
 # each verified live against a registered and a random name. Patterns are
 # case-sensitive on purpose: e.g. "NOT FOUND" must not match prose in a
-# registered domain's legal disclaimer. whois.nic.it is paced at 4 s: it
-# silently stopped answering after ~50 queries at 1 query/s (2026-10-06).
+# registered domain's legal disclaimer. whois.nic.it is paced at 4 s: in a
+# test run (2026-10-06) it paused replies after ~50 queries at 1 query/s.
 #
 # Which table a TLD is in is a routing decision (see registrar_catalog):
 #

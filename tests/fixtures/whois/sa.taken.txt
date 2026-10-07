@@ -1,0 +1,9 @@
+Domain Name: NIC.NET.SA
+
+Registrant Name: SAUDINIC- CST المركز السعودي لمعلومات الشبكة - هيئة الاتصالات والفضاء والتقنية
+
+Name Server: NS1.NIC.SA
+Name Server: NS2.NIC.SA
+DNSSEC: signedDelegation
+
+

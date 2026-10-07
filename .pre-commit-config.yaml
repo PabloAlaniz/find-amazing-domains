@@ -7,9 +7,12 @@ repos:
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
+        # Recorded registry replies: keep them byte-identical to what was received.
+        exclude: ^tests/fixtures/whois/
       - id: end-of-file-fixer
-        # Verbatim IANA bootstrap snapshot: keep it byte-identical to upstream.
-        exclude: ^src/domainhack/data/rdap_dns\.json$
+        # Verbatim IANA bootstrap snapshot and recorded registry replies: keep
+        # them byte-identical to upstream.
+        exclude: ^(src/domainhack/data/rdap_dns\.json|tests/fixtures/whois/.*)$
       - id: check-yaml
       - id: check-toml
 

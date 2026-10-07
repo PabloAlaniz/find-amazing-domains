@@ -1,0 +1,6 @@
+% This is the WHOIS server for Example Registry.
+% Queries are subject to terms of use.
+%
+% No match for domain 'ZQXV7KQ3MPLW.DZ'.
+
+% Query served at 2026-10-07T01:51:34.002179666+01:00

@@ -1,0 +1,70 @@
+This is JWhoisServer serving ccTLD tld;mq;gf;gp
+Java Whois Server 0.4.1.3    (c) 2006 - 2015 Klaus Zerwes zero-sys.net
+#########################################################################
+# All data copyright of the organization unit running this server!
+# By querying this server, you agree that you :
+#	-may use this data only for lawful purposes;
+#	-will not re-use data for any kind of support
+#	  for the transmission of unsolicited advertising
+#	  via e-mail, telephone, or facsimile;
+#	-will not reproduce and/or store any part of the data
+#	  without prior permission of the copyright holders;
+#	-are aware of and agree to the fact that all access to the
+#	  server is under constant monitoring and will be logged
+#	  for the purpose of prosecution in case of missuse!
+#########################################################################
+
+domain:     google.mq
+mntnr:      MNTNR29
+changed:    2025-12-19 00:00:00.0
+nameserver: ns1.google.com
+nameserver: ns2.google.com
+
+[holder]
+mntnr:      MNTNR29
+type:       ORGANISATION
+name:       Domain Administrator
+address:    1600 Amphitheatre Parkway
+pcode:      94043
+country:    US
+phone:      +1.6502530000
+fax:        +1.6502530001
+email:      dns-admin@google.com
+changed:    2026-10-06 20:45:03.0
+
+[admin_c]
+mntnr:      MNTNR29
+type:       ORGANISATION
+name:       Google LLC
+address:    1600 Amphitheatre Parkway
+pcode:      94043
+country:    US
+phone:      +1.6502530000
+fax:        
+email:      dns-admin@google.com
+changed:    2026-10-06 20:45:03.0
+
+[tech_c]
+mntnr:      MNTNR29
+type:       ORGANISATION
+name:       Google LLC
+address:    1600 Amphitheatre Parkway
+pcode:      94043
+country:    US
+phone:      +1.6502530000
+fax:        
+email:      dns-admin@google.com
+changed:    2026-10-06 20:45:03.0
+
+[zone_c]
+mntnr:      MNTNR29
+type:       ORGANISATION
+name:       Markmonitor Inc CCOPS Billing
+address:    1120 S Rackham Way Suite 300
+pcode:      83642
+country:    US
+phone:      +1.2083895740
+fax:        +1.2083895771
+email:      ccops@markmonitor.com
+changed:    2026-10-06 20:45:03.0
+

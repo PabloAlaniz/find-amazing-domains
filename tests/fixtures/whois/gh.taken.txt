@@ -1,0 +1,63 @@
+Domain Name: nic.gh
+Registry Domain ID: 4297-gh
+Registry WHOIS Server: whois.nic.gh
+Updated Date: 2023-02-27T19:16:05.353Z
+Creation Date: 2005-12-20T00:00:00.0Z
+Registry Expiry Date: 2038-12-31T00:00:00.0Z
+Registrar Registration Expiration Date: 2038-12-31T00:00:00.0Z
+Registrar: Ghana Dot Com
+Domain Status: ok https://icann.org/epp#ok
+Registry Registrant ID: xHsJC-7PePX
+Registrant Name: THE MANAGER
+Registrant Organization: NETWORK COMPUTER SYSTEMS
+Registrant Street: 16 BOUNDARY ROAD, EAST LEGON
+Registrant City: ACCRA
+Registrant State/Province: GREATER ACCRA
+Registrant Postal Code: BOX 358,CANTONMENT
+Registrant Country: GH
+Registrant Phone: +233 302 521694/5
+Registrant Fax: +233.302521696
+Registrant Email: support@ghana.com
+Registry Admin ID: Q4IdA-StMDr
+Admin Name: THE MANAGER
+Admin Organization: NETWORK COMPUTER SYSTEMS
+Admin Street: 16 BOUNDARY ROAD, EAST LEGON
+Admin City: ACCRA
+Admin State/Province: GREATER ACCRA
+Admin Postal Code: BOX 358,CANTONMENT
+Admin Country: GH
+Admin Phone: +233 302 521694/5
+Admin Fax: +233.302521696
+Admin Email: support@ghana.com
+Registry Tech ID: Q40ct-tyxfK
+Tech Name: THE MANAGER
+Tech Organization: NETWORK COMPUTER SYSTEMS
+Tech Street: 16 BOUNDARY ROAD, EAST LEGON
+Tech City: EAST LEGON
+Tech State/Province: GREATER ACCRA
+Tech Postal Code: BOX 358,CANTONMENT
+Tech Country: GH
+Tech Phone: +233 302 521694/5
+Tech Fax: +233.302521696
+Tech Email: support@ghana.com
+Registry Billing ID: VYY21-fdAXs
+Billing Name: THE MANAGER
+Billing Organization: NETWORK COMPUTER SYSTEMS
+Billing Street: 16 BOUNDARY ROAD, EAST LEGON
+Billing City: ACCRA
+Billing State/Province: GREATER ACCRA
+Billing Postal Code: BOX 358,CANTONMENT
+Billing Country: GH
+Billing Phone: +233 302 521694/5
+Billing Fax: +233.302521696
+Billing Email: support@ghana.com
+Name Server: ns2.cp-49.webhostbox.net
+Name Server: ns1.cp-49.webhostbox.net
+DNSSEC: unsigned
+>>> Last update of WHOIS database: 2026-10-06T16:59:29.458Z <<<
+
+For more information on Whois status codes, please visit https://icann.org/epp
+
+TERMS OF USE: You are not authorized to access or query our WHOIS database through the use of electronic processes that are high-volume and automated.  THis WHOIS database is provided by as a service to the internet community.
+
+The data is for information purposes only. We do not guarantee its accuracy. By submitting a WHOIS query, you agree to abide by the following terms of use: You agree that you may use this Data only for lawful purposes and that under no circumstances will you use this Data to: (1) allow, enable, or otherwise support the transmission of mass unsolicited, commercial advertising or solicitations via e-mail, telephone, or facsimile; or (2) enable high volume, automated, electronic processes that apply to Ghregistry it's members (or Ghregistry or member computer systems). The compilation, repackaging, dissemination or other use of this Data is expressly prohibited.

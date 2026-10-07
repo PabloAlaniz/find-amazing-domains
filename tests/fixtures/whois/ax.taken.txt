@@ -1,0 +1,33 @@
+
+
+domain...............: regeringen.ax
+status...............: Registered
+created..............: 03.08.2006
+expires..............: 15.08.2027
+available............: 16.09.2027
+modified.............: 30.06.2022
+RegistryLock.........: no
+
+Nameservers
+
+nserver..............: ns1.aland.net
+nserver..............: ns3.alcom.fi
+nserver..............: ns2.aland.net
+
+Holder
+
+name.................: Ålands landskapsregering
+register number......: 0145076-7
+address..............: PB 1060
+address..............: 22111
+address..............: MARIEHAMN
+country..............: AX
+holder email.........: itsupport@regeringen.ax
+
+Registrar
+
+registrar............: Ålands landskapsregering
+www..................: https://regeringen.ax
+
+Copyright (c) Ålands Landskapsregering
+

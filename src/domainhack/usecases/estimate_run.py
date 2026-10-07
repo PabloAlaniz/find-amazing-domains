@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from domainhack.domain.entities import TLD
 
 # Above this many queries a brute-force run needs an explicit --yes: registry
-# terms of use forbid bulk querying, and 10,000 queries is ~3 h at 1 query/s.
+# terms of use ask clients not to bulk-query, and 10,000 queries is ~3 h at 1 query/s.
 GUARDRAIL_MAX_QUERIES = 10_000
 
 

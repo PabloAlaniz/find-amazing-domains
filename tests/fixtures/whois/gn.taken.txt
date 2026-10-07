@@ -1,0 +1,27 @@
+Domain Name: ande.gov.gn
+Registry Domain ID: 4808-nicgn
+Updated Date: 2025-12-11T19:29:23Z
+Creation Date: 2023-08-02T14:29:11Z
+Registry Expiry Date: 2026-12-31T00:00:00Z
+Registrar Registration Expiration Date: 2026-12-31T00:00:00Z
+Registrar: registrar-ande
+Registrar IANA ID: 001
+Registrar Address: kipé - conakry
+Registrar Country: GN
+Registrar Phone: +224629684930
+Registrar Fax: 
+Registrar Abuse Contact Email: ousmane.doukoure@ande.gov.gn
+Registrar Abuse Contact Phone: +224629684930
+Domain Status: active https://icann.org/epp#active
+Name Server: ns2.siteground.net
+Name Server: ns1.siteground.net
+DNSSEC: unsigned
+URL of the ICANN Whois Inaccuracy Complaint Form: https://www.icann.org/wicf/
+>>> Last update of WHOIS database: 2026-10-07T01:03:39.612Z <<<
+
+For more information on domain status codes, please visit https://icann.org/epp
+
+TERMS OF USE: You are not authorized to access or query our WHOIS database through the use of electronic processes that are high-volume and automated.  This WHOIS database is provided by as a service to the internet community.
+
+The data is for information purposes only. We do not guarantee its accuracy. By submitting a WHOIS query, you agree to abide by the following terms of use: You agree that you may use this Data only for lawful purposes and that under no circumstances will you use this Data to: (1) allow, enable, or otherwise support the transmission of mass unsolicited, commercial advertising or solicitations via e-mail, telephone, or facsimile; or (2) enable high volume, automated, electronic processes that apply to CoCCA it's members (or CoCCA or member computer systems). The compilation, repackaging, dissemination or other use of this Data is expressly prohibited.
+

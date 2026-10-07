@@ -13,7 +13,7 @@
       "gg",
       "la"
     ],
-    "reason": "rdap.gg answers every name with an HTML 200 page; rdap.centralnic.com/la/ answers 404 for everything (even google.la). Both go to WHOIS instead."
+    "reason": "When verified (2026-10-06), the RDAP replies for these TLDs did not distinguish registered from unregistered names, so they are checked over WHOIS instead."
   },
   "default_whois_min_interval": 1.0,
   "tlds": {
@@ -28,6 +28,46 @@
         "free_probe": null
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "ae": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service did not answer automated checks when we last verified it (2026-10); availability can be checked at https://www.aeda.ae",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "af": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.nic.af/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.af",
+        "free_probe": "zqxv7kq3mplw.af"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/af.html); live RDAP https://rdap.nic.af/"
+    },
+    "ag": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.identitydigital.services/rdap/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.ag",
+        "free_probe": "zqxv7kq3mplw.ag"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/ag.html); live RDAP https://rdap.identitydigital.services/rdap/"
+    },
+    "al": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service; availability can be checked at https://akep.al",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
     },
     "am": {
       "status": "whois",
@@ -46,6 +86,22 @@
         "free_probe": null
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "ao": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service; availability can be checked at https://www.dns.ao",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "aq": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": ".aq is reserved for organisations working in Antarctica",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
     },
     "ar": {
       "status": "rdap",
@@ -83,6 +139,68 @@
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
     },
+    "aw": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.nic.aw/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.aw",
+        "free_probe": "zqxv7kq3mplw.aw"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/aw.html); live RDAP https://rdap.nic.aw/"
+    },
+    "ax": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.ax",
+        "not_found": "Domain not found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.5
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "regeringen.ax",
+        "free_probe": "zqxv7kq3mplw.ax"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/ax.html); live WHOIS whois.ax"
+    },
+    "az": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service; availability can be checked at https://whois.az",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "ba": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service; availability can be checked at https://nic.ba",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "bb": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry offers a web lookup only; availability can be checked at http://www.whois.telecoms.gov.bb/",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "bd": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service; availability can be checked at https://bdia.btcl.com.bd",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
     "be": {
       "status": "whois",
       "whois": {
@@ -101,6 +219,176 @@
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
     },
+    "bf": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.registre.bf",
+        "not_found": "Domain Status:\\s*No Object Found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 2.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "arcep.bf",
+        "free_probe": "zqxv7kq3mplw.bf"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/bf.html); live WHOIS whois.registre.bf"
+    },
+    "bg": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.register.bg",
+        "not_found": "registration status:\\s*available",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.5
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "register.bg",
+        "free_probe": "zqxv7kq3mplw.bg"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/bg.html); live WHOIS whois.register.bg"
+    },
+    "bi": {
+      "status": "whois",
+      "whois": {
+        "host": "whois1.nic.bi",
+        "not_found": "Domain Status:\\s*No Object Found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 2.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "google.bi",
+        "free_probe": "zqxv7kq3mplw.bi"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/bi.html); live WHOIS whois1.nic.bi"
+    },
+    "bj": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.bj",
+        "not_found": "Domain Status:\\s*No Object Found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 2.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.bj",
+        "free_probe": "zqxv7kq3mplw.bj"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/bj.html); live WHOIS whois.nic.bj"
+    },
+    "bn": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service did not answer automated checks when we last verified it (2026-10); availability can be checked at https://www.bnnic.bn",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "bo": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup replies do not include an explicit 'not registered' answer this tool can rely on; availability can be checked at https://nic.bo",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "bs": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service; availability can be checked at https://www.nic.bs",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "bt": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service; availability can be checked at https://www.nic.bt",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "bv": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": ".bv is not open for registration",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "bw": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup replies do not include an explicit 'not registered' answer this tool can rely on; availability can be checked at https://nic.net.bw",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "by": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.cctld.by",
+        "not_found": "object does not exist",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.5
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "cctld.by",
+        "free_probe": "zqxv7kq3mplw.by"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/by.html); live WHOIS whois.cctld.by"
+    },
+    "bz": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "cd": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service did not answer automated checks when we last verified it (2026-10); availability can be checked at https://nic.cd",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "cf": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service did not answer automated checks when we last verified it (2026-10)",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "cg": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service; availability can be checked at https://www.nic.cg",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
     "ch": {
       "status": "rdap",
       "whois": null,
@@ -112,6 +400,62 @@
         "free_probe": null
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "ci": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.nic.ci/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.ci",
+        "free_probe": "zqxv7kq3mplw.ci"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/ci.html); live RDAP https://rdap.nic.ci/"
+    },
+    "ck": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service; .ck mostly registers third-level names",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "cl": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.cl",
+        "not_found": "no entries found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.5
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.cl",
+        "free_probe": "zqxv7kq3mplw.cl"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/cl.html); live WHOIS whois.nic.cl"
+    },
+    "cn": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.cnnic.cn",
+        "not_found": "No matching record",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 3.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "cnnic.cn",
+        "free_probe": "zqxv7kq3mplw.cn"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/cn.html); live WHOIS whois.cnnic.cn"
     },
     "co": {
       "status": "rdap",
@@ -125,6 +469,30 @@
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
     },
+    "cu": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service; availability can be checked at https://www.nic.cu",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "cw": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "cy": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service; availability can be checked at https://www.nic.cy",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
     "de": {
       "status": "rdap",
       "whois": null,
@@ -136,6 +504,132 @@
         "free_probe": null
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "dj": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "dk": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service did not answer automated checks when we last verified it (2026-10); availability can be checked at https://punktum.dk",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "dm": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service did not answer automated checks when we last verified it (2026-10); availability can be checked at https://www.dmdomains.dm",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "do": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service did not answer automated checks when we last verified it (2026-10); availability can be checked at https://nic.do",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "dz": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.dz",
+        "not_found": "No match for domain",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.5
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.dz",
+        "free_probe": "zqxv7kq3mplw.dz"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/dz.html); live WHOIS whois.nic.dz"
+    },
+    "ee": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.tld.ee",
+        "not_found": "Domain not found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 2.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "internet.ee",
+        "free_probe": "zqxv7kq3mplw.ee"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/ee.html); live WHOIS whois.tld.ee"
+    },
+    "eg": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "er": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "es": {
+      "status": "restricted",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry provides automated lookups to accredited users only; availability can be checked at https://www.dominios.es",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "et": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "eu": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.eu",
+        "not_found": "(?m)^Status:\\s*AVAILABLE",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 3.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "eurid.eu",
+        "free_probe": "zqxv7kq3mplw.eu"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/eu.html); live WHOIS whois.eu"
+    },
+    "fk": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service; .fk registers third-level names only",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
     },
     "fm": {
       "status": "rdap",
@@ -155,6 +649,62 @@
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>); RDAP via IANA bootstrap, WHOIS kept as fallback"
     },
+    "ga": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.nic.ga/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.ga",
+        "free_probe": "zqxv7kq3mplw.ga"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/ga.html); live RDAP https://rdap.nic.ga/"
+    },
+    "gb": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": ".gb is not open for registration",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "ge": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.ge",
+        "not_found": "No match for \"",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.5
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.ge",
+        "free_probe": "zqxv7kq3mplw.ge"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/ge.html); live WHOIS whois.nic.ge"
+    },
+    "gf": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.mediaserv.net",
+        "not_found": "NO OBJECT FOUND",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 2.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.gf",
+        "free_probe": "zqxv7kq3mplw.gf"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/gf.html); live WHOIS whois.mediaserv.net"
+    },
     "gg": {
       "status": "whois",
       "whois": {
@@ -172,6 +722,216 @@
         "free_probe": null
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "gh": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.gh",
+        "not_found": "Domain Status:\\s*No Object Found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 2.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.gh",
+        "free_probe": "zqxv7kq3mplw.gh"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/gh.html); live WHOIS whois.nic.gh"
+    },
+    "gi": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.identitydigital.services/rdap/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.gi",
+        "free_probe": "zqxv7kq3mplw.gi"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/gi.html); live RDAP https://rdap.identitydigital.services/rdap/"
+    },
+    "gl": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.gl",
+        "not_found": "(?im)^The queried object does not exist",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "google.gl",
+        "free_probe": "zqxv7kq3mplw.gl"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/gl.html); https://www.nic.gl/"
+    },
+    "gm": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "gn": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.ande.gov.gn",
+        "not_found": "(?im)^The queried object does not exist",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "ande.gov.gn",
+        "free_probe": "google.com.gn"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/gn.html); https://ande.gov.gn/dns-gn/"
+    },
+    "gp": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service did not answer automated checks when we last verified it (2026-10)",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "gq": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service is not currently available",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "gr": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "gt": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "gu": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "gw": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "hk": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.hkirc.hk",
+        "not_found": "(?im)^The domain has not been registered\\.",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "hkirc.hk",
+        "free_probe": "zqxv7kq3mplw.hk"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/hk.html); https://www.hkirc.hk"
+    },
+    "hm": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service did not answer automated checks when we last verified it (2026-10)",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "hr": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.dns.hr",
+        "not_found": "(?im)^%ERROR: No entries found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "dns.hr",
+        "free_probe": "zqxv7kq3mplw.hr"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/hr.html); https://www.dns.hr"
+    },
+    "hu": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.hu",
+        "not_found": "(?im)^Nincs talalat / No match",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "google.hu",
+        "free_probe": "zqxv7kq3mplw.hu"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/hu.html); https://www.domain.hu"
+    },
+    "ie": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.weare.ie",
+        "not_found": "(?im)^Not found: ",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "google.ie",
+        "free_probe": "zqxv7kq3mplw.ie"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/ie.html); https://www.weare.ie"
+    },
+    "il": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup replies do not include an explicit 'not registered' answer this tool can rely on; availability can be checked at https://www.isoc.org.il",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
     },
     "im": {
       "status": "whois",
@@ -221,6 +981,32 @@
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
     },
+    "iq": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service did not answer automated checks when we last verified it (2026-10)",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "ir": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.ir",
+        "not_found": "(?im)^%ERROR:101: no entries found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.ir",
+        "free_probe": "zqxv7kq3mplw.ir"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/ir.html); https://www.nic.ir"
+    },
     "is": {
       "status": "rdap",
       "whois": {
@@ -257,6 +1043,136 @@
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
     },
+    "je": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.je",
+        "not_found": "(?im)^NOT FOUND\\s*$",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "google.je",
+        "free_probe": "zqxv7kq3mplw.je"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/je.html); https://www.nic.je"
+    },
+    "jm": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "jo": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service did not answer automated checks when we last verified it (2026-10)",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "jp": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.jprs.jp",
+        "not_found": "(?im)^No match!!",
+        "taken": null,
+        "query_format": "{fqdn}/e\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "google.jp",
+        "free_probe": "zqxv7kq3mplw.jp"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/jp.html); https://jprs.jp/"
+    },
+    "kh": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "ki": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.nic.ki/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.ki",
+        "free_probe": "zqxv7kq3mplw.ki"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/ki.html); https://rdap.nic.ki/ (not in IANA RDAP bootstrap); https://www.nic.ki"
+    },
+    "km": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "kn": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.nic.kn/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.kn",
+        "free_probe": "zqxv7kq3mplw.kn"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/kn.html); https://rdap.nic.kn/ (not in IANA RDAP bootstrap); http://www.nic.kn"
+    },
+    "kp": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "kw": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.kw",
+        "not_found": "(?im)^>>> Domain \\S+ is available for registration",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "google.com.kw",
+        "free_probe": "zqxv7kq3mplw.kw"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/kw.html); https://www.nic.kw (whois.nic.kw not listed by IANA; found via DNS)"
+    },
+    "kz": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.nic.kz/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "google.kz",
+        "free_probe": "zqxv7kq3mplw.kz"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/kz.html); https://rdap.nic.kz/ (not in IANA RDAP bootstrap); https://www.nic.kz"
+    },
     "la": {
       "status": "whois",
       "whois": {
@@ -275,6 +1191,14 @@
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
     },
+    "lc": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
     "li": {
       "status": "rdap",
       "whois": null,
@@ -286,6 +1210,94 @@
         "free_probe": null
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "lk": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "lr": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "ls": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.ls",
+        "not_found": "(?im)^No record found for '",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 3.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.ls",
+        "free_probe": "zqxv7kq3mplw.ls"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/ls.html); https://www.nic.ls"
+    },
+    "lt": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.domreg.lt",
+        "not_found": "(?im)^Status:\\s+available\\s*$",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "google.lt",
+        "free_probe": "zqxv7kq3mplw.lt"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/lt.html); https://www.domreg.lt"
+    },
+    "lu": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.dns.lu",
+        "not_found": "(?im)^% No such domain",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 2.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "dns.lu",
+        "free_probe": "zqxv7kq3mplw.lu"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/lu.html); https://www.dns.lu"
+    },
+    "lv": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.lv",
+        "not_found": "(?im)^Status:\\s+free\\s*$",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.lv",
+        "free_probe": "zqxv7kq3mplw.lv"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/lv.html); https://www.nic.lv/"
     },
     "ly": {
       "status": "rdap",
@@ -323,6 +1335,42 @@
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
     },
+    "mc": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.mc",
+        "not_found": "(?im)^>> No data found for domain",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.mc",
+        "free_probe": "zqxv7kq3mplw.mc"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/mc.html); https://www.nic.mc/"
+    },
+    "md": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.md",
+        "not_found": "(?im)^No entries found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.md",
+        "free_probe": "zqxv7kq3mplw.md"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/md.html); https://www.nic.md"
+    },
     "me": {
       "status": "rdap",
       "whois": null,
@@ -334,6 +1382,148 @@
         "free_probe": null
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "mh": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "mk": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.marnet.mk",
+        "not_found": "(?im)^%ERROR:101: no entries found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "marnet.mk",
+        "free_probe": "zqxv7kq3mplw.mk"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/mk.html); https://marnet.mk/"
+    },
+    "mm": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.registry.gov.mm",
+        "not_found": "(?im)^The queried object does not exist",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 3.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "google.com.mm",
+        "free_probe": "zqxv7kq3mplw.mm"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/mm.html); https://www.ptd.gov.mm/"
+    },
+    "mn": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.mn",
+        "not_found": "(?im)^Domain not found\\.",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.mn",
+        "free_probe": "zqxv7kq3mplw.mn"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/mn.html); https://www.nic.mn"
+    },
+    "mo": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.monic.mo",
+        "not_found": "(?im)^No match for ",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "monic.mo",
+        "free_probe": "zqxv7kq3mplw.mo"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/mo.html); https://www.monic.mo"
+    },
+    "mp": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "mq": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.mediaserv.net",
+        "not_found": "(?im)^NO OBJECT FOUND!",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 2.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "google.mq",
+        "free_probe": "zqxv7kq3mplw.mq"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/mq.html); https://www.dom-enic.com"
+    },
+    "mr": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.nic.mr/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.mr",
+        "free_probe": "zqxv7kq3mplw.mr"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/mr.html); https://rdap.nic.mr/ (not in IANA RDAP bootstrap); https://www.nic.mr"
+    },
+    "mt": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "mv": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "mw": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service did not answer automated checks when we last verified it (2026-10)",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
     },
     "mx": {
       "status": "whois",
@@ -353,6 +1543,86 @@
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
     },
+    "my": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.mynic.my",
+        "not_found": "(?im)^>>> Domain \\S+ is available for registration",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "mynic.my",
+        "free_probe": "zqxv7kq3mplw.my"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/my.html); https://www.mynic.my"
+    },
+    "mz": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.nic.mz/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "google.co.mz",
+        "free_probe": "zqxv7kq3mplw.mz"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/mz.html); https://rdap.nic.mz/ (not in IANA RDAP bootstrap); https://www.nic.mz (not listed by IANA)"
+    },
+    "nc": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nc",
+        "not_found": "(?im)^No entries found in the \\.nc database",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "domaine.nc",
+        "free_probe": "zqxv7kq3mplw.nc"
+      },
+      "source": "IANA root zone db (https://www.iana.org/domains/root/db/nc.html); https://www.domaine.nc"
+    },
+    "ne": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "ni": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry offers a web lookup only; availability can be checked at https://nic.ni",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "np": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry offers web forms only; availability can be checked at https://register.com.np",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "nr": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
     "nu": {
       "status": "whois",
       "whois": {
@@ -370,6 +1640,40 @@
         "free_probe": null
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "nz": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.irs.net.nz",
+        "not_found": "(?m)^Not found:",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 2.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "internetnz.nz",
+        "free_probe": "zqxv7kq3mplw.nz"
+      },
+      "source": "IANA root zone db (whois.iana.org); https://dnc.org.nz/"
+    },
+    "om": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service could not be reached over a verified secure (TLS) connection from this tool; availability can be checked at https://www.registry.om",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "pa": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry offers a web lookup only; availability can be checked at https://nic.pa",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
     },
     "pe": {
       "status": "whois",
@@ -389,6 +1693,94 @@
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
     },
+    "pf": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service did not answer automated checks when we last verified it (2026-10)",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "ph": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry offers a web lookup only; availability can be checked at https://dot.ph",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "pk": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.pknic.net.pk",
+        "not_found": "(?i)Status:\\s*Not Registered",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "google.pk",
+        "free_probe": "zqxv7kq3mplw.pk"
+      },
+      "source": "IANA root zone db (whois.iana.org); http://www.pknic.net.pk/"
+    },
+    "pr": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.identitydigital.services/rdap/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.pr",
+        "free_probe": "zqxv7kq3mplw.pr"
+      },
+      "source": "IANA root zone db (whois.iana.org); not in IANA RDAP bootstrap (dns.json); endpoint verified live: https://rdap.identitydigital.services/rdap/domain/nic.pr"
+    },
+    "ps": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service did not answer automated checks when we last verified it (2026-10)",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "pt": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service did not answer automated checks when we last verified it (2026-10); availability can be checked at https://www.pt.pt",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "py": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry offers a web lookup only; availability can be checked at https://www.nic.py",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "qa": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.registry.qa",
+        "not_found": "(?m)^No Data Found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "registry.qa",
+        "free_probe": "zqxv7kq3mplw.qa"
+      },
+      "source": "IANA root zone db (whois.iana.org); https://www.cra.gov.qa/"
+    },
     "re": {
       "status": "rdap",
       "whois": {
@@ -407,6 +1799,110 @@
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>); RDAP via IANA bootstrap, WHOIS kept as fallback"
     },
+    "ro": {
+      "status": "restricted",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's terms of use do not allow automated availability lookups; availability can be checked at https://www.rotld.ro",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "rs": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.rnids.rs",
+        "not_found": "Domain is not registered",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "rnids.rs",
+        "free_probe": "zqxv7kq3mplw.rs"
+      },
+      "source": "IANA root zone db (whois.iana.org); http://www.rnids.rs"
+    },
+    "ru": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.tcinet.ru",
+        "not_found": "(?m)^No entries found for the selected source",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 3.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "yandex.ru",
+        "free_probe": "zqxv7kq3mplw.ru"
+      },
+      "source": "IANA root zone db (whois.iana.org); https://tcinet.ru/documents/whois_ru_rf.pdf"
+    },
+    "sa": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.net.sa",
+        "not_found": "(?m)^No Match for domain",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.net.sa",
+        "free_probe": "zqxv7kq3mplw.sa"
+      },
+      "source": "IANA root zone db (whois.iana.org); http://www.nic.net.sa/"
+    },
+    "sb": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.nic.sb/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.sb",
+        "free_probe": "zqxv7kq3mplw.sb"
+      },
+      "source": "IANA root zone db (whois.iana.org); not in IANA RDAP bootstrap (dns.json); endpoint verified live: https://rdap.nic.sb/domain/nic.sb"
+    },
+    "sc": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.identitydigital.services/rdap/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.sc",
+        "free_probe": "zqxv7kq3mplw.sc"
+      },
+      "source": "IANA root zone db (whois.iana.org); not in IANA RDAP bootstrap (dns.json); endpoint verified live: https://rdap.identitydigital.services/rdap/domain/nic.sc"
+    },
+    "se": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.iis.se",
+        "not_found": "(?m)^domain \\\"\\S+\\\" not found\\.",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 2.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "internetstiftelsen.se",
+        "free_probe": "zqxv7kq3mplw.se"
+      },
+      "source": "IANA root zone db (whois.iana.org); https://internetstiftelsen.se"
+    },
     "sh": {
       "status": "rdap",
       "whois": null,
@@ -418,6 +1914,68 @@
         "free_probe": null
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "sj": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": ".sj is not open for registration",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "sk": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.sk-nic.sk",
+        "not_found": "(?m)^Domain not found\\.",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "google.sk",
+        "free_probe": "zqxv7kq3mplw.sk"
+      },
+      "source": "IANA root zone db (whois.iana.org); http://www.sk-nic.sk"
+    },
+    "sl": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.sl",
+        "not_found": "Domain Status:\\s*No Object Found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 2.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.sl",
+        "free_probe": "zqxv7kq3mplw.sl"
+      },
+      "source": "IANA root zone db (whois.iana.org); whois.nic.sl (not listed in IANA; verified live); https://www.nic.sl"
+    },
+    "sm": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.sm",
+        "not_found": "(?m)^No entries found\\.",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.sm",
+        "free_probe": "zqxv7kq3mplw.sm"
+      },
+      "source": "IANA root zone db (whois.iana.org); https://www.nic.sm"
     },
     "so": {
       "status": "rdap",
@@ -449,6 +2007,182 @@
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
     },
+    "su": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.tcinet.ru",
+        "not_found": "(?m)^No entries found for the selected source",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 3.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.su",
+        "free_probe": "zqxv7kq3mplw.su"
+      },
+      "source": "IANA root zone db (whois.iana.org); https://tcinet.ru/documents/whois_su.pdf"
+    },
+    "sv": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry offers a web lookup only; availability can be checked at https://svnet.sv",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "sx": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.sx",
+        "not_found": "(?m)^Not found:",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.sx",
+        "free_probe": "zqxv7kq3mplw.sx"
+      },
+      "source": "IANA root zone db (whois.iana.org); http://registry.sx"
+    },
+    "sy": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.nic.sy/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "tld.sy",
+        "free_probe": "zqxv7kq3mplw.sy"
+      },
+      "source": "IANA root zone db (whois.iana.org); not in IANA RDAP bootstrap (dns.json); endpoint verified live: https://rdap.nic.sy/domain/tld.sy"
+    },
+    "sz": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "tc": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.tc",
+        "not_found": "Domain Status:\\s*No Object Found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.tc",
+        "free_probe": "zqxv7kq3mplw.tc"
+      },
+      "source": "IANA root zone db (whois.iana.org); https://www.nic.tc"
+    },
+    "td": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.nic.td/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.td",
+        "free_probe": "zqxv7kq3mplw.td"
+      },
+      "source": "IANA root zone db (whois.iana.org); not in IANA RDAP bootstrap (dns.json); endpoint verified live: https://rdap.nic.td/domain/nic.td"
+    },
+    "tg": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.tg",
+        "not_found": "(?m)^NO OBJECT FOUND!",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.tg",
+        "free_probe": "zqxv7kq3mplw.tg"
+      },
+      "source": "IANA root zone db (whois.iana.org); http://www.nic.tg"
+    },
+    "tj": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry offers a web lookup only; availability can be checked at https://nic.tj",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "tk": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service is not currently available",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "tl": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.nic.tl/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.tl",
+        "free_probe": "zqxv7kq3mplw.tl"
+      },
+      "source": "IANA root zone db (whois.iana.org); not in IANA RDAP bootstrap (dns.json); endpoint verified live: https://rdap.nic.tl/domain/nic.tl"
+    },
+    "tm": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.tm",
+        "not_found": "is available for purchase",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.tm",
+        "free_probe": "zqxv7kq3mplw.tm"
+      },
+      "source": "IANA root zone db (whois.iana.org); http://www.nic.tm/"
+    },
+    "tn": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.ati.tn",
+        "not_found": "(?m)^NO OBJECT FOUND!",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "ati.tn",
+        "free_probe": "zqxv7kq3mplw.tn"
+      },
+      "source": "IANA root zone db (whois.iana.org); https://whois.ati.tn"
+    },
     "to": {
       "status": "rdap",
       "whois": null,
@@ -460,6 +2194,32 @@
         "free_probe": null
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "tr": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.trabis.gov.tr",
+        "not_found": "(?m)^No match found for",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 2.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "google.com.tr",
+        "free_probe": "zqxv7kq3mplw.tr"
+      },
+      "source": "IANA root zone db (whois.iana.org); http://www.trabis.gov.tr"
+    },
+    "tt": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry offers a web lookup only; availability can be checked at https://nic.tt",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
     },
     "tv": {
       "status": "rdap",
@@ -479,6 +2239,102 @@
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>); RDAP via IANA bootstrap, WHOIS kept as fallback"
     },
+    "ug": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.co.ug",
+        "not_found": "(?i)>>> Domain not Found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "google.co.ug",
+        "free_probe": "zqxv7kq3mplw.ug"
+      },
+      "source": "IANA root zone db (whois.iana.org); http://www.registry.co.ug"
+    },
+    "us": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.nic.us/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.us",
+        "free_probe": "zqxv7kq3mplw.us"
+      },
+      "source": "IANA root zone db (whois.iana.org); not in IANA RDAP bootstrap (dns.json); endpoint verified live: https://rdap.nic.us/domain/nic.us"
+    },
+    "uy": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry's lookup service did not answer automated checks when we last verified it (2026-10); availability can be checked at https://nic.uy",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "va": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": ".va is not open for public registration",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "vc": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.identitydigital.services/rdap/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.vc",
+        "free_probe": "zqxv7kq3mplw.vc"
+      },
+      "source": "IANA root zone db (whois.iana.org); not in IANA RDAP bootstrap (dns.json); endpoint verified live: https://rdap.identitydigital.services/rdap/domain/nic.vc"
+    },
+    "ve": {
+      "status": "whois",
+      "whois": {
+        "host": "whois.nic.ve",
+        "not_found": "(?i)%ERROR:101: no entries found",
+        "taken": null,
+        "query_format": "{fqdn}\r\n",
+        "min_interval": 1.0
+      },
+      "rdap": null,
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.ve",
+        "free_probe": "zqxv7kq3mplw.ve"
+      },
+      "source": "IANA root zone db (whois.iana.org); https://nic.ve/"
+    },
+    "vn": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry offers a web lookup only; availability can be checked at https://vnnic.vn",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "vu": {
+      "status": "rdap",
+      "whois": null,
+      "rdap": "https://rdap.dnrs.vu/",
+      "reason": "",
+      "verified": {
+        "date": "2026-10-07",
+        "taken_probe": "nic.vu",
+        "free_probe": "zqxv7kq3mplw.vu"
+      },
+      "source": "IANA root zone db (whois.iana.org); not in IANA RDAP bootstrap (dns.json); endpoint verified live: https://rdap.dnrs.vu/domain/nic.vu"
+    },
     "ws": {
       "status": "rdap",
       "whois": null,
@@ -490,6 +2346,22 @@
         "free_probe": null
       },
       "source": "registrar research 2026-10-06 (google.<tld> vs zqxv7kq3mplw.<tld>)"
+    },
+    "za": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "names are registered under second-level zones such as co.za, not directly under .za",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
+    },
+    "zw": {
+      "status": "unavailable",
+      "whois": null,
+      "rdap": null,
+      "reason": "the registry does not publish an automated lookup service",
+      "verified": null,
+      "source": "IANA root zone database; probed 2026-10-07 (registered and random name)"
     }
   }
 }

@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from pathlib import Path
 
 import pytest
 
@@ -107,7 +108,11 @@ NOT_FOUND_SAMPLES = {
 
 
 def test_every_server_has_a_sample() -> None:
-    assert set(NOT_FOUND_SAMPLES) == set(ALL_WHOIS_SERVERS)
+    # Servers added from registry_sources.json are covered by recorded replies
+    # in tests/fixtures/whois/ (see test_whois_fixtures.py).
+    fixtures = Path(__file__).parent / "fixtures" / "whois"
+    recorded = {p.name.split(".")[0] for p in fixtures.glob("*.free.txt")}
+    assert set(ALL_WHOIS_SERVERS) <= set(NOT_FOUND_SAMPLES) | recorded
 
 
 def test_tables_are_disjoint_and_skip_rdap_overrides() -> None:

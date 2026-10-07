@@ -1,6 +1,6 @@
 """Resolve a TLD to its RDAP base URL.
 
-Order: denylist (known-broken servers) -> hard-coded overrides (working
+Order: denylist (servers whose answers this tool cannot use) -> overrides (working
 servers missing from IANA's bootstrap) -> IANA bootstrap file
 (https://data.iana.org/rdap/dns.json), fetched lazily and cached on disk
 for ``ttl_seconds`` -> the snapshot of that file bundled with the package
@@ -39,11 +39,11 @@ IANA_BOOTSTRAP_URL = "https://data.iana.org/rdap/dns.json"
 DEFAULT_TTL_SECONDS: float = 24 * 60 * 60
 
 
-# Registries missing from the IANA bootstrap (verified live) and known-broken
-# RDAP servers live in data/registry_sources.json. "to" is pinned there too so
-# the most important TLD works even if the bootstrap fetch fails; rdap.gg and
-# rdap.centralnic.com/la/ are denied (they answer every name the same way) and
-# those TLDs go to WHOIS instead.
+# Registries missing from the IANA bootstrap (verified live) and RDAP servers
+# whose answers this tool cannot use live in data/registry_sources.json. "to" is
+# pinned there too so the most important TLD works even if the bootstrap fetch
+# fails; .gg and .la are checked over WHOIS instead (their RDAP replies did not
+# distinguish registered from unregistered names when verified).
 RDAP_OVERRIDES: Mapping[str, str] = load_registry_sources().rdap_overrides()
 RDAP_DENYLIST: frozenset[str] = load_registry_sources().rdap_denylist
 

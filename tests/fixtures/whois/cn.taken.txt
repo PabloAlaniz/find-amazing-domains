@@ -1,0 +1,15 @@
+Domain Name: cnnic.cn
+ROID: 20030310s10001s00012956-cn
+Domain Status: serverDeleteProhibited
+Domain Status: serverUpdateProhibited
+Registrant: 中国互联网络信息中心
+Registrant Contact Email: servicei@cnnic.cn
+Sponsoring Registrar: 北京新网数码信息技术有限公司
+Name Server: a.cnnic.cn
+Name Server: b.cnnic.cn
+Name Server: c.cnnic.cn
+Name Server: d.cnnic.cn
+Name Server: e.cnnic.cn
+Registration Time: 2003-03-10 19:06:34
+Expiration Time: 2028-03-10 19:06:34
+DNSSEC: unsigned

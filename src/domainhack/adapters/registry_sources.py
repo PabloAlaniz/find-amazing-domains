@@ -43,6 +43,8 @@ class RegistrySource:
     reason: str
     verified_on: str | None
     source: str
+    verified_taken: str = ""
+    verified_free: str = ""
 
 
 @dataclass(frozen=True)
@@ -124,6 +126,8 @@ def _parse_entry(tld: str, raw: Any) -> RegistrySource:
         reason=reason,
         verified_on=verified.get("date") if isinstance(verified, dict) else None,
         source=str(raw.get("source") or ""),
+        verified_taken=str(verified.get("taken_probe") or "") if isinstance(verified, dict) else "",
+        verified_free=str(verified.get("free_probe") or "") if isinstance(verified, dict) else "",
     )
 
 

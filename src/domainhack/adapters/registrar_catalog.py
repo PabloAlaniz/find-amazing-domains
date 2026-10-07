@@ -11,8 +11,7 @@ offline and online runs pick the same backend for every catalog TLD.
 ``.to`` is served by RDAP too (rdap.tonicregistry.to): it is the
 registry's official protocol, it agreed with the Tonic web form on 23/23
 test names (including registered names without NS records), and it gives
-proper status codes and Retry-After instead of scraping a form with a
-spoofed browser User-Agent.
+proper status codes and Retry-After, which a web form does not.
 """
 
 from __future__ import annotations

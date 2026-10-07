@@ -1,0 +1,21 @@
+>>
+>> Welcome to the NIC Monaco Whois server.
+>>
+>> Complete date format : YYYY-MM-DDThh:mm:ssZ
+>>
+>> You are not allowed to duplicate these information without
+>> authorization of NIC Monaco.
+>> See https://www.nic.mc for informations about .mc domains.
+>> Please contact nic@gouv.mc for any question.
+>>
+>>
+
+>> No data found for domain : zqxv7kq3mplw.mc
+
+>>>> Last update of WHOIS Database : 2026-10-06T17:53:33Z <<<<
+
+>> The information contained in the WHOIS database is provided
+>> as is. The NIC Monaco cannot be held responsible for any
+>> errors. For more information about a domain, please contact
+>> the responsible registrar.
+

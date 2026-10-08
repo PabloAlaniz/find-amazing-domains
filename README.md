@@ -414,10 +414,16 @@ A separate weekly workflow runs the live `integration` tests against real regist
 | Result caching (decorator pattern) | Done |
 | Best-first ordering (`--order`, `--limit`) | Done |
 | Adaptive per-host backoff with jitter | Done |
-| Word-frequency scoring (`Scorer` hook) | Planned |
+| Parallel checks, one request per registry host (`--parallel`) | Done |
 | DNS confirmation (`--confirm-dns`) | Done |
 | Second-level suffixes (`com.ar`, `co.uk`) | Done |
-| Porkbun API adapter (confirm hits, premium pricing) | Planned |
+| Registration details and parking detection for taken names | Done |
+| `name` command: exact names, domain hacks, brand variants, recommendation | Done |
+| `tlds` command and live-verified registry data (170 of 248 ccTLDs) | Done |
+| Reference prices per TLD: a bundled, dated snapshot of public registrar price lists (registration and renewal), shown as a reference only; per-name premium pricing is out of scope | Planned |
+| Re-verify registries that did not answer during verification (e.g. .pt, .uy, .dk, .do) and the .my RDAP service | Planned |
+| Word-frequency scoring (`Scorer` hook) | Planned |
+| Open zone files (.nu, .ch, .li) as an offline "registered" source | Planned |
 | Async HTTP (`httpx.AsyncClient`) | Planned |
 
 ## License

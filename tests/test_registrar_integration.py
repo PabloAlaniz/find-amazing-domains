@@ -15,6 +15,11 @@ pytestmark = pytest.mark.integration
 
 RANDOM_SLD = "zqxv7kq3mplw"
 
+# Registries the weekly CI job can't reach from GitHub-hosted runners, so they
+# stay out of the rotation; verify them by hand. it: whois.nic.it throttles hard.
+# ru/su: whois.tcinet.ru drops connections from the runners' (Azure) IPs.
+_CI_UNREACHABLE = {"it", "ru", "su"}
+
 
 def _check(tld: str, sld: str) -> Availability:
     client = build_registrar_for(TLD(tld), delay=1.0, timeout=20.0)
@@ -63,7 +68,10 @@ def _weekly_sample(size: int = 8) -> list[str]:
     tlds = sorted(
         t
         for t, s in load_registry_sources().tlds.items()
-        if s.status in ("rdap", "whois") and s.verified_taken and s.verified_free and t != "it"
+        if s.status in ("rdap", "whois")
+        and s.verified_taken
+        and s.verified_free
+        and t not in _CI_UNREACHABLE
     )
     week = datetime.date.today().isocalendar()[1]
     start = (week * size) % len(tlds)

@@ -239,9 +239,9 @@ class TestCliSubprocess:
         assert result.returncode == 0
         lines = result.stdout.strip().splitlines()
         assert len(lines) == 52
-        assert "a.to" in lines[0]
-        assert "a.io" in lines[1]
-        assert "z.io" in lines[-1]
+        assert lines[0].split()[0] == "a.to"
+        assert lines[1].split()[0] == "a.io"
+        assert lines[-1].split()[0] == "z.io"
 
     def test_invalid_tld_is_usage_error(self) -> None:
         result = run_cli("--tld", "to,1", "filter", "x.txt")

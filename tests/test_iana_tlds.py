@@ -34,7 +34,7 @@ class TestBundledData:
         raw = json.loads(
             resources.files("domainhack").joinpath("data/second_level.json").read_text()
         )
-        assert "publicsuffix.org" in raw["source"]
+        assert raw["source"] == "https://publicsuffix.org/list/public_suffix_list.dat"
         suffixes = load_second_level()
         assert suffixes[:3] == ["com.ar", "net.ar", "org.ar"]
         assert {"com.mx", "com.br", "com.co", "com.pe", "co.uk"} <= set(suffixes)

@@ -179,7 +179,7 @@ class TestDns:
         assert _run("sumanda", "--tlds", "com,io", script=script, dns=dns) == EXIT_FAILURE
         out = capsys.readouterr().out
         assert "sumanda.com" not in dns.lookups  # errors are not looked up
-        assert "sumanda.io" in dns.lookups
+        assert dns.lookups.count("sumanda.io") == 1
         assert "DNS conflicts\n  sumanda.io  registry says available, but DNS delegates" in out
 
     def test_no_confirm_dns(self, capsys: pytest.CaptureFixture[str]) -> None:
@@ -199,7 +199,7 @@ class TestOutput:
         rows = list(csv.DictReader(out.open(encoding="utf-8")))
         fqdns = [r["fqdn"] for r in rows]
         assert fqdns[:2] == ["sumanda.com", "sumanda.io"]
-        assert "sumandastud.io" in fqdns
+        assert fqdns.count("sumandastud.io") == 1
 
     def test_jsonl(self, tmp_path: Path) -> None:
         out = tmp_path / "sumanda.jsonl"

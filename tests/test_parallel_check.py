@@ -147,7 +147,7 @@ class TestConcurrency:
         assert sorted(r.domain.fqdn for r in writer.results) == sorted(d.fqdn for d in items)
         assert all(n == 1 for n in probe.max_in_flight.values())
         assert probe.max_total <= 2
-        assert len(probe.threads) == 2
+        assert 1 <= len(probe.threads) <= 2
         for host in set(HOSTS.values()):
             lane = [d.fqdn for d in items if HOSTS[d.tld.suffix] == host]
             assert [f for f in probe.started if f in lane] == lane

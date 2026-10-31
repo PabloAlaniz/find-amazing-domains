@@ -1,0 +1,38 @@
+name: Bug report
+description: Something gave a wrong result, crashed or behaved unexpectedly
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Include the exact command. Paste stderr too (warnings and the summary go there).
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: domainhack version
+      description: Output of `domainhack --version`
+      placeholder: domainhack 0.2.0
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Python version and OS
+      placeholder: Python 3.12.3, macOS 15
+  - type: checkboxes
+    id: cache
+    attributes:
+      label: Checks
+      options:
+        - label: I re-ran with `--no-cache` and the problem persists
+        - label: If a result looks wrong, I confirmed it against the registry's own lookup page

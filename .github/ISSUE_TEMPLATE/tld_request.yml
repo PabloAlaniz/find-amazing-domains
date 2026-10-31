@@ -1,0 +1,27 @@
+name: TLD request or fix
+description: A TLD is unsupported, or its availability results look wrong
+labels: ["tld"]
+body:
+  - type: input
+    id: tld
+    attributes:
+      label: TLD
+      placeholder: ".pt or com.pe"
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: What `domainhack tlds <tld>` says today
+      render: shell
+  - type: textarea
+    id: registry
+    attributes:
+      label: What you know about the registry
+      description: RDAP URL, WHOIS server, the exact "not found" text, rate limits, terms of use. Links to the registry's documentation help a lot.
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contribution
+      options:
+        - label: I can open a PR following "Adding or fixing a TLD" in CONTRIBUTING.md

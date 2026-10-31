@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/PabloAlaniz/find-amazing-domains/discussions
+    about: Ask how to do something or propose an idea before opening an issue.
+  - name: Security issue
+    url: https://github.com/PabloAlaniz/find-amazing-domains/security/advisories/new
+    about: Report a vulnerability privately.

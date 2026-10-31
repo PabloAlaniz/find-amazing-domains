@@ -1,10 +1,47 @@
 # domainhack
 
+[![PyPI](https://img.shields.io/pypi/v/domainhack)](https://pypi.org/project/domainhack/)
+[![Python](https://img.shields.io/pypi/pyversions/domainhack)](https://pypi.org/project/domainhack/)
 [![CI](https://github.com/PabloAlaniz/find-amazing-domains/actions/workflows/lint-typecheck-test.yml/badge.svg)](https://github.com/PabloAlaniz/find-amazing-domains/actions/workflows/lint-typecheck-test.yml)
+[![Coverage](https://codecov.io/gh/PabloAlaniz/find-amazing-domains/graph/badge.svg)](https://codecov.io/gh/PabloAlaniz/find-amazing-domains)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Find domain hacks hiding in real words.**
+**Find domain hacks hiding in real words, and check them live against the registries.**
 
-Some words have a secret: they end in a top-level domain. The Spanish word *plato* (plate) becomes `pla.to`. *Abasto* (supply) becomes `abas.to`. *Grato* (pleasant) becomes `gra.to`. This tool finds those words and checks if the domains are actually available.
+Some words have a secret: they end in a top-level domain. The Spanish word *plato* (plate) becomes `pla.to`. *Abasto* (supply) becomes `abas.to`. *Grato* (pleasant) becomes `gra.to`. domainhack finds those words, asks the registry whether each domain is really free, and tells you what to register.
+
+![domainhack demo: filter a word list for .to hacks, then find a domain for a name](docs/demo.gif)
+
+## Install
+
+```bash
+pipx install domainhack          # or: pip install domainhack
+uvx domainhack name myname       # run without installing
+```
+
+Python 3.10 or newer. No API keys, no accounts, no captchas: domainhack talks to the registries directly.
+
+## Why domainhack
+
+- **It asks the registry, not a reseller.** Every generic TLD is checked over RDAP through the IANA bootstrap, and 170 of the 248 country-code TLDs over RDAP or port-43 WHOIS, each verified live with a registered and a random name. Requests are paced per host, back off on 429/503 as RFC 7480 asks, and a circuit breaker skips a host that stops answering.
+- **It knows when "available" lies.** A public-DNS cross-check flags names the registry calls free but that already have nameservers. Taken names come with their registration date, expiry date, registrar, the parking or aftermarket service behind them, and whether they are about to drop (redemption or pending delete).
+- **One command for a name.** `domainhack name acme` checks the exact name under a set of TLDs, finds hacks that spell it (`acme` + studio -> `acmestud.io`), optionally tries brand variants, and ends with a ranked recommendation.
+- **It handles the hard cases.** Second-level suffixes (`com.ar`, `co.uk`), IDNs (`ñandú.de`), per-TLD label rules, a SQLite cache with TTLs that match how fast each kind of result goes stale, and CSV, JSON Lines, markdown and JSON output.
+
+## How it compares
+
+| | domainhack | [domaingrep](https://github.com/ysm-dev/domaingrep) | [tldx](https://github.com/brandonyoungdev/tldx) | [DomainHacks.info](https://domainhacks.info/) |
+|---|---|---|---|---|
+| Finds domain hacks (word split at a TLD) | yes | yes | no: prefix/suffix permutations | yes |
+| Availability source | registry RDAP + WHOIS | DNS | RDAP | registry lookups (about 900 of 1466 TLDs) |
+| Cross-checks "available" against DNS | yes | DNS is the source | not documented | not documented |
+| Taken-name details (expiry, registrar, parking, dropping) | yes | not documented | `_for-sale` TXT record | not documented |
+| Second-level suffixes (`com.ar`, `co.uk`) and IDN | yes | not documented | not documented | not documented |
+| Country-code TLDs you can check | 170 of 248, each verified live | "every TLD", list not published | not published | about 900 TLDs |
+| Runs as | CLI, Python 3.10+ | CLI, Rust | CLI, Go | website |
+| License | MIT | MIT | Apache-2.0 | proprietary |
+
+"Not documented" means the project's README or site did not say so in October 2026; corrections are welcome in an issue.
 
 ## Find a domain for a name
 
@@ -20,13 +57,17 @@ Domains for 'sumanda'
 TLDs: com, app, io, ai, co, dev, so, xyz
 
 Exact name
-  sumanda.com  taken      since 2015-11-12, expires 2026-11-12, parked: domainrecover
-  sumanda.app  available
+  sumanda.com  taken      since 2015-11-12, expires 2026-11-12, registrar Nikko Reg LLP, parked: domainrecover
+  sumanda.app  available  DNS: not delegated
+  sumanda.io   available  DNS: not delegated
   ...
 
 Domain hacks
   no TLD is a suffix of 'sumanda'
-  sumandastud.io  available  sumanda studio: a creative or production studio
+  sumanda.studio     available    sumanda studio: a creative or production studio -- DNS: not delegated
+  sumandastud.io     available    sumanda studio: a creative or production studio -- DNS: not delegated
+  sumandarad.io      available    sumanda radio: a radio show or podcast -- DNS: not delegated
+  sumandagam.es      unsupported  sumanda games: games -- no registrar supports .es (restricted: ...)
   ...
 
 Recommendation
@@ -37,7 +78,7 @@ Recommendation
 
 What it checks:
 
-- **Exact name** under every TLD of `--tlds`. It takes presets and TLDs, mixed: `--tlds startup,com.ar,la`. The presets are `startup` (the default: com, app, io, ai, co, dev, so, xyz), `latam` (com.ar, ar, com.mx, mx, com.co, co, com.br, cl, pe), `classic` (com, net, org) and `all-supported` (every TLD the tool can check). A suffix this version cannot check yet (e.g. two-level `com.ar`) is skipped with a warning.
+- **Exact name** under every TLD of `--tlds`. It takes presets and TLDs, mixed: `--tlds startup,com.ar,la`. The presets are `startup` (the default: com, app, io, ai, co, dev, so, xyz), `latam` (com.ar, ar, com.mx, mx, com.co, co, com.br, cl, pe), `classic` (com, net, org) and `all-supported` (every TLD the tool can check). A TLD the tool cannot check (e.g. `.es`, whose registry only serves accredited users) is reported as unsupported, with the reason.
 - **Domain hacks**: the name split at a TLD it ends with (`plato` -> `pla.to`), and the name plus a curated word ending in a TLD (`sumanda` + studio -> `sumandastud.io`, or `sumanda.studio` where the word is itself a TLD). The words and their meanings live in `src/domainhack/data/hack_words.json`. When the name ends in no TLD, the report says so.
 - **Brand variants** (`--variants`): `get`/`use`/`try`/`hola`/`my` + name and name + `hq`/`app`/`labs`/`studio`. They are checked under `.com` and the first 3 other requested TLDs only, so there are at most 36 of them.
 
@@ -67,26 +108,6 @@ Shorter names win within a tier. Taken, dropping, DNS-conflict and unverifiable 
 | veto | English | `ve.to` | veto |
 | gusto | English | `gus.to` | gusto |
 | pinto | English | `pin.to` | pinto |
-
-## Requirements
-
-- Python 3.10+
-
-## Quick Start
-
-```bash
-# Install
-pip install .
-
-# Find words that form .to domains
-domainhack --tld to filter data/samples/sample_es_5.txt
-
-# Preview domains without checking availability
-domainhack --tld to check --file data/samples/sample_es_5.txt --dry-run
-
-# Check domain availability (with rate limiting)
-domainhack --tld to check --file data/samples/sample_es_5.txt --delay 1.5
-```
 
 ## How It Works
 
@@ -402,6 +423,10 @@ CI (GitHub Actions) does the following:
 - builds the wheel and smoke-tests it in a fresh venv.
 
 A separate weekly workflow runs the live `integration` tests against real registries. It is non-blocking and skips the `.it` case, because whois.nic.it throttles hard. See [CHANGELOG.md](CHANGELOG.md) for release notes.
+
+## Contributing
+
+Bug reports, new TLDs and WHOIS pattern fixes are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) has the setup and a step-by-step guide to adding a TLD; [SECURITY.md](SECURITY.md) says how to report a vulnerability privately.
 
 ## Roadmap
 

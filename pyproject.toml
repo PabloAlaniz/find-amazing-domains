@@ -14,7 +14,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "Pablo Alaniz" }]
 keywords = ["domain", "domain-hack", "tld", "rdap", "whois", "availability", "cli"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Intended Audience :: End Users/Desktop",

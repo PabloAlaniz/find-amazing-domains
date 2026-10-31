@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: If you use domainhack in your work, please cite it as below.
+type: software
+title: domainhack
+abstract: Find domain hacks hiding in real words and check their availability live against the registries.
+authors:
+  - family-names: Alaniz
+    given-names: Pablo
+repository-code: https://github.com/PabloAlaniz/find-amazing-domains
+url: https://github.com/PabloAlaniz/find-amazing-domains
+license: MIT
+version: 0.2.0
+date-released: 2026-10-31
+keywords:
+  - domain names
+  - domain hacks
+  - RDAP
+  - WHOIS
+  - TLD

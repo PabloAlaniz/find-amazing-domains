@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-31
+
+First release on PyPI: `pipx install domainhack`.
+
 ### Added
 - 76 more country-code TLDs can be checked (ccTLD coverage 94 -> 170 of 248):
   RDAP for af, ag, aw, ci, ga, gi, ki, kn, kz, mr, mz, pr, sb, sc, sy, td,
@@ -186,5 +190,6 @@ The version in the initial commit. It was never tagged or published.
 - Initial release: `filter` finds words that end in a TLD, and `check` tests
   domain availability from a word list or a generated letter range.
 
-[Unreleased]: https://github.com/PabloAlaniz/find-amazing-domains/commits/main
+[Unreleased]: https://github.com/PabloAlaniz/find-amazing-domains/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/PabloAlaniz/find-amazing-domains/compare/4af9a40...v0.2.0
 [0.1.0]: https://github.com/PabloAlaniz/find-amazing-domains/commit/4af9a40

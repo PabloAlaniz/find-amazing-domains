@@ -1,0 +1,87 @@
+name: Publish
+
+# Tagging `vX.Y.Z` builds the sdist and wheel, publishes them to PyPI through
+# trusted publishing (no API token stored in the repo) and creates the GitHub
+# release with the matching CHANGELOG section as its notes.
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build sdist + wheel
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Tag matches domainhack.__version__
+        run: |
+          python - <<'PY'
+          import os, pathlib, re
+          tag = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          src = pathlib.Path("src/domainhack/__init__.py").read_text()
+          version = re.search(r'^__version__ = "([^"]+)"', src, re.M).group(1)
+          assert tag == version, f"tag v{tag} does not match __version__ {version}"
+          print("version", version)
+          PY
+      - run: pip install build
+      - run: python -m build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish-pypi:
+    name: publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/domainhack/
+    permissions:
+      id-token: write  # OIDC token for PyPI trusted publishing
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: GitHub release
+    needs: publish-pypi
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - name: Release notes from CHANGELOG.md
+        run: |
+          python - <<'PY'
+          import os, pathlib, re
+          version = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          text = pathlib.Path("CHANGELOG.md").read_text()
+          match = re.search(rf"^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\Z)", text, re.M | re.S)
+          assert match, f"CHANGELOG.md has no section for {version}"
+          notes = match.group(1).strip() + "\n\nInstall: `pipx install domainhack` or `uvx domainhack --help`.\n"
+          pathlib.Path("release-notes.md").write_text(notes)
+          print(notes)
+          PY
+      - uses: softprops/action-gh-release@v3
+        with:
+          name: domainhack ${{ github.ref_name }}
+          body_path: release-notes.md
+          files: dist/*

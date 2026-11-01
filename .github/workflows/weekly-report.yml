@@ -1,10 +1,11 @@
 name: Weekly domain hacks report
 
 # Checks the bundled word lists (data/wordlists/) against every TLD domainhack
-# can query and commits the result to reports/latest.md plus a dated copy. One
-# request in flight per registry host, one second apart; the result cache is
-# kept between runs so taken names are not asked again before they could have
-# expired. Raw results are kept as a workflow artifact, not in the repository.
+# can query and publishes reports/latest.md plus a dated copy on the `reports`
+# branch (main is protected by required checks). One request in flight per
+# registry host, one second apart; the result cache is kept between runs so
+# taken names are not asked again before they could have expired. Raw results
+# are kept as a workflow artifact, not in the repository.
 #
 # --parallel 16 serves sixteen registry hosts at once (still one request in
 # flight per host): a few hosts that do not answer from GitHub's address
@@ -78,14 +79,26 @@ jobs:
           --tlds "${{ steps.check.outputs.tlds }}"
           --out reports
           --command "domainhack --tld <every checkable TLD> check --file words.txt --parallel 16 --confirm-dns --output results.jsonl"
-      - name: Commit the report
+      - name: Publish the report on the reports branch
+        # main is protected by required status checks, so the report lives on
+        # its own branch: https://github.com/PabloAlaniz/find-amazing-domains/tree/reports
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch -q origin reports; then
+            git worktree add -q ../reports-branch FETCH_HEAD
+          else
+            empty=$(git hash-object -t tree /dev/null)
+            root=$(git commit-tree -m "Weekly domain hacks reports" "$empty")
+            git worktree add -q ../reports-branch "$root"
+          fi
+          mkdir -p ../reports-branch/reports
+          cp reports/*.md ../reports-branch/reports/
+          cd ../reports-branch
           git add reports
           if git diff --cached --quiet; then
             echo "report unchanged"
             exit 0
           fi
-          git commit -m "Update weekly domain hacks report [skip ci]"
-          git push
+          git commit -q -m "Weekly domain hacks report: $(date -u +%G-W%V)"
+          git push -q origin HEAD:refs/heads/reports

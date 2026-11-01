@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Weekly report: a workflow checks the bundled common-word lists
   (`data/wordlists/`, 5,086 distinct English and Spanish words derived from wordfreq)
   against every checkable TLD and publishes the available, dropping and
-  DNS-conflicting hacks in `reports/latest.md`. `tools/weekly_report.py`
+  DNS-conflicting hacks in `reports/latest.md` on the `reports` branch. `tools/weekly_report.py`
   renders it from `check --format json` output.
 
 ## [0.2.0] - 2026-10-31

@@ -118,7 +118,7 @@ The server takes the run options the CLI shares (`--delay`, `--parallel`, `--no-
 
 ## Weekly report
 
-Every Tuesday a [workflow](.github/workflows/weekly-report.yml) checks the 5,086 distinct common English and Spanish words in [`data/wordlists/`](data/wordlists/) against every TLD domainhack can query and publishes the result in [`reports/latest.md`](reports/latest.md): the hacks that are available right now, the registered ones in redemption or pending delete (so they may be free soon), the names a registry calls available while DNS still delegates them, and a per-TLD breakdown. Dated copies stay in [`reports/`](reports/). It runs with the default pacing (one request per registry host at a time, one second apart) and reuses its result cache between runs, so taken names are not asked about again before they could have expired.
+Every Tuesday a [workflow](.github/workflows/weekly-report.yml) checks the 5,086 distinct common English and Spanish words in [`data/wordlists/`](data/wordlists/) against every TLD domainhack can query and publishes the result in [`reports/latest.md`](https://github.com/PabloAlaniz/find-amazing-domains/blob/reports/reports/latest.md): the hacks that are available right now, the registered ones in redemption or pending delete (so they may be free soon), the names a registry calls available while DNS still delegates them, and a per-TLD breakdown. Dated copies stay in the [`reports` branch](https://github.com/PabloAlaniz/find-amazing-domains/tree/reports/reports). It runs with the default pacing (one request per registry host at a time, one second apart) and reuses its result cache between runs, so taken names are not asked about again before they could have expired.
 
 ## Examples
 

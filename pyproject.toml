@@ -44,7 +44,7 @@ dev = [
     "coverage>=7.10",  # [tool.coverage.run] patch = ["subprocess"]
     # Keep ruff/mypy in step with the revs in .pre-commit-config.yaml
     # (CI runs pre-commit, so those revs are what actually gates merges).
-    "ruff~=0.16.10",
+    "ruff>=0.16.10,<0.18.0",
     "mypy~=2.4.0",
     "pre-commit>=4.0",
     "types-tqdm>=4.66",

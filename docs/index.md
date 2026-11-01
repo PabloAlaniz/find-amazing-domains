@@ -17,6 +17,7 @@ Some words have a secret: they end in a top-level domain. The Spanish word *plat
 ```bash
 pipx install domainhack          # or: pip install domainhack
 uvx domainhack name myname       # run without installing
+brew install pabloalaniz/tap/domainhack   # Homebrew (macOS, Linux)
 ```
 
 Python 3.10 or newer. No API keys, no accounts, no captchas: domainhack talks to the registries directly.

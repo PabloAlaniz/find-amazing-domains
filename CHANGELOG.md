@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Homebrew formula: `brew install pabloalaniz/tap/domainhack`
+  (https://github.com/PabloAlaniz/homebrew-tap).
 - MCP server (`domainhack-mcp`, extra `mcp`): `find_domain_for_name`,
   `check_domains`, `find_hacks_for_words` and `list_tlds` as Model Context
   Protocol tools over stdio, so Claude, Cursor or any MCP client can find a

@@ -16,3 +16,6 @@ htmlcov/
 # Claude Code local state and agent worktrees
 .claude/
 .coverage.*
+
+# mkdocs output
+site/

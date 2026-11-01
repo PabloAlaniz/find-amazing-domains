@@ -49,6 +49,9 @@ dev = [
     "pre-commit>=4.0",
     "types-tqdm>=4.66",
 ]
+docs = [
+    "mkdocs-material>=9.5",
+]
 
 [project.urls]
 Homepage = "https://github.com/PabloAlaniz/find-amazing-domains"

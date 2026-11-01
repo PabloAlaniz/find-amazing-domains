@@ -192,8 +192,9 @@ def _entry_json(entry: ReportEntry) -> dict[str, Any]:
     return data
 
 
-def render_json(report: BrandReport) -> str:
-    data = {
+def report_to_dict(report: BrandReport) -> dict[str, Any]:
+    """The report as plain JSON-serialisable data (what ``--format json`` prints)."""
+    return {
         "name": report.name,
         "tlds": [t.suffix for t in report.tlds],
         "exact": [_entry_json(e) for e in report.exact],
@@ -212,7 +213,10 @@ def render_json(report: BrandReport) -> str:
         "advice": list(report.advice),
         "notes": list(report.notes),
     }
-    return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+
+
+def render_json(report: BrandReport) -> str:
+    return json.dumps(report_to_dict(report), indent=2, ensure_ascii=False) + "\n"
 
 
 RENDERERS: dict[str, Renderer] = {

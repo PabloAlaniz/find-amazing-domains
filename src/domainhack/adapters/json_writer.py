@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 from domainhack.adapters._registration import format_utc
 from domainhack.adapters._text_sink import TextSink, TextTarget
@@ -26,26 +27,33 @@ class JsonResultWriter(ResultWriter):
         self._sink = TextSink(target)
 
     def write_result(self, result: DomainCheckResult) -> None:
-        domain = result.domain
-        record = {
-            "fqdn": domain.fqdn,
-            "display": domain.display,
-            "word": domain.word,
-            "sld": domain.sld,
-            "tld": domain.tld.suffix,
-            "availability": result.availability.value,
-            "error_message": result.error_message,
-            "statuses": list(result.statuses),
-            "expires_at": format_utc(result.expires_at) or None,
-            "registered_at": format_utc(result.registered_at) or None,
-            "registrar": result.registrar,
-            "nameservers": list(result.nameservers),
-            "parked_hint": result.parked_hint,
-            "dns_nameservers": list(result.dns.nameservers) if result.dns is not None else [],
-            "dns_conflict": result.dns_conflict,
-        }
-        self._sink.stream.write(json.dumps(record, ensure_ascii=False) + "\n")
+        self._sink.stream.write(json.dumps(result_record(result), ensure_ascii=False) + "\n")
         self._sink.stream.flush()
 
     def flush(self) -> None:
         self._sink.close()
+
+
+def result_record(result: DomainCheckResult) -> dict[str, Any]:
+    """One result as the JSON Lines record ``JsonResultWriter`` writes.
+
+    The MCP server returns the same records.
+    """
+    domain = result.domain
+    return {
+        "fqdn": domain.fqdn,
+        "display": domain.display,
+        "word": domain.word,
+        "sld": domain.sld,
+        "tld": domain.tld.suffix,
+        "availability": result.availability.value,
+        "error_message": result.error_message,
+        "statuses": list(result.statuses),
+        "expires_at": format_utc(result.expires_at) or None,
+        "registered_at": format_utc(result.registered_at) or None,
+        "registrar": result.registrar,
+        "nameservers": list(result.nameservers),
+        "parked_hint": result.parked_hint,
+        "dns_nameservers": list(result.dns.nameservers) if result.dns is not None else [],
+        "dns_conflict": result.dns_conflict,
+    }

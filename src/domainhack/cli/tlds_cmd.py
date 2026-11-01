@@ -43,7 +43,9 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser], *, epilog
     parser.add_argument("--json", action="store_true", help="Machine-readable output")
 
 
-def _offline_bootstrap() -> RdapBootstrap:
+def offline_bootstrap() -> RdapBootstrap:
+    """An RDAP bootstrap that only uses the bundled snapshot (never fetches)."""
+
     def no_fetch() -> bytes:
         raise OSError("offline")
 
@@ -51,7 +53,7 @@ def _offline_bootstrap() -> RdapBootstrap:
 
 
 def cmd_tlds(args: argparse.Namespace, bootstrap: RdapBootstrap | None = None) -> int:
-    rdap = bootstrap if bootstrap is not None else _offline_bootstrap()
+    rdap = bootstrap if bootstrap is not None else offline_bootstrap()
     known = IanaTldList()
     if args.only:
         suffixes = [s.lower().lstrip(".") for s in args.only]

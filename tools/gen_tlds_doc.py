@@ -77,7 +77,7 @@ def main() -> int:
         + (f" and {gcounts['unsupported']} cannot be checked" if gcounts["unsupported"] else "")
         + ". Run `domainhack tlds --all` for the full list."
     )
-    OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    OUT.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
     print(f"wrote {OUT} ({len(cc)} ccTLDs, {len(generic)} gTLDs)")
     return 0
 

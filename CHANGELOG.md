@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- MCP server (`domainhack-mcp`, extra `mcp`): `find_domain_for_name`,
+  `check_domains`, `find_hacks_for_words` and `list_tlds` as Model Context
+  Protocol tools over stdio, so Claude, Cursor or any MCP client can find a
+  domain while naming a project. It takes the run options the CLI shares
+  (`--delay`, `--parallel`, `--no-cache`, `--cache-path`, `--contact`).
+- `name_cmd.find_name` returns the brand report as data; `cmd_name` renders it.
+  `brand_report_render.report_to_dict` and `json_writer.result_record` expose
+  the JSON shapes the CLI prints.
+- Documentation site at https://pabloalaniz.github.io/find-amazing-domains/.
+
 ## [0.2.0] - 2026-10-31
 
 First release on PyPI: `pipx install domainhack`.

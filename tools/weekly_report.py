@@ -25,7 +25,9 @@ Record = dict[str, Any]
 CAVEAT = (
     '"Available" means the registry reported no registration when asked. Premium and '
     "reserved names can still show as available, and a registrar may price them "
-    "differently: confirm there before buying."
+    "differently: confirm there before buying. Several country-code registries accept "
+    "registrations only from local residents or companies; a TLD where almost every name "
+    "shows as available is usually one of them."
 )
 
 

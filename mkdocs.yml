@@ -1,0 +1,66 @@
+site_name: domainhack
+site_description: Find domain hacks hiding in real words. Live RDAP and WHOIS availability checks on 170 country-code TLDs plus every generic TLD, with no API keys.
+site_url: https://pabloalaniz.github.io/find-amazing-domains/
+repo_url: https://github.com/PabloAlaniz/find-amazing-domains
+repo_name: PabloAlaniz/find-amazing-domains
+edit_uri: edit/main/docs/
+copyright: MIT License
+
+nav:
+  - Overview: index.md
+  - Usage: usage.md
+  - Supported TLDs: tlds.md
+  - How it compares: compare.md
+  - Architecture: architecture.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.top
+    - toc.follow
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/PabloAlaniz/find-amazing-domains
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/domainhack/

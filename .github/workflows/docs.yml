@@ -1,0 +1,38 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "tools/gen_tlds_doc.py"
+      - "CONTRIBUTING.md"
+      - "CHANGELOG.md"
+      - "src/domainhack/data/registry_sources.json"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write  # mkdocs gh-deploy pushes the gh-pages branch
+
+concurrency:
+  group: docs
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[docs]"
+      - name: Regenerate the TLD table from the bundled registry data
+        run: python tools/gen_tlds_doc.py
+      - run: mkdocs build --strict
+      - run: mkdocs gh-deploy --force --no-history

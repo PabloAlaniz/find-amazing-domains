@@ -19,3 +19,6 @@ htmlcov/
 
 # mkdocs output
 site/
+
+# Scratch files of the weekly-report workflow
+.domainhack-cache/

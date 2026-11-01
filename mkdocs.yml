@@ -10,6 +10,7 @@ nav:
   - Overview: index.md
   - Usage: usage.md
   - Supported TLDs: tlds.md
+  - Use it from an AI agent (MCP): mcp.md
   - How it compares: compare.md
   - Architecture: architecture.md
   - Contributing: contributing.md

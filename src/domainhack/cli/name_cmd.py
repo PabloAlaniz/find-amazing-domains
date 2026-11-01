@@ -6,6 +6,10 @@ at a TLD it ends with, or the name plus a word that ends in one) and, with
 Checking reuses ``CheckDomainsUseCase`` and the ``check`` wiring in
 ``cli.app`` (registrar catalog and router, parallel lanes, cache, circuit
 breaker, progress bar).
+
+``find_name`` does the work and returns the report; ``cmd_name`` is the CLI
+around it (argument parsing, rendering, exit status). The MCP server calls
+``find_name`` directly.
 """
 
 from __future__ import annotations
@@ -29,8 +33,8 @@ from domainhack.ports.dns_lookup import DnsLookup
 from domainhack.ports.known_tlds import KnownTlds
 from domainhack.ports.result_writer import ResultWriter
 from domainhack.usecases.brand_candidates import BrandCandidates, resolve_tld_spec
-from domainhack.usecases.brand_report import build_brand_report
-from domainhack.usecases.check_domains import CheckDomainsUseCase
+from domainhack.usecases.brand_report import BrandReport, build_brand_report
+from domainhack.usecases.check_domains import CheckDomainsUseCase, CheckSummary
 from domainhack.usecases.confirm_dns import ConfirmWithDns
 
 REPORT_FORMATS = tuple(RENDERERS)
@@ -49,9 +53,22 @@ class NameServices:
     supported_tlds: Callable[[], Iterable[str]] = supported_tlds
 
 
-def _default_services() -> NameServices:
+def default_services() -> NameServices:
     """Production wiring for ``name``: the known-TLD list and the DNS lookup."""
     return NameServices(known_tlds=IanaTldList(), dns=DnsPythonLookup())
+
+
+class NameUsageError(app.CliError):
+    """The request cannot be run as given (no valid TLD, invalid name)."""
+
+
+@dataclass(frozen=True)
+class NameOutcome:
+    """What ``find_name`` returns: the report, the check summary and the skipped count."""
+
+    report: BrandReport
+    summary: CheckSummary
+    skipped: int
 
 
 def _confirm_with_dns(
@@ -60,7 +77,9 @@ def _confirm_with_dns(
     return ConfirmWithDns(lookup).apply(results)
 
 
-class _Collector(ResultWriter):
+class ResultCollector(ResultWriter):
+    """A ResultWriter that keeps every result in memory."""
+
     def __init__(self) -> None:
         self.results: list[DomainCheckResult] = []
 
@@ -68,15 +87,23 @@ class _Collector(ResultWriter):
         self.results.append(result)
 
 
-def _brand_name(value: str) -> str:
+def validate_brand_name(value: str) -> str:
+    """``value`` as a single lowercase name without a TLD, or raise ValueError."""
     name = value.strip().lower()
     if not name or any(c.isspace() for c in name):
-        raise argparse.ArgumentTypeError(f"not a single name: {value!r}")
+        raise ValueError(f"not a single name: {value!r}")
     if "." in name:
-        raise argparse.ArgumentTypeError(
+        raise ValueError(
             f"give the name without a TLD (e.g. {name.split('.')[0]!r}), got {value!r}"
         )
     return name
+
+
+def _brand_name(value: str) -> str:
+    try:
+        return validate_brand_name(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from None
 
 
 def register(sub: argparse._SubParsersAction[argparse.ArgumentParser], *, epilog: str) -> None:
@@ -125,71 +152,83 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser], *, epilog
     app.add_run_options(parser)
 
 
-def cmd_name(
-    args: argparse.Namespace,
+def find_name(
+    name: str,
+    tlds: str,
     *,
+    run: argparse.Namespace,
+    variants: bool = False,
+    confirm_dns: bool | None = None,
     catalog: app.RegistrarCatalog | None = None,
     services: NameServices | None = None,
-) -> int:
-    services = services if services is not None else _default_services()
+    open_file_writer: Callable[[], ResultWriter] | None = None,
+    warn: Callable[[str], None] = app._stderr,
+) -> NameOutcome:
+    """Check ``name`` under ``tlds`` (presets and suffixes, mixed) and build the report.
+
+    ``run`` holds the shared run options (``app.add_run_options``: delay,
+    parallelism, cache, contact, progress). ``confirm_dns`` None means "when
+    a DNS lookup is available". ``open_file_writer`` is called once the run
+    is known to be possible, so an impossible run creates no output file.
+    Warnings go to ``warn`` (stderr by default).
+
+    Raises ``NameUsageError`` when no requested TLD is valid or the name is
+    not a valid label, and ``app.NoSupportedTLDError`` when no registrar
+    supports any candidate.
+    """
+    services = services if services is not None else default_services()
     notes: list[str] = []
-    selection = resolve_tld_spec(args.tlds, load_tld_presets(), services.supported_tlds)
+    selection = resolve_tld_spec(tlds, load_tld_presets(), services.supported_tlds)
     for suffix in selection.rejected:
         notes.append(f".{suffix} skipped: not a TLD this version can check")
-        app._stderr(f"warning: .{suffix} is not a TLD this version can check; skipping")
+        warn(f"warning: .{suffix} is not a TLD this version can check; skipping")
     if not selection.tlds:
-        app._stderr(f"error: no valid TLD in --tlds {args.tlds!r}")
-        return app.EXIT_USAGE
-    output: Path | None = args.output
-    fmt = app._resolve_output_format(output, None) if output is not None else None
+        raise NameUsageError(f"no valid TLD in --tlds {tlds!r}")
 
-    confirm = args.confirm_dns if args.confirm_dns is not None else services.dns is not None
+    confirm = confirm_dns if confirm_dns is not None else services.dns is not None
     if confirm and services.dns is None:
-        app._stderr("warning: no DNS resolver available; results are not confirmed in DNS")
+        warn("warning: no DNS resolver available; results are not confirmed in DNS")
         confirm = False
 
     generator = BrandCandidates(
-        args.name,
+        name,
         selection.tlds,
         services.known_tlds,
-        variants=args.variants,
+        variants=variants,
         hack_words=load_hack_words(),
     )
     candidates = generator.execute()
     if not candidates:
-        app._stderr(f"error: {args.name!r} is not a valid domain name label")
-        return app.EXIT_USAGE
+        raise NameUsageError(f"{name!r} is not a valid domain name label")
     if generator.skipped:
         notes.append(f"skipped {generator.skipped} invalid candidates")
     for suffix in generator.unusable_suffixes:
         notes.append(f"hack under .{suffix} skipped: not a TLD this version can check")
 
-    router = app._build_router(args, catalog)
+    router = app._build_router(run, catalog)
     try:
         unsupported = {c.domain.tld for c in candidates if not router.supports(c.domain.tld)}
         domains = [c.domain for c in candidates if c.domain.tld not in unsupported]
         requested = [t.suffix for t in selection.tlds if t in unsupported]
         for message in describe_unsupported(requested):
-            app._stderr(f"warning: {message}; skipping")
+            warn(f"warning: {message}; skipping")
         if not domains:
-            raise app.NoSupportedTLDError(
-                f"no registrar supports any candidate TLD for {args.name!r}"
-            )
-        file_writer = app.build_file_writer(output, fmt) if output and fmt else None
+            raise app.NoSupportedTLDError(f"no registrar supports any candidate TLD for {name!r}")
+        file_writer = open_file_writer() if open_file_writer is not None else None
     except BaseException:
         router.close()
         raise
 
-    collector = _Collector()
-    with app._build_registrar(args, router) as registrar:
+    collector = ResultCollector()
+    with app._build_registrar(run, router) as registrar:
         cache = registrar if isinstance(registrar, CachedRegistrarClient) else None
         use_case = CheckDomainsUseCase(
             router,
             collector,
-            app._build_progress(args),
+            app._build_progress(run),
             cache=cache,
-            parallel=args.parallel,
-            lane_key=app._lane_key(args, router),
+            parallel=run.parallel,
+            lane_key=app._lane_key(run, router),
         )
         summary = use_case.execute(domains, total=len(domains))
 
@@ -212,11 +251,43 @@ def cmd_name(
         results,
         tlds=selection.tlds,
         suffix_hack_found=generator.suffix_hack_found,
-        variants_requested=args.variants,
+        variants_requested=variants,
         unsupported=unsupported,
         notes=notes,
         unsupported_reasons={t: unsupported_message(t.suffix) for t in unsupported},
     )
-    sys.stdout.write(RENDERERS[args.format](report))
-    app._warn_skipped(generator.skipped)
-    return app._report(summary)
+    return NameOutcome(report, summary, generator.skipped)
+
+
+def cmd_name(
+    args: argparse.Namespace,
+    *,
+    catalog: app.RegistrarCatalog | None = None,
+    services: NameServices | None = None,
+) -> int:
+    output: Path | None = args.output
+    fmt = app._resolve_output_format(output, None) if output is not None else None
+    open_file_writer: Callable[[], ResultWriter] | None = None
+    if output is not None and fmt is not None:
+        path, chosen = output, fmt
+
+        def open_file_writer() -> ResultWriter:
+            return app.build_file_writer(path, chosen)
+
+    try:
+        outcome = find_name(
+            args.name,
+            args.tlds,
+            run=args,
+            variants=args.variants,
+            confirm_dns=args.confirm_dns,
+            catalog=catalog,
+            services=services,
+            open_file_writer=open_file_writer,
+        )
+    except NameUsageError as exc:
+        app._stderr(f"error: {exc}")
+        return app.EXIT_USAGE
+    sys.stdout.write(RENDERERS[args.format](outcome.report))
+    app._warn_skipped(outcome.skipped)
+    return app._report(outcome.summary)

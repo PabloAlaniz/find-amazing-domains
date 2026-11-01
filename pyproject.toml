@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Pablo Alaniz" }]
-keywords = ["domain", "domain-hack", "tld", "rdap", "whois", "availability", "cli"]
+keywords = ["domain", "domain-hack", "tld", "rdap", "whois", "availability", "cli", "mcp"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -48,6 +48,10 @@ dev = [
     "mypy~=2.4.0",
     "pre-commit>=4.0",
     "types-tqdm>=4.66",
+    "mcp>=2,<3",  # the MCP server and its tests
+]
+mcp = [
+    "mcp>=2,<3",
 ]
 docs = [
     "mkdocs-material>=9.5",
@@ -61,6 +65,7 @@ Changelog = "https://github.com/PabloAlaniz/find-amazing-domains/blob/main/CHANG
 
 [project.scripts]
 domainhack = "domainhack.cli.app:main"
+domainhack-mcp = "domainhack.mcp.server:main"
 
 [tool.setuptools.dynamic]
 # Single source of truth: src/domainhack/__init__.py (read statically, not imported).

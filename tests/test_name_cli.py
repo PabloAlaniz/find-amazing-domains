@@ -223,7 +223,7 @@ class TestOutput:
 
 class TestDefaultServices:
     def test_default_services_use_iana_list_and_dns(self) -> None:
-        services = name_cmd._default_services()
+        services = name_cmd.default_services()
         assert isinstance(services.dns, DnsPythonLookup)
         known = services.known_tlds
         assert known.is_known("to") and known.is_known(".IO") and known.is_known("it")

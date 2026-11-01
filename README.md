@@ -26,6 +26,7 @@ Python 3.10 or newer. No API keys, no accounts, no captchas: domainhack talks to
 - **It asks the registry, not a reseller.** Every generic TLD is checked over RDAP through the IANA bootstrap, and 170 of the 248 country-code TLDs over RDAP or port-43 WHOIS, each verified live with a registered and a random name. Requests are paced per host, back off on 429/503 as RFC 7480 asks, and a circuit breaker skips a host that stops answering.
 - **It knows when "available" lies.** A public-DNS cross-check flags names the registry calls free but that already have nameservers. Taken names come with their registration date, expiry date, registrar, the parking or aftermarket service behind them, and whether they are about to drop (redemption or pending delete).
 - **One command for a name.** `domainhack name acme` checks the exact name under a set of TLDs, finds hacks that spell it (`acme` + studio -> `acmestud.io`), optionally tries brand variants, and ends with a ranked recommendation.
+- **It works from an AI agent too.** `domainhack-mcp` exposes the same checks as [MCP](https://modelcontextprotocol.io/) tools, so Claude or Cursor can find a domain while it helps you name a project. See [Use it from an AI agent](#use-it-from-an-ai-agent-mcp).
 - **It handles the hard cases.** Second-level suffixes (`com.ar`, `co.uk`), IDNs (`ñandú.de`), per-TLD label rules, a SQLite cache with TTLs that match how fast each kind of result goes stale, and CSV, JSON Lines, markdown and JSON output.
 
 ## How it compares
@@ -97,6 +98,23 @@ The recommendation ranks available names only:
 Shorter names win within a tier. Taken, dropping, DNS-conflict and unverifiable names are never recommended.
 
 `--confirm-dns` / `--no-confirm-dns` turns the DNS cross-check on or off (on by default when a resolver is available). The registry check uses the same options as `check`: `--delay`, `--parallel`, `--no-cache`, `--cache-*`, `--contact` and `--no-progress`. The exit status follows `check`: it is 1 when some check ended in an error, and the report is still printed.
+
+## Use it from an AI agent (MCP)
+
+domainhack runs as a [Model Context Protocol](https://modelcontextprotocol.io/) server with four tools: `find_domain_for_name` (what `name` does, as structured data), `check_domains` (specific names, with registration details), `find_hacks_for_words` (offline) and `list_tlds` (offline).
+
+```bash
+pipx install "domainhack[mcp]"
+claude mcp add domainhack -- uvx --from "domainhack[mcp]" domainhack-mcp   # Claude Code
+```
+
+For Claude Desktop, Cursor and other clients, add a stdio server that runs `domainhack-mcp` (or `uvx --from "domainhack[mcp]" domainhack-mcp`):
+
+```json
+{"mcpServers": {"domainhack": {"command": "uvx", "args": ["--from", "domainhack[mcp]", "domainhack-mcp"]}}}
+```
+
+The server takes the run options the CLI shares (`--delay`, `--parallel`, `--no-cache`, `--contact`). Only names with status `available` are recommended; the agent is told that "available" means "not registered" and to confirm with a registrar before buying. Details in the [docs](https://pabloalaniz.github.io/find-amazing-domains/mcp/).
 
 ## Examples
 

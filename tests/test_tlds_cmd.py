@@ -7,13 +7,13 @@ import pytest
 from domainhack.adapters.rdap_bootstrap import RdapBootstrap
 from domainhack.adapters.registrar_catalog import describe_backend
 from domainhack.cli.app import main
-from domainhack.cli.tlds_cmd import _offline_bootstrap
+from domainhack.cli.tlds_cmd import offline_bootstrap
 from tests.fakes import run_cli
 
 
 @pytest.fixture
 def offline() -> RdapBootstrap:
-    return _offline_bootstrap()
+    return offline_bootstrap()
 
 
 class TestDescribeBackend:

@@ -116,6 +116,10 @@ For Claude Desktop, Cursor and other clients, add a stdio server that runs `doma
 
 The server takes the run options the CLI shares (`--delay`, `--parallel`, `--no-cache`, `--contact`). Only names with status `available` are recommended; the agent is told that "available" means "not registered" and to confirm with a registrar before buying. Details in the [docs](https://pabloalaniz.github.io/find-amazing-domains/mcp/).
 
+## Weekly report
+
+Every Tuesday a [workflow](.github/workflows/weekly-report.yml) checks the 5,086 distinct common English and Spanish words in [`data/wordlists/`](data/wordlists/) against every TLD domainhack can query and publishes the result in [`reports/latest.md`](reports/latest.md): the hacks that are available right now, the registered ones in redemption or pending delete (so they may be free soon), the names a registry calls available while DNS still delegates them, and a per-TLD breakdown. Dated copies stay in [`reports/`](reports/). It runs with the default pacing (one request per registry host at a time, one second apart) and reuses its result cache between runs, so taken names are not asked about again before they could have expired.
+
 ## Examples
 
 | Word | Language | Domain | Meaning |
@@ -383,7 +387,7 @@ Note: "available" means *not registered*. Premium or reserved names may still sh
 
 ## Word Lists
 
-The sample files in `data/samples/` contain ~20 words each for quick testing. For serious domain hunting, you'll need full dictionaries:
+The sample files in `data/samples/` contain ~20 words each for quick testing, and [`data/wordlists/`](data/wordlists/) has the ~2,400-2,800 most common English and Spanish words (the input of the weekly report). For serious domain hunting, you'll need full dictionaries:
 
 - **Spanish**: Any comprehensive Spanish word list (600K+ words recommended)
 - **English**: `/usr/share/dict/words` on macOS/Linux, or download from open word list repositories

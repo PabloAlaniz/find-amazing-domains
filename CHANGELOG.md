@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `brand_report_render.report_to_dict` and `json_writer.result_record` expose
   the JSON shapes the CLI prints.
 - Documentation site at https://pabloalaniz.github.io/find-amazing-domains/.
+- Weekly report: a workflow checks the bundled common-word lists
+  (`data/wordlists/`, 5,086 distinct English and Spanish words derived from wordfreq)
+  against every checkable TLD and publishes the available, dropping and
+  DNS-conflicting hacks in `reports/latest.md`. `tools/weekly_report.py`
+  renders it from `check --format json` output.
 
 ## [0.2.0] - 2026-10-31
 

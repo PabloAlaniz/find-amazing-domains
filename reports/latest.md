@@ -1,10 +1,10 @@
-# Domain hacks: week 44 of 2026
+# Domain hacks: week 45 of 2026
 
-Checked on 2026-11-01: 1,789 domain hacks spelled by 5,086 common English and Spanish words, across 170 TLDs, asked directly at the registries. **370 available**, 1,084 taken (7 of them in redemption or pending delete, so they may be free soon), 0 reported available but delegated in DNS, 335 errors.
+Checked on 2026-11-03: 1,789 domain hacks spelled by 5,086 common English and Spanish words, across 170 TLDs, asked directly at the registries. **350 available**, 1,085 taken (7 of them in redemption or pending delete, so they may be free soon), 0 reported available but delegated in DNS, 354 errors.
 
 "Available" means the registry reported no registration when asked. Premium and reserved names can still show as available, and a registrar may price them differently: confirm there before buying. Several country-code registries accept registrations only from local residents or companies; a TLD where almost every name shows as available is usually one of them.
 
-## Available now (370)
+## Available now (350)
 
 | Domain | Word |
 |---|---|
@@ -16,12 +16,10 @@ Checked on 2026-11-01: 1,789 domain hacks spelled by 5,086 common English and Sp
 | b.ag | bag |
 | d.ad | dad |
 | e.sa | esa |
-| e.ye | eye |
 | f.in | fin |
 | h.ad | had |
 | l.uz | luz |
 | m.ad | mad |
-| o.ye | oye |
 | p.re | pre |
 | s.ad | sad |
 | s.in | sin |
@@ -58,7 +56,6 @@ Checked on 2026-11-01: 1,789 domain hacks spelled by 5,086 common English and Sp
 | le.ad | lead |
 | li.ga | liga |
 | li.ve | live |
-| lo.ad | load |
 | lo.ve | love |
 | ma.in | main |
 | mo.re | more |
@@ -69,7 +66,6 @@ Checked on 2026-11-01: 1,789 domain hacks spelled by 5,086 common English and Sp
 | pu.re | pure |
 | ra.in | rain |
 | ra.re | rare |
-| re.ad | read |
 | ro.ad | road |
 | sa.ve | save |
 | si.ga | siga |
@@ -217,7 +213,6 @@ Checked on 2026-11-01: 1,789 domain hacks spelled by 5,086 common English and Sp
 | hubie.se | hubiese |
 | impli.ca | implica |
 | impro.ve | improve |
-| inclu.ye | incluye |
 | ingre.so | ingreso |
 | lengu.as | lenguas |
 | maner.as | maneras |
@@ -292,13 +287,13 @@ Checked on 2026-11-01: 1,789 domain hacks spelled by 5,086 common English and Sp
 | realid.ad | realidad |
 | requie.re | requiere |
 | respec.to | respecto |
-| sistem.as | sistemas |
 | socied.ad | sociedad |
 | soldie.rs | soldiers |
 | sorpre.sa | sorpresa |
 | straig.ht | straight |
 | streng.th | strength |
 | supues.to | supuesto |
+| utiliz.ar | utilizar |
 | varied.ad | variedad |
 | volunt.ad | voluntad |
 | activid.ad | actividad |
@@ -310,28 +305,21 @@ Checked on 2026-11-01: 1,789 domain hacks spelled by 5,086 common English and Sp
 | consegu.ir | conseguir |
 | costumb.re | costumbre |
 | dispues.to | dispuesto |
-| distint.as | distintas |
 | effecti.ve | effective |
-| estrell.as | estrellas |
 | exclusi.ve | exclusive |
 | executi.ve | executive |
 | expensi.ve | expensive |
 | felicid.ad | felicidad |
-| histori.as | historias |
 | humanid.ad | humanidad |
 | localid.ad | localidad |
 | materia.ls | materials |
 | necesar.io | necesario |
 | necesid.ad | necesidad |
-| necesit.as | necesitas |
 | officia.ls | officials |
 | organis.mo | organismo |
 | persona.je | personaje |
-| pregunt.as | preguntas |
-| problem.as | problemas |
 | propied.ad | propiedad |
 | religio.sa | religiosa |
-| viviend.as | viviendas |
 | actualid.ad | actualidad |
 | aeropuer.to | aeropuerto |
 | attracti.ve | attractive |
@@ -341,21 +329,16 @@ Checked on 2026-11-01: 1,789 domain hacks spelled by 5,086 common English and Sp
 | movimien.to | movimiento |
 | nacimien.to | nacimiento |
 | porcenta.je | porcentaje |
-| propuest.as | propuestas |
-| provinci.as | provincias |
-| respuest.as | respuestas |
 | superfic.ie | superficie |
 | venezola.no | venezolano |
 | alternati.ve | alternative |
 | competiti.ve | competitive |
 | convertir.se | convertirse |
-| diferenci.as | diferencias |
 | individua.ls | individuals |
 | intercamb.io | intercambio |
 | lanzamien.to | lanzamiento |
 | oportunid.ad | oportunidad |
 | pensamien.to | pensamiento |
-| periodist.as | periodistas |
 | perspecti.ve | perspective |
 | posibilid.ad | posibilidad |
 | presupues.to | presupuesto |
@@ -365,13 +348,10 @@ Checked on 2026-11-01: 1,789 domain hacks spelled by 5,086 common English and Sp
 | conocimien.to | conocimiento |
 | conservati.ve | conservative |
 | departamen.to | departamento |
-| experienci.as | experiencias |
 | personalid.ad | personalidad |
-| consecuenci.as | consecuencias |
 | entrenamien.to | entrenamiento |
 | procedimien.to | procedimiento |
 | significant.ly | significantly |
-| circunstanci.as | circunstancias |
 | comportamien.to | comportamiento |
 | estadouniden.se | estadounidense |
 | funcionamien.to | funcionamiento |
@@ -401,9 +381,9 @@ None this week.
 
 | TLD | Checked | Available | Taken | Dropping | Errors |
 |---|---|---|---|---|---|
-| .as | 134 | 70 | 64 | 2 | 0 |
+| .as | 134 | 54 | 64 | 2 | 16 |
 | .ve | 49 | 47 | 2 | 0 | 0 |
-| .ad | 57 | 40 | 17 | 0 | 0 |
+| .ad | 57 | 38 | 17 | 0 | 2 |
 | .to | 112 | 29 | 83 | 0 | 0 |
 | .th | 25 | 23 | 2 | 0 | 0 |
 | .re | 74 | 19 | 55 | 0 | 0 |
@@ -423,11 +403,11 @@ None this week.
 | .ht | 19 | 4 | 15 | 2 | 0 |
 | .ie | 9 | 3 | 6 | 0 | 0 |
 | .gn | 4 | 3 | 1 | 0 | 0 |
-| .ye | 3 | 3 | 0 | 0 | 0 |
 | .ly | 82 | 2 | 80 | 1 | 0 |
 | .io | 57 | 2 | 55 | 2 | 0 |
 | .ua | 3 | 2 | 1 | 0 | 0 |
 | .ky | 2 | 2 | 0 | 0 | 0 |
+| .ar | 120 | 1 | 1 | 0 | 118 |
 | .rs | 40 | 1 | 39 | 0 | 0 |
 | .me | 29 | 1 | 28 | 0 | 0 |
 | .ca | 22 | 1 | 21 | 0 | 0 |
@@ -437,7 +417,6 @@ None this week.
 | .uz | 2 | 1 | 1 | 0 | 0 |
 | .ug | 1 | 1 | 0 | 0 | 0 |
 | .ng | 173 | 0 | 0 | 0 | 173 |
-| .ar | 120 | 0 | 0 | 0 | 120 |
 | .st | 43 | 0 | 43 | 0 | 0 |
 | .de | 41 | 0 | 41 | 0 | 0 |
 | .na | 41 | 0 | 0 | 0 | 41 |
@@ -465,6 +444,7 @@ None this week.
 | .gy | 3 | 0 | 3 | 0 | 0 |
 | .sk | 3 | 0 | 3 | 0 | 0 |
 | .sy | 3 | 0 | 3 | 0 | 0 |
+| .ye | 3 | 0 | 0 | 0 | 3 |
 | .ax | 2 | 0 | 2 | 0 | 0 |
 | .by | 2 | 0 | 2 | 0 | 0 |
 | .fo | 2 | 0 | 2 | 0 | 0 |
@@ -473,16 +453,19 @@ None this week.
 | .nc | 1 | 0 | 0 | 0 | 1 |
 | .tc | 1 | 0 | 1 | 0 | 0 |
 
-## Errors (335)
+## Errors (354)
 
 Lookups that did not complete (registry down, rate limit reached, circuit breaker open). They are retried next week.
 
 | TLD | Domains | Example |
 |---|---|---|
-| .ar | 120 | RDAP request failed: The read operation timed out |
+| .ad | 2 | RDAP rate limited (429) |
+| .ar | 118 | RDAP request failed: The read operation timed out |
+| .as | 16 | Unexpected RDAP status 403 |
 | .na | 41 | Unexpected RDAP status 403 |
 | .nc | 1 | WHOIS query failed: timed out |
 | .ng | 173 | RDAP request failed: The read operation timed out |
+| .ye | 3 | RDAP request failed: _ssl.c:993: The handshake operation timed out |
 
 ## How this report is made
 

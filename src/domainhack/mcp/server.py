@@ -173,6 +173,7 @@ def build_server(
             "recommendation with registration details for taken names. 'variants' tries "
             "get/use/try/hola/my + name and name + hq/app/labs/studio; 'prefixes' and "
             f"'suffixes' (at most {MAX_AFFIXES} each) are your own words instead. "
+            "'handles' also says whether the name is taken on GitHub, npm and PyPI. "
             "Queries the registries live; may take several seconds."
         ),
     )
@@ -184,6 +185,7 @@ def build_server(
         prefixes: list[str] | None = None,
         suffixes: list[str] | None = None,
         subdomain_hacks: bool = True,
+        handles: bool = False,
     ) -> dict[str, Any]:
         clean_prefixes: Sequence[str] | None = None
         clean_suffixes: Sequence[str] | None = None
@@ -210,6 +212,7 @@ def build_server(
                     prefixes=clean_prefixes,
                     suffixes=clean_suffixes,
                     subdomain_hacks=subdomain_hacks,
+                    handles=handles,
                     presets=config.presets,
                     # True means "when a DNS lookup is available" (None to find_name).
                     confirm_dns=None if confirm_dns else False,

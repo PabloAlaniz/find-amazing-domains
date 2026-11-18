@@ -9,6 +9,7 @@ import json
 from collections.abc import Callable, Sequence
 from typing import Any
 
+from domainhack.ports.handle_checker import HandleResult, HandleStatus
 from domainhack.usecases.brand_report import BrandReport, ReportEntry
 
 Renderer = Callable[[BrandReport], str]
@@ -24,6 +25,19 @@ def _variants_empty(report: BrandReport) -> str:
 def _hack_reading(entry: ReportEntry) -> str:
     meaning = entry.candidate.meaning
     return f"{entry.label}: {meaning}" if meaning else entry.label
+
+
+_HANDLE_STATUS = {
+    HandleStatus.TAKEN: "taken",
+    HandleStatus.NOT_FOUND: "not found (looks free)",
+    HandleStatus.INVALID: "not a valid name there",
+    HandleStatus.UNKNOWN: "could not check",
+}
+
+
+def _handle_row(handle: HandleResult) -> tuple[str, str, str]:
+    """(service, status, where to look or why not)."""
+    return handle.service, _HANDLE_STATUS[handle.status], handle.detail or handle.url
 
 
 def _with_detail(*parts: str) -> str:
@@ -73,6 +87,10 @@ def render_text(report: BrandReport) -> str:
         "Could not verify", [(e.name, e.status.value, e.detail) for e in report.unverifiable]
     )
     lines += _text_section("DNS conflicts", [(e.name, e.detail) for e in report.dns_conflicts])
+    if report.handles is not None:
+        lines += _text_section(
+            f"Handles for {report.name!r}", [_handle_row(h) for h in report.handles]
+        )
     rec_rows = [(f"{r.rank}.", r.entry.name, r.reason) for r in report.recommendations]
     lines += _text_section("Recommendation", rec_rows, "nothing available to recommend")
     if report.more_available:
@@ -146,6 +164,12 @@ def render_markdown(report: BrandReport) -> str:
     lines += _md_section(
         "DNS conflicts", ("Domain", "Details"), [(code(e), e.detail) for e in report.dns_conflicts]
     )
+    if report.handles is not None:
+        lines += _md_section(
+            f"Handles for `{report.name}`",
+            ("Service", "Status", "Details"),
+            [_handle_row(h) for h in report.handles],
+        )
     lines += ["", "## Recommendation", ""]
     if report.recommendations:
         lines += [f"{r.rank}. **`{r.entry.name}`**: {r.reason}" for r in report.recommendations]
@@ -213,6 +237,18 @@ def report_to_dict(report: BrandReport) -> dict[str, Any]:
         "more_available": report.more_available,
         "advice": list(report.advice),
         "notes": list(report.notes),
+        "handles": None
+        if report.handles is None
+        else [
+            {
+                "service": h.service,
+                "handle": h.handle,
+                "status": h.status.value,
+                "url": h.url,
+                "detail": h.detail,
+            }
+            for h in report.handles
+        ],
     }
 
 

@@ -9,7 +9,9 @@ the order checks completed in):
 - ``taken``: every taken name, with its registration details;
 - ``unverifiable``: names that could not be checked (registry error or
   unreachable, no registrar for the TLD, run interrupted), each with the reason;
-- ``dns_conflicts``: registry says available, DNS says delegated.
+- ``dns_conflicts``: registry says available, DNS says delegated;
+- ``handles`` (opt-in): the name as a handle on GitHub, npm and PyPI. It is
+  information only and never changes the recommendation.
 
 Recommendation score (higher is better)::
 
@@ -38,6 +40,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from domainhack.domain.entities import TLD, Availability, DomainCheckResult
+from domainhack.ports.handle_checker import HandleResult
 from domainhack.usecases.brand_candidates import BrandCandidate, CandidateKind
 
 STRONG_TLDS: frozenset[str] = frozenset({"app", "io", "ai", "co"})
@@ -115,6 +118,8 @@ class BrandReport:
     more_available: int  # available names beyond RECOMMENDATION_LIMIT
     advice: tuple[str, ...]
     notes: tuple[str, ...]
+    # The name as a handle on GitHub, npm and PyPI; None when that was not asked for.
+    handles: tuple[HandleResult, ...] | None = None
 
     @property
     def no_suffix_hack_note(self) -> str:
@@ -232,6 +237,7 @@ def build_brand_report(
     unsupported: Collection[TLD] = (),
     notes: Sequence[str] = (),
     unsupported_reasons: Mapping[TLD, str] | None = None,
+    handles: Sequence[HandleResult] | None = None,
 ) -> BrandReport:
     """Build the report. Candidates without a result are unverifiable: "no registrar
     supports .x" when their TLD is in ``unsupported`` (or the message given for it
@@ -273,4 +279,5 @@ def build_brand_report(
         more_available=max(0, len(ranked) - RECOMMENDATION_LIMIT),
         advice=tuple(_advice(entries)),
         notes=tuple(notes),
+        handles=tuple(handles) if handles is not None else None,
     )

@@ -35,7 +35,6 @@ except ImportError as exc:  # pragma: no cover - only without the extra installe
 from domainhack import __version__
 from domainhack.adapters.brand_data import DEFAULT_PRESET, load_tld_presets
 from domainhack.adapters.brand_report_render import report_to_dict
-from domainhack.adapters.cached_registrar import CachedRegistrarClient
 from domainhack.adapters.config_file import Config, ConfigError
 from domainhack.adapters.iana_tlds import IanaTldList
 from domainhack.adapters.json_writer import result_record
@@ -43,21 +42,19 @@ from domainhack.adapters.rdap_bootstrap import RdapBootstrap
 from domainhack.adapters.registrar_catalog import describe_backend
 from domainhack.adapters.registry_sources import unsupported_message
 from domainhack.cli import app
+from domainhack.cli.checks import check_names, parse_domains
 from domainhack.cli.name_cmd import (
     NameServices,
     NameUsageError,
-    ResultCollector,
     default_services,
     find_name,
     parse_affixes,
     validate_brand_name,
 )
 from domainhack.cli.tlds_cmd import offline_bootstrap
-from domainhack.domain.entities import TLD, DomainCheckResult, DomainHack, InvalidLabelError
-from domainhack.ports.dns_lookup import DnsLookup
+from domainhack.domain.entities import TLD, DomainHack, InvalidLabelError
 from domainhack.usecases.brand_candidates import MAX_AFFIXES
-from domainhack.usecases.check_domains import CheckDomainsUseCase, CheckSummary
-from domainhack.usecases.confirm_dns import ConfirmWithDns
+from domainhack.usecases.check_domains import CheckSummary
 
 SERVER_NAME = "domainhack"
 
@@ -133,68 +130,6 @@ def _summary_dict(summary: CheckSummary | None) -> dict[str, Any]:
             for tally in summary.tlds_with_errors
         ],
     }
-
-
-def parse_domains(values: Sequence[str]) -> tuple[list[DomainHack], list[dict[str, str]]]:
-    """Full domain names (``pla.to``, ``foto.com.ar``) as ``DomainHack`` values.
-
-    Returns the valid ones (deduplicated by fqdn, request order) and, for each
-    invalid one, ``{"domain": ..., "reason": ...}``.
-    """
-    domains: list[DomainHack] = []
-    rejected: list[dict[str, str]] = []
-    seen: set[str] = set()
-    for raw in values:
-        text = raw.strip().lower().rstrip(".")
-        sld, dot, suffix = text.partition(".")
-        if not dot or not sld or not suffix:
-            rejected.append({"domain": raw, "reason": "expected a full domain name like pla.to"})
-            continue
-        try:
-            domain = DomainHack.from_sld(sld, TLD(suffix))
-        except (ValueError, InvalidLabelError) as exc:
-            rejected.append({"domain": raw, "reason": str(exc)})
-            continue
-        if domain.fqdn not in seen:
-            seen.add(domain.fqdn)
-            domains.append(domain)
-    return domains, rejected
-
-
-def _check(
-    domains: Sequence[DomainHack],
-    *,
-    run: argparse.Namespace,
-    catalog: app.RegistrarCatalog | None,
-    dns: DnsLookup | None,
-) -> tuple[list[DomainCheckResult], CheckSummary | None, list[DomainHack]]:
-    """Check ``domains`` like ``domainhack check``; unsupported TLDs are reported, not raised."""
-    router = app._build_router(run, catalog)
-    try:
-        unsupported = [d for d in domains if not router.supports(d.tld)]
-        supported = [d for d in domains if router.supports(d.tld)]
-        if not supported:
-            return [], None, unsupported
-    except BaseException:
-        router.close()
-        raise
-    collector = ResultCollector()
-    with app._build_registrar(run, router) as registrar:
-        cache = registrar if isinstance(registrar, CachedRegistrarClient) else None
-        use_case = CheckDomainsUseCase(
-            router,
-            collector,
-            app._build_progress(run),
-            cache=cache,
-            parallel=run.parallel,
-            lane_key=app._lane_key(run, router),
-        )
-        summary = use_case.execute(supported, total=len(supported))
-    order = {d.fqdn: i for i, d in enumerate(supported)}
-    results = sorted(collector.results, key=lambda r: order[r.domain.fqdn])
-    if dns is not None and not summary.interrupted:
-        results = ConfirmWithDns(dns).apply(results)
-    return results, summary, unsupported
 
 
 def _unsupported_entry(domain: DomainHack) -> dict[str, str]:
@@ -311,7 +246,9 @@ def build_server(
         dns = svc.dns if confirm_dns else None
 
         def work() -> dict[str, Any]:
-            results, summary, unsupported = _check(parsed, run=run_opts, catalog=catalog, dns=dns)
+            results, summary, unsupported = check_names(
+                parsed, run=run_opts, catalog=catalog, dns=dns
+            )
             return {
                 "results": [result_record(r) for r in results],
                 "unsupported": [_unsupported_entry(d) for d in unsupported],

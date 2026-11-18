@@ -31,7 +31,8 @@ def _run(
     supported: tuple[str, ...] = (),
 ) -> int:
     registrar = ScriptedRegistrar(script or {}, default=Availability.AVAILABLE)
-    services = NameServices(KNOWN, dns, supported_tlds=lambda: supported)
+    # Without the bundled price list: these tests pin exact report lines.
+    services = NameServices(KNOWN, dns, supported_tlds=lambda: supported, prices=lambda: None)
     return main(
         ["name", *args, "--no-progress", "--no-cache"],
         catalog=catalog if catalog is not None else FakeCatalog(registrar),

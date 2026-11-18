@@ -1,0 +1,56 @@
+/* The "Browse available hacks" page (docs/browse.md, javascripts/browse.js). */
+#hack-browser .hb-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 0.8rem;
+  align-items: end;
+  margin: 1rem 0 0.6rem;
+}
+#hack-browser label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.7rem;
+  color: var(--md-default-fg-color--light);
+}
+#hack-browser input,
+#hack-browser select {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--md-default-fg-color--lighter);
+  border-radius: 0.2rem;
+  background: var(--md-default-bg-color);
+  color: var(--md-default-fg-color);
+  min-width: 0;
+}
+#hack-browser input[type="search"] {
+  width: 12rem;
+}
+#hack-browser input[type="number"] {
+  width: 5rem;
+}
+#hack-browser .hb-status {
+  font-size: 0.75rem;
+  color: var(--md-default-fg-color--light);
+  margin: 0.4rem 0;
+}
+#hack-browser .hb-table-wrap {
+  overflow-x: auto;
+}
+#hack-browser table {
+  display: table;
+  width: 100%;
+  font-size: 0.8rem;
+}
+#hack-browser td:first-child {
+  font-family: var(--md-code-font-family);
+  white-space: nowrap;
+}
+#hack-browser .hb-more {
+  margin: 0.8rem 0;
+}
+/* Theme classes set `display`, which would otherwise win over the attribute. */
+#hack-browser [hidden] {
+  display: none;
+}

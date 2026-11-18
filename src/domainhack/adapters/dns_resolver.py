@@ -12,6 +12,8 @@ name exists, whether it has an A or AAAA record:
 
 A failed A/AAAA query after a successful NS query only leaves
 ``has_address`` False: the delegation, the part that matters, is known.
+A delegated name is also asked for a ``_for-sale`` TXT record (see
+``domain/for_sale.py``); a failure there only leaves ``for_sale`` empty.
 ``lookup`` never raises.
 """
 
@@ -25,6 +27,7 @@ import dns.exception
 import dns.resolver
 
 from domainhack.domain.entities import DnsEvidence
+from domainhack.domain.for_sale import FOR_SALE_LABEL, for_sale_content
 from domainhack.ports.dns_lookup import DnsLookup
 
 DEFAULT_DNS_TIMEOUT = 3.0
@@ -84,7 +87,19 @@ class DnsPythonLookup(DnsLookup):
             return DnsEvidence(error=describe_dns_error(exc))
         hosts = (_host(record) for record in records)
         nameservers = tuple(sorted({host for host in hosts if host}))
-        return DnsEvidence(nameservers=nameservers, has_address=self._has_address(resolver, name))
+        return DnsEvidence(
+            nameservers=nameservers,
+            has_address=self._has_address(resolver, name),
+            # Only a delegated name can publish the record: one query saved otherwise.
+            for_sale=self._for_sale(resolver, name) if nameservers else "",
+        )
+
+    def _for_sale(self, resolver: Resolver, name: str) -> str:
+        try:
+            records = self._query(resolver, f"{FOR_SALE_LABEL}.{name}", "TXT")
+        except Exception:  # NXDOMAIN (the usual case), timeout...: nothing published
+            return ""
+        return for_sale_content(_txt(record) for record in records)
 
     def _has_address(self, resolver: Resolver, name: str) -> bool:
         for rdtype in ("A", "AAAA"):
@@ -106,6 +121,14 @@ def _host(record: Any) -> str:
     """An NS record's target, lowercase, without the trailing dot."""
     target = getattr(record, "target", record)
     return str(target).strip().rstrip(".").lower()
+
+
+def _txt(record: Any) -> str:
+    """A TXT record's text: its character strings joined, as DNS clients read them."""
+    strings = getattr(record, "strings", None)
+    if strings is None:
+        return str(record)
+    return b"".join(strings).decode("utf-8", errors="replace")
 
 
 def describe_dns_error(exc: BaseException) -> str:

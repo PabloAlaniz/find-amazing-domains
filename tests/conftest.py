@@ -30,6 +30,8 @@ def network_guard(request: pytest.FixtureRequest) -> Iterator[NetworkGuard | Non
 def _isolated_cache_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep the default result cache out of the real user cache directory."""
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg-cache"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg-data"))
+    monkeypatch.delenv("DOMAINHACK_WATCHLIST", raising=False)
 
 
 @pytest.fixture(autouse=True)

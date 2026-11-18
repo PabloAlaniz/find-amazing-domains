@@ -26,12 +26,16 @@ from domainhack.adapters.brand_report_render import RENDERERS
 from domainhack.adapters.cached_registrar import CachedRegistrarClient
 from domainhack.adapters.config_file import Config
 from domainhack.adapters.dns_resolver import DnsPythonLookup
+from domainhack.adapters.handle_http import HttpHandleChecker
 from domainhack.adapters.iana_tlds import IanaTldList
 from domainhack.adapters.registrar_catalog import supported_tlds
 from domainhack.adapters.registry_sources import describe_unsupported, unsupported_message
+from domainhack.adapters.tld_prices import load_price_list
 from domainhack.cli import app
 from domainhack.domain.entities import DomainCheckResult
+from domainhack.domain.pricing import PriceList
 from domainhack.ports.dns_lookup import DnsLookup
+from domainhack.ports.handle_checker import HandleChecker, HandleResult
 from domainhack.ports.known_tlds import KnownTlds
 from domainhack.ports.result_writer import ResultWriter
 from domainhack.usecases.brand_candidates import (
@@ -54,11 +58,16 @@ class NameServices:
 
     ``dns`` is optional: without it, results are not confirmed against DNS.
     ``supported_tlds`` lists the catalog's TLDs for the ``all-supported`` preset.
+    ``handles`` checks the name on GitHub, npm and PyPI when asked to; without
+    it, the production checker is built with the run's contact address.
+    ``prices`` loads the reference price list (None: this build has none).
     """
 
     known_tlds: KnownTlds
     dns: DnsLookup | None = None
     supported_tlds: Callable[[], Iterable[str]] = supported_tlds
+    handles: HandleChecker | None = None
+    prices: Callable[[], PriceList | None] = load_price_list
 
 
 def default_services() -> NameServices:
@@ -198,6 +207,19 @@ def register(
         "(delicious -> del.icio.us, registering icio.us). Default: on",
     )
     parser.add_argument(
+        "--prices",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show each TLD's reference price next to available names (a dated snapshot of "
+        "a registrar's public price list, not a quote). Default: on",
+    )
+    parser.add_argument(
+        "--handles",
+        action="store_true",
+        help="Also say whether NAME is taken on GitHub (user or organization), npm and "
+        "PyPI: one request to each. Information only; it does not change the recommendation",
+    )
+    parser.add_argument(
         "--format",
         choices=REPORT_FORMATS,
         default="text",
@@ -230,6 +252,8 @@ def find_name(
     suffixes: Sequence[str] | None = None,
     subdomain_hacks: bool = True,
     presets: Presets | None = None,
+    handles: bool = False,
+    prices: bool = True,
     confirm_dns: bool | None = None,
     catalog: app.RegistrarCatalog | None = None,
     services: NameServices | None = None,
@@ -241,7 +265,9 @@ def find_name(
     ``variants`` tries the default prefixes and suffixes; ``prefixes`` and
     ``suffixes`` replace them (see ``brand_candidates.variant_affixes``).
     ``subdomain_hacks`` adds hacks such as ``del.icio.us`` when the name ends
-    in a TLD. ``presets`` are extra TLD presets (the user's own).
+    in a TLD. ``presets`` are extra TLD presets (the user's own). ``handles``
+    also asks GitHub, npm and PyPI whether the name is taken there. ``prices``
+    shows each TLD's reference price next to available names.
 
     ``run`` holds the shared run options (``app.add_run_options``: delay,
     parallelism, cache, contact, progress). ``confirm_dns`` None means "when
@@ -328,6 +354,12 @@ def find_name(
 
     if summary.interrupted:
         notes.append("run interrupted: some names were not checked")
+    handle_results: list[HandleResult] | None = None
+    if handles and not summary.interrupted:
+        checker = services.handles
+        if checker is None:
+            checker = HttpHandleChecker(contact=getattr(run, "contact", None))
+        handle_results = checker.check(generator.name)
     report = build_brand_report(
         generator.name,
         candidates,
@@ -338,6 +370,8 @@ def find_name(
         unsupported=unsupported,
         notes=notes,
         unsupported_reasons={t: unsupported_message(t.suffix) for t in unsupported},
+        handles=handle_results,
+        prices=services.prices() if prices else None,
     )
     return NameOutcome(report, summary, generator.skipped)
 
@@ -368,6 +402,8 @@ def cmd_name(
             suffixes=args.suffix if args.suffix is not None else config.name_suffixes,
             subdomain_hacks=args.subdomain_hacks,
             presets=config.presets,
+            handles=args.handles,
+            prices=args.prices,
             confirm_dns=args.confirm_dns,
             catalog=catalog,
             services=services,

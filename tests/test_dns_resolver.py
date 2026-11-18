@@ -55,7 +55,7 @@ class TestLookup:
             {(NAME, "NS"): [FakeNsRecord("ns.example.")], (NAME, "AAAA"): ["2001:db8::1"]}
         )
         assert lookup.lookup("sumanda.com").has_address
-        assert [c[1] for c in resolver.calls] == ["NS", "A", "AAAA"]
+        assert [c[1] for c in resolver.calls] == ["NS", "A", "AAAA", "TXT"]
 
     def test_no_records_at_all(self) -> None:
         lookup, _ = _lookup({})

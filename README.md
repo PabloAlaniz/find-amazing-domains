@@ -25,7 +25,8 @@ Python 3.10 or newer. No API keys, no accounts, no captchas: domainhack talks to
 ## Why domainhack
 
 - **It asks the registry, not a reseller.** Every generic TLD is checked over RDAP through the IANA bootstrap, and 170 of the 248 country-code TLDs over RDAP or port-43 WHOIS, each verified live with a registered and a random name. Requests are paced per host, back off on 429/503 as RFC 7480 asks, and a circuit breaker skips a host that stops answering.
-- **It knows when "available" lies.** A public-DNS cross-check flags names the registry calls free but that already have nameservers. Taken names come with their registration date, expiry date, registrar, the parking or aftermarket service behind them, and whether they are about to drop (redemption or pending delete).
+- **It tells you when a name changes hands.** `domainhack watch` follows the names you care about and reports only what changed: became available, started dropping, was registered, expiry date moved.
+- **It knows when "available" lies.** A public-DNS cross-check flags names the registry calls free but that already have nameservers. Taken names come with their registration date, expiry date, registrar, the parking or aftermarket service behind them, whether their holder lists them for sale (the `_for-sale` DNS record), and whether they are about to drop (redemption or pending delete).
 - **One command for a name.** `domainhack name acme` checks the exact name under a set of TLDs, finds hacks that spell it (`acme` + studio -> `acmestud.io`), optionally tries brand variants, and ends with a ranked recommendation.
 - **It works from an AI agent too.** `domainhack-mcp` exposes the same checks as [MCP](https://modelcontextprotocol.io/) tools, so Claude or Cursor can find a domain while it helps you name a project. See [Use it from an AI agent](#use-it-from-an-ai-agent-mcp).
 - **It handles the hard cases.** Second-level suffixes (`com.ar`, `co.uk`), IDNs (`ñandú.de`), per-TLD label rules, a SQLite cache with TTLs that match how fast each kind of result goes stale, and CSV, JSON Lines, markdown and JSON output.
@@ -83,6 +84,8 @@ What it checks:
 - **Exact name** under every TLD of `--tlds`. It takes presets and TLDs, mixed: `--tlds startup,com.ar,la`. The presets are `startup` (the default: com, app, io, ai, co, dev, so, xyz), `latam` (com.ar, ar, com.mx, mx, com.co, co, com.br, cl, pe), `classic` (com, net, org) and `all-supported` (every TLD the tool can check). A TLD the tool cannot check (e.g. `.es`, whose registry only serves accredited users) is reported as unsupported, with the reason.
 - **Domain hacks**: the name split at a TLD it ends with (`plato` -> `pla.to`), and the name plus a curated word ending in a TLD (`sumanda` + studio -> `sumandastud.io`, or `sumanda.studio` where the word is itself a TLD). The words and their meanings live in `src/domainhack/data/hack_words.json`. When the name ends in no TLD, the report says so. When it does, hacks that move part of the name to a subdomain are checked too: `delicious` -> `del.icio.us`, where the name to register is `icio.us`. `--no-subdomain-hacks` leaves them out.
 - **Brand variants** (`--variants`): `get`/`use`/`try`/`hola`/`my` + name and name + `hq`/`app`/`labs`/`studio`. They are checked under `.com` and the first 3 other requested TLDs only, so there are at most 36 of them. `--prefix get,try` and `--suffix hq,labs` use your own words instead (at most 10 of each). On their own they add only the words you give; with `--variants` the side you did not name keeps its default list.
+- **Reference prices**: available names show what their TLD costs a year (`$28.12/yr, renews $51.50`) when the bundled price list has it. The list is a dated snapshot of one registrar's public prices for an ordinary name, not a quote: premium and reserved names cost more. The report names its source and date. `--no-prices` hides them.
+- **Handles** (`--handles`): whether the name is taken as a GitHub user or organization, an npm package and a PyPI project, with one request to each. "Not found" means nothing answers to that name today; services also reserve names and refuse look-alikes. Anything a service does not answer clearly is reported as "could not check".
 
 The report lists the exact names by TLD, the hacks, the available variants and the taken names. Taken names come with their details (registration and expiry dates, parking service, dropping status). It also names everything it could not verify (registry error or unreachable, no registrar for the TLD) and every DNS conflict (the registry says available, but DNS has nameservers). `--format` picks `text` (default), `markdown` (to share) or `json`. `--output FILE` also saves the raw results as CSV or JSON Lines, like `check`.
 
@@ -96,7 +99,7 @@ The recommendation ranks available names only:
 - then other variants;
 - then hacks with an extra word or with a subdomain.
 
-Shorter names win within a tier. Taken, dropping, DNS-conflict and unverifiable names are never recommended.
+Shorter names win within a tier, and between two names of the same tier and length the one with the cheaper TLD comes first. Handles never change the ranking. Taken, dropping, DNS-conflict and unverifiable names are never recommended.
 
 `--confirm-dns` / `--no-confirm-dns` turns the DNS cross-check on or off (on by default when a resolver is available). The registry check uses the same options as `check`: `--delay`, `--parallel`, `--no-cache`, `--cache-*`, `--contact` and `--no-progress`. The exit status follows `check`: it is 1 when some check ended in an error, and the report is still printed.
 
@@ -119,7 +122,7 @@ The server takes the run options the CLI shares (`--delay`, `--parallel`, `--no-
 
 ## Weekly report
 
-Every Tuesday a [workflow](.github/workflows/weekly-report.yml) checks the 5,086 distinct common English and Spanish words in [`data/wordlists/`](data/wordlists/) against every TLD domainhack can query and publishes the result in [`reports/latest.md`](https://github.com/PabloAlaniz/find-amazing-domains/blob/reports/reports/latest.md): the hacks that are available right now, the registered ones in redemption or pending delete (so they may be free soon), the names a registry calls available while DNS still delegates them, and a per-TLD breakdown. Dated copies stay in the [`reports` branch](https://github.com/PabloAlaniz/find-amazing-domains/tree/reports/reports). It runs with the default pacing (one request per registry host at a time, one second apart) and reuses its result cache between runs, so taken names are not asked about again before they could have expired.
+Every Tuesday a [workflow](.github/workflows/weekly-report.yml) checks the 5,086 distinct common English and Spanish words in [`data/wordlists/`](data/wordlists/) against every TLD domainhack can query and publishes the result in [`reports/latest.md`](https://github.com/PabloAlaniz/find-amazing-domains/blob/reports/reports/latest.md): the hacks that are available right now, the registered ones in redemption or pending delete (so they may be free soon), the names a registry calls available while DNS still delegates them, and a per-TLD breakdown. From the second run on it opens with what changed since the week before: the hacks that became available, the ones someone registered, and the ones that started dropping. An [Atom feed](https://raw.githubusercontent.com/PabloAlaniz/find-amazing-domains/reports/reports/feed.xml) has one entry per report. Dated copies stay in the [`reports` branch](https://github.com/PabloAlaniz/find-amazing-domains/tree/reports/reports). It runs with the default pacing (one request per registry host at a time, one second apart) and reuses its result cache between runs, so taken names are not asked about again before they could have expired.
 
 ## Examples
 
@@ -309,7 +312,9 @@ domainhack --tld io,com.ar check --file words.txt --confirm-dns
   AVAILABLE? x.io -- registry says free but DNS has NS records
 ```
 
-and the summary counts these names. Treat them as taken until a registrar confirms otherwise. NXDOMAIN means "not in DNS". It is not an error, because many registered names are not delegated. Timeouts and SERVFAIL are recorded as DNS errors and never stop the run.
+and the summary counts these names. Treat them as taken until a registrar confirms otherwise.
+
+For a taken name that is delegated, the same lookup asks for a `_for-sale` TXT record: the way a holder says "this name can be bought" in DNS (an IETF draft, in use on `.nl` among others). When there is one, the name prints as `TAKEN: x.io (expires 2027-03-01, for sale: fval=EUR999)`, with whatever the record says after its version tag, or `for sale: listed` when it says nothing more. NXDOMAIN means "not in DNS". It is not an error, because many registered names are not delegated. Timeouts and SERVFAIL are recorded as DNS errors and never stop the run.
 
 #### Unreachable registries
 
@@ -336,6 +341,39 @@ domainhack --tld to,io,it check --file data/words_en.txt --keep-order
 - **Memory stays bounded in range and pattern modes.** Candidates are generated lazily. Each host has a queue of at most 16 waiting domains; when it is full, generation pauses until that host catches up. At most `hosts x 16` candidates (plus their results) are in memory, however large `--range-max` is.
 - **Ctrl-C** stops dispatching at once, gives checks in flight up to a second to finish (their results are kept), and exits with status 130 as before.
 
+### Watching names
+
+Some names are worth waiting for: the `.com` that expires next month, the hack that is in redemption. `watch` keeps a list of them and tells you what changed since the last time it looked.
+
+```bash
+domainhack watch add sumanda.com pla.to    # start watching (asks no registry)
+domainhack watch run                       # check them all, print only the changes
+domainhack watch list                      # what was last seen
+domainhack watch remove pla.to
+```
+
+The first `watch run` records where each name stands. From then on a run prints one line per change, and nothing when nothing changed:
+
+```
+sumanda.com: is dropping: pending delete, expires 2026-11-12: it may be free soon
+pla.to: is available now (was taken, expires 2026-11-02)
+gus.to: expiry date moved: 2026-12-01 -> 2027-12-01
+```
+
+The changes it reports: a name became available, started dropping (redemption or pending delete), was registered, was restored by its holder, its expiry date moved, or its parking service changed. A name whose check fails keeps its last known state, so the change is still reported once the registry answers again.
+
+- Every run asks the registries afresh; the result cache is not read. The pacing options of `check` apply (`--delay`, `--parallel`, `--contact`).
+- `--format json` prints the changes as data (`changes`, `first_checks`, `not_checked`).
+- `--exit-code` exits with status 3 when something changed, so a script can act on it:
+
+  ```bash
+  # crontab: every morning, mail me only when something changed
+  0 8 * * *  domainhack watch run --exit-code --no-progress > /tmp/watch.txt; [ $? -eq 3 ] && mail -s "domain watch" you@example.com < /tmp/watch.txt
+  ```
+
+- The watchlist is a JSON file: `$XDG_DATA_HOME/domainhack/watchlist.json` (`~/.local/share/domainhack/watchlist.json`), or `$DOMAINHACK_WATCHLIST`, or `--watchlist FILE` to keep several.
+- `watch add` refuses names under a TLD that cannot be checked, and says why.
+
 ### Saving results
 
 ```bash
@@ -346,7 +384,7 @@ domainhack --tld to check --file data/words_es.txt --output results.csv
 domainhack --tld to check --file data/words_es.txt --output results.jsonl
 ```
 
-Rows are written as they are checked, so an interrupted run (Ctrl-C) keeps everything checked so far. Columns: `fqdn` (ASCII, what was queried), `display` (as written, e.g. `ñandú.de`), `word`, `sld`, `tld`, `availability`, `error_message`, `statuses`, `expires_at`, `registered_at`, `registrar`, `nameservers`, `parked_hint`, `dns_nameservers`, `dns_conflict`. New columns are always appended, so existing positions stay stable.
+Rows are written as they are checked, so an interrupted run (Ctrl-C) keeps everything checked so far. Columns: `fqdn` (ASCII, what was queried), `display` (as written, e.g. `ñandú.de`), `word`, `sld`, `tld`, `availability`, `error_message`, `statuses`, `expires_at`, `registered_at`, `registrar`, `nameservers`, `parked_hint`, `dns_nameservers`, `dns_conflict`, `for_sale`. New columns are always appended, so existing positions stay stable.
 
 - `statuses`: registry statuses of a taken name (RFC 9083 form, e.g. `client transfer prohibited`).
 - `expires_at` / `registered_at`: expiration and registration dates in ISO 8601 UTC (`2026-11-30T07:38:29Z`).
@@ -355,6 +393,7 @@ Rows are written as they are checked, so an interrupted run (Ctrl-C) keeps every
 - `parked_hint`: the parking/aftermarket service those nameservers belong to (e.g. `domainrecover`), empty if none is recognised.
 - `dns_nameservers`: NS hosts public DNS returned, when DNS was consulted.
 - `dns_conflict`: `true` when the registry said available but DNS shows a delegation (do not trust it as free), else `false`.
+- `for_sale`: what the holder's `_for-sale` DNS record says (`listed` when it says nothing more); empty when there is none or DNS was not consulted.
 
 Lists are joined with `;` in CSV and are arrays in JSON; unknown values are empty in CSV and `null` (dates) or empty in JSON.
 
@@ -457,6 +496,7 @@ Note: "available" means *not registered*. Premium or reserved names may still sh
 | 0 | Completed, no errors |
 | 1 | Completed with some failed checks, or a runtime error |
 | 2 | Usage error |
+| 3 | `watch run --exit-code`: something changed since the last run |
 | 130 | Interrupted (Ctrl-C) |
 
 ## Word Lists
@@ -541,7 +581,11 @@ Bug reports, new TLDs and WHOIS pattern fixes are welcome. [CONTRIBUTING.md](CON
 | Registration details and parking detection for taken names | Done |
 | `name` command: exact names, domain hacks, brand variants, recommendation | Done |
 | `tlds` command and live-verified registry data (170 of 248 ccTLDs) | Done |
-| Reference prices per TLD: a bundled, dated snapshot of public registrar price lists (registration and renewal), shown as a reference only; per-name premium pricing is out of scope | Planned |
+| Reference prices per TLD in the `name` report: a bundled, dated snapshot of a public registrar price list (registration and renewal), shown as a reference only; per-name premium pricing is out of scope | Done |
+| `watch`: follow names and report what changed | Done |
+| `_for-sale` DNS record of taken names | Done |
+| `name --handles`: GitHub, npm and PyPI | Done |
+| Weekly report: changes since the previous week, Atom feed | Done |
 | Re-verify registries that did not answer during verification (e.g. .pt, .uy, .dk, .do) and the .my RDAP service | Planned |
 | Word-frequency ordering (`--order frequency`) | Done |
 | Pattern mode (`--pattern CVCV`) | Done |

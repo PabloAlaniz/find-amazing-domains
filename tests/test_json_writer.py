@@ -22,6 +22,7 @@ EMPTY_DETAILS: dict[str, Any] = {
     "parked_hint": "",
     "dns_nameservers": [],
     "dns_conflict": False,
+    "for_sale": "",
 }
 
 

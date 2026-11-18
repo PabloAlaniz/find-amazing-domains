@@ -384,7 +384,12 @@ class TestRenderers:
             "statuses": [],
             "registrar": "Example Registrar",
             "parked_hint": "domainrecover",
-            "dns": {"nameservers": ["ns1.domainrecover.com"], "has_address": False, "error": ""},
+            "dns": {
+                "nameservers": ["ns1.domainrecover.com"],
+                "has_address": False,
+                "error": "",
+                "for_sale": "",
+            },
         }
         assert data["hacks"][0]["meaning"] == "a studio"
         assert data["recommendations"][0] == {

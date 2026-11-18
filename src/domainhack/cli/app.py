@@ -87,6 +87,7 @@ exit status:
   {EXIT_FAILURE}    completed but some checks ended in ERROR, or the run failed
        (unreadable word list, unwritable output, no supported TLD...)
   {EXIT_USAGE}    usage error (bad option or value)
+  3    watch run --exit-code: something changed since the last run
   {EXIT_INTERRUPTED}  interrupted (Ctrl-C); results checked so far are kept
 
 Results go to stdout; errors, warnings, progress and the summary go to stderr.
@@ -443,10 +444,11 @@ def build_parser(config: Config | None = None) -> argparse.ArgumentParser:
         "An available name with NS records prints as 'AVAILABLE?': do not trust it as free",
     )
     # Imported here: name_cmd imports this module's helpers.
-    from domainhack.cli import name_cmd, tlds_cmd
+    from domainhack.cli import name_cmd, tlds_cmd, watch_cmd
 
     name_cmd.register(sub, epilog=_EPILOG, config=config)
     tlds_cmd.register(sub, epilog=_EPILOG)
+    watch_cmd.register(sub, epilog=_EPILOG, config=config)
     return parser
 
 
@@ -916,6 +918,10 @@ def main(
             from domainhack.cli import tlds_cmd
 
             return tlds_cmd.cmd_tlds(args)
+        if args.command == "watch":
+            from domainhack.cli import watch_cmd
+
+            return watch_cmd.cmd_watch(args, catalog=catalog)
         return cmd_check(args, catalog=catalog, dns_lookup=dns_lookup)
     except OutputFormatError as exc:
         parser.print_usage(sys.stderr)

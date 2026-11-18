@@ -14,7 +14,9 @@ class ConsoleResultWriter(ResultWriter):
     status and expiry date, and ``show_dropping`` prints them even without
     ``show_taken``. Other TAKEN names print with whatever registration
     details are known: ``TAKEN:     sumanda.com (since 2015-11-12, expires
-    2026-11-12, parked: domainrecover)``. An AVAILABLE name that DNS shows as
+    2026-11-12, parked: domainrecover)``, plus ``for sale: ...`` when the
+    holder publishes a ``_for-sale`` record (seen with ``--confirm-dns``).
+    An AVAILABLE name that DNS shows as
     delegated (``dns_conflict``, see ``--confirm-dns``) prints as
     ``AVAILABLE?`` with a warning instead. The run summary is printed by the
     CLI, from the use case's
@@ -69,6 +71,8 @@ def _taken_detail(result: DomainCheckResult) -> str:
         parts.append(f"expires {result.expires_at.date().isoformat()}")
     if result.parked_hint:
         parts.append(f"parked: {result.parked_hint}")
+    if result.dns is not None and result.dns.for_sale:
+        parts.append(f"for sale: {result.dns.for_sale}")
     return f" ({', '.join(parts)})" if parts else ""
 
 

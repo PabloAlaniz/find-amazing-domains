@@ -361,6 +361,7 @@ class TestWriters:
             "parked_hint",
             "dns_nameservers",
             "dns_conflict",
+            "for_sale",
         )
 
     def test_csv_row(self) -> None:
@@ -395,7 +396,7 @@ class TestWriters:
             )
         )
         first, second = (json.loads(line) for line in buf.getvalue().splitlines())
-        assert list(first)[-6:] == [
+        assert list(first)[-7:-1] == [
             "registered_at",
             "registrar",
             "nameservers",

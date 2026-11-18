@@ -1,0 +1,2248 @@
+{
+ "_comment": "Reference prices per TLD, written by tools/refresh_prices.py. Amounts are strings. An empty 'prices' object means this build has no price data, and none is shown.",
+ "source": "Porkbun public price list",
+ "retrieved": "2026-11-18",
+ "currency": "USD",
+ "prices": {
+  "abogado": {
+   "registration": "26.26",
+   "renewal": "26.26"
+  },
+  "ac": {
+   "registration": "26.06",
+   "renewal": "46.65"
+  },
+  "academy": {
+   "registration": "11.84",
+   "renewal": "43.77"
+  },
+  "accountant": {
+   "registration": "21.09",
+   "renewal": "21.09"
+  },
+  "accountants": {
+   "registration": "23.17",
+   "renewal": "102.47"
+  },
+  "actor": {
+   "registration": "10.81",
+   "renewal": "39.65"
+  },
+  "adult": {
+   "registration": "52.01",
+   "renewal": "98.35"
+  },
+  "ag": {
+   "registration": "77.98",
+   "renewal": "77.98"
+  },
+  "agency": {
+   "registration": "3.60",
+   "renewal": "27.29"
+  },
+  "ai": {
+   "registration": "82.70",
+   "renewal": "82.70"
+  },
+  "airforce": {
+   "registration": "92.17",
+   "renewal": "92.17"
+  },
+  "am": {
+   "registration": "36.35",
+   "renewal": "36.35"
+  },
+  "apartments": {
+   "registration": "10.81",
+   "renewal": "50.98"
+  },
+  "app": {
+   "registration": "8.75",
+   "renewal": "14.93"
+  },
+  "archi": {
+   "registration": "13.39",
+   "renewal": "92.17"
+  },
+  "army": {
+   "registration": "10.81",
+   "renewal": "34.50"
+  },
+  "art": {
+   "registration": "2.18",
+   "renewal": "21.11"
+  },
+  "as": {
+   "registration": "51.80",
+   "renewal": "51.80"
+  },
+  "asia": {
+   "registration": "1.03",
+   "renewal": "11.84"
+  },
+  "associates": {
+   "registration": "11.84",
+   "renewal": "34.50"
+  },
+  "attorney": {
+   "registration": "49.95",
+   "renewal": "49.95"
+  },
+  "au": {
+   "registration": "8.13",
+   "renewal": "8.13"
+  },
+  "auction": {
+   "registration": "3.09",
+   "renewal": "29.35"
+  },
+  "audio": {
+   "registration": "103.50",
+   "renewal": "103.50"
+  },
+  "auto": {
+   "registration": "2060.25",
+   "renewal": "2064.19"
+  },
+  "autos": {
+   "registration": "1.54",
+   "renewal": "14.21"
+  },
+  "baby": {
+   "registration": "4.84",
+   "renewal": "52.01"
+  },
+  "band": {
+   "registration": "15.96",
+   "renewal": "28.32"
+  },
+  "bar": {
+   "registration": "1.53",
+   "renewal": "52.01"
+  },
+  "bargains": {
+   "registration": "11.84",
+   "renewal": "24.20"
+  },
+  "basketball": {
+   "registration": "41.88",
+   "renewal": "42.88"
+  },
+  "bayern": {
+   "registration": "31.03",
+   "renewal": "30.80"
+  },
+  "beauty": {
+   "registration": "1.54",
+   "renewal": "14.21"
+  },
+  "beer": {
+   "registration": "1.54",
+   "renewal": "26.26"
+  },
+  "best": {
+   "registration": "1.73",
+   "renewal": "18.69"
+  },
+  "bet": {
+   "registration": "9.78",
+   "renewal": "23.17"
+  },
+  "bh": {
+   "registration": "39.78",
+   "renewal": "39.78"
+  },
+  "bible": {
+   "registration": "40.68",
+   "renewal": "41.88"
+  },
+  "bid": {
+   "registration": "4.61",
+   "renewal": "5.64"
+  },
+  "bike": {
+   "registration": "8.24",
+   "renewal": "35.53"
+  },
+  "bingo": {
+   "registration": "8.24",
+   "renewal": "47.89"
+  },
+  "bio": {
+   "registration": "5.66",
+   "renewal": "64.37"
+  },
+  "biz": {
+   "registration": "6.69",
+   "renewal": "19.05"
+  },
+  "black": {
+   "registration": "15.96",
+   "renewal": "58.19"
+  },
+  "blackfriday": {
+   "registration": "103.50",
+   "renewal": "103.50"
+  },
+  "blog": {
+   "registration": "2.06",
+   "renewal": "21.11"
+  },
+  "blue": {
+   "registration": "12.87",
+   "renewal": "22.14"
+  },
+  "boats": {
+   "registration": "1.54",
+   "renewal": "14.21"
+  },
+  "bond": {
+   "registration": "1.28",
+   "renewal": "15.96"
+  },
+  "boo": {
+   "registration": "10.81",
+   "renewal": "10.81"
+  },
+  "boston": {
+   "registration": "19.05",
+   "renewal": "19.05"
+  },
+  "bot": {
+   "registration": "14.93",
+   "renewal": "52.01"
+  },
+  "boutique": {
+   "registration": "2.57",
+   "renewal": "29.35"
+  },
+  "broker": {
+   "registration": "8.24",
+   "renewal": "32.44"
+  },
+  "build": {
+   "registration": "26.26",
+   "renewal": "26.26"
+  },
+  "builders": {
+   "registration": "4.63",
+   "renewal": "31.41"
+  },
+  "business": {
+   "registration": "2.57",
+   "renewal": "19.05"
+  },
+  "buzz": {
+   "registration": "1.64",
+   "renewal": "26.26"
+  },
+  "bz": {
+   "registration": "16.79",
+   "renewal": "16.79"
+  },
+  "ca": {
+   "registration": "8.63",
+   "renewal": "9.12"
+  },
+  "cab": {
+   "registration": "12.87",
+   "renewal": "29.35"
+  },
+  "cafe": {
+   "registration": "4.63",
+   "renewal": "46.86"
+  },
+  "cam": {
+   "registration": "7.72",
+   "renewal": "14.93"
+  },
+  "camera": {
+   "registration": "11.84",
+   "renewal": "46.86"
+  },
+  "camp": {
+   "registration": "6.69",
+   "renewal": "56.13"
+  },
+  "capital": {
+   "registration": "5.66",
+   "renewal": "63.34"
+  },
+  "car": {
+   "registration": "2060.25",
+   "renewal": "2060.25"
+  },
+  "cards": {
+   "registration": "2.57",
+   "renewal": "34.50"
+  },
+  "care": {
+   "registration": "11.84",
+   "renewal": "39.65"
+  },
+  "careers": {
+   "registration": "15.96",
+   "renewal": "63.34"
+  },
+  "cars": {
+   "registration": "2060.25",
+   "renewal": "2064.19"
+  },
+  "casa": {
+   "registration": "1.54",
+   "renewal": "10.81"
+  },
+  "cash": {
+   "registration": "9.78",
+   "renewal": "34.50"
+  },
+  "casino": {
+   "registration": "7.72",
+   "renewal": "143.67"
+  },
+  "catering": {
+   "registration": "34.50",
+   "renewal": "34.50"
+  },
+  "cc": {
+   "registration": "3.40",
+   "renewal": "8.55"
+  },
+  "center": {
+   "registration": "3.60",
+   "renewal": "29.35"
+  },
+  "ceo": {
+   "registration": "9.78",
+   "renewal": "103.50"
+  },
+  "cfd": {
+   "registration": "1.28",
+   "renewal": "15.96"
+  },
+  "channel": {
+   "registration": "10.81",
+   "renewal": "10.81"
+  },
+  "charity": {
+   "registration": "5.99",
+   "renewal": "22.66"
+  },
+  "chat": {
+   "registration": "5.66",
+   "renewal": "40.68"
+  },
+  "cheap": {
+   "registration": "5.66",
+   "renewal": "29.35"
+  },
+  "christmas": {
+   "registration": "31.41",
+   "renewal": "31.41"
+  },
+  "church": {
+   "registration": "6.69",
+   "renewal": "52.01"
+  },
+  "city": {
+   "registration": "4.63",
+   "renewal": "26.26"
+  },
+  "claims": {
+   "registration": "10.81",
+   "renewal": "58.19"
+  },
+  "cleaning": {
+   "registration": "67.46",
+   "renewal": "67.46"
+  },
+  "click": {
+   "registration": "1.53",
+   "renewal": "10.81"
+  },
+  "clinic": {
+   "registration": "10.81",
+   "renewal": "58.19"
+  },
+  "clothing": {
+   "registration": "10.81",
+   "renewal": "29.35"
+  },
+  "cloud": {
+   "registration": "3.88",
+   "renewal": "21.11"
+  },
+  "club": {
+   "registration": "4.12",
+   "renewal": "15.96"
+  },
+  "co": {
+   "registration": "15.76",
+   "renewal": "31.20"
+  },
+  "co.in": {
+   "registration": "5.80",
+   "renewal": "5.80"
+  },
+  "co.nz": {
+   "registration": "14.98",
+   "renewal": "14.99"
+  },
+  "co.uk": {
+   "registration": "5.66",
+   "renewal": "5.66"
+  },
+  "coach": {
+   "registration": "10.81",
+   "renewal": "68.49"
+  },
+  "codes": {
+   "registration": "4.63",
+   "renewal": "63.34"
+  },
+  "coffee": {
+   "registration": "10.81",
+   "renewal": "38.62"
+  },
+  "college": {
+   "registration": "4.84",
+   "renewal": "52.01"
+  },
+  "com": {
+   "registration": "11.81",
+   "renewal": "11.81"
+  },
+  "com.au": {
+   "registration": "8.13",
+   "renewal": "8.13"
+  },
+  "com.mx": {
+   "registration": "11.33",
+   "renewal": "23.32"
+  },
+  "com.ph": {
+   "registration": "44.97",
+   "renewal": "45.99"
+  },
+  "com.pr": {
+   "registration": "103.30",
+   "renewal": "51.98"
+  },
+  "community": {
+   "registration": "8.24",
+   "renewal": "45.83"
+  },
+  "company": {
+   "registration": "2.57",
+   "renewal": "19.05"
+  },
+  "compare": {
+   "registration": "26.26",
+   "renewal": "26.26"
+  },
+  "computer": {
+   "registration": "18.02",
+   "renewal": "34.50"
+  },
+  "condos": {
+   "registration": "52.01",
+   "renewal": "52.01"
+  },
+  "construction": {
+   "registration": "8.75",
+   "renewal": "34.50"
+  },
+  "consulting": {
+   "registration": "21.11",
+   "renewal": "43.77"
+  },
+  "contact": {
+   "registration": "12.87",
+   "renewal": "12.87"
+  },
+  "contractors": {
+   "registration": "5.66",
+   "renewal": "31.41"
+  },
+  "cooking": {
+   "registration": "26.26",
+   "renewal": "26.26"
+  },
+  "cool": {
+   "registration": "5.66",
+   "renewal": "40.68"
+  },
+  "country": {
+   "registration": "2060.25",
+   "renewal": "2060.25"
+  },
+  "coupons": {
+   "registration": "2.57",
+   "renewal": "48.92"
+  },
+  "courses": {
+   "registration": "1.54",
+   "renewal": "31.41"
+  },
+  "credit": {
+   "registration": "6.69",
+   "renewal": "92.17"
+  },
+  "creditcard": {
+   "registration": "5.66",
+   "renewal": "129.25"
+  },
+  "cricket": {
+   "registration": "21.09",
+   "renewal": "21.09"
+  },
+  "cruises": {
+   "registration": "8.24",
+   "renewal": "49.95"
+  },
+  "cv": {
+   "registration": "2.36",
+   "renewal": "8.03"
+  },
+  "cx": {
+   "registration": "16.53",
+   "renewal": "16.98"
+  },
+  "cymru": {
+   "registration": "10.59",
+   "renewal": "10.59"
+  },
+  "cyou": {
+   "registration": "1.28",
+   "renewal": "15.96"
+  },
+  "dad": {
+   "registration": "10.81",
+   "renewal": "10.81"
+  },
+  "dance": {
+   "registration": "9.78",
+   "renewal": "25.23"
+  },
+  "date": {
+   "registration": "4.61",
+   "renewal": "5.64"
+  },
+  "dating": {
+   "registration": "12.87",
+   "renewal": "58.19"
+  },
+  "day": {
+   "registration": "10.81",
+   "renewal": "10.81"
+  },
+  "de": {
+   "registration": "2.90",
+   "renewal": "4.07"
+  },
+  "deal": {
+   "registration": "9.78",
+   "renewal": "31.41"
+  },
+  "dealer": {
+   "registration": "257.98",
+   "renewal": "2060.25"
+  },
+  "deals": {
+   "registration": "3.60",
+   "renewal": "34.50"
+  },
+  "degree": {
+   "registration": "8.24",
+   "renewal": "41.71"
+  },
+  "delivery": {
+   "registration": "5.15",
+   "renewal": "56.13"
+  },
+  "democrat": {
+   "registration": "5.66",
+   "renewal": "5.66"
+  },
+  "dental": {
+   "registration": "68.49",
+   "renewal": "68.49"
+  },
+  "dentist": {
+   "registration": "58.19",
+   "renewal": "58.19"
+  },
+  "desi": {
+   "registration": "13.05",
+   "renewal": "13.05"
+  },
+  "design": {
+   "registration": "10.81",
+   "renewal": "46.86"
+  },
+  "dev": {
+   "registration": "8.75",
+   "renewal": "12.87"
+  },
+  "diamonds": {
+   "registration": "43.77",
+   "renewal": "43.77"
+  },
+  "diet": {
+   "registration": "103.50",
+   "renewal": "103.50"
+  },
+  "digital": {
+   "registration": "2.57",
+   "renewal": "34.50"
+  },
+  "direct": {
+   "registration": "10.81",
+   "renewal": "34.50"
+  },
+  "directory": {
+   "registration": "4.63",
+   "renewal": "25.23"
+  },
+  "discount": {
+   "registration": "4.63",
+   "renewal": "24.20"
+  },
+  "diy": {
+   "registration": "2.56",
+   "renewal": "31.41"
+  },
+  "doctor": {
+   "registration": "8.24",
+   "renewal": "102.47"
+  },
+  "dog": {
+   "registration": "3.60",
+   "renewal": "58.19"
+  },
+  "domains": {
+   "registration": "10.81",
+   "renewal": "46.86"
+  },
+  "download": {
+   "registration": "4.61",
+   "renewal": "5.64"
+  },
+  "earth": {
+   "registration": "15.96",
+   "renewal": "15.96"
+  },
+  "eat": {
+   "registration": "12.87",
+   "renewal": "12.87"
+  },
+  "eco": {
+   "registration": "59.73",
+   "renewal": "59.73"
+  },
+  "education": {
+   "registration": "21.11",
+   "renewal": "31.41"
+  },
+  "email": {
+   "registration": "5.66",
+   "renewal": "28.32"
+  },
+  "energy": {
+   "registration": "11.84",
+   "renewal": "102.47"
+  },
+  "engineer": {
+   "registration": "9.78",
+   "renewal": "35.53"
+  },
+  "engineering": {
+   "registration": "6.69",
+   "renewal": "60.25"
+  },
+  "enterprises": {
+   "registration": "3.60",
+   "renewal": "31.41"
+  },
+  "equipment": {
+   "registration": "10.81",
+   "renewal": "26.26"
+  },
+  "esq": {
+   "registration": "21.11",
+   "renewal": "21.11"
+  },
+  "estate": {
+   "registration": "8.24",
+   "renewal": "35.53"
+  },
+  "eu": {
+   "registration": "5.88",
+   "renewal": "5.88"
+  },
+  "events": {
+   "registration": "9.78",
+   "renewal": "52.01"
+  },
+  "exchange": {
+   "registration": "6.18",
+   "renewal": "34.50"
+  },
+  "expert": {
+   "registration": "6.69",
+   "renewal": "56.13"
+  },
+  "exposed": {
+   "registration": "20.08",
+   "renewal": "20.08"
+  },
+  "express": {
+   "registration": "9.27",
+   "renewal": "34.50"
+  },
+  "fail": {
+   "registration": "8.24",
+   "renewal": "34.50"
+  },
+  "faith": {
+   "registration": "10.79",
+   "renewal": "10.79"
+  },
+  "family": {
+   "registration": "5.66",
+   "renewal": "35.53"
+  },
+  "fan": {
+   "registration": "6.69",
+   "renewal": "48.92"
+  },
+  "fans": {
+   "registration": "3.60",
+   "renewal": "8.75"
+  },
+  "farm": {
+   "registration": "7.72",
+   "renewal": "34.50"
+  },
+  "fashion": {
+   "registration": "26.26",
+   "renewal": "26.26"
+  },
+  "fast": {
+   "registration": "7.72",
+   "renewal": "23.69"
+  },
+  "feedback": {
+   "registration": "9.27",
+   "renewal": "309.47"
+  },
+  "finance": {
+   "registration": "6.69",
+   "renewal": "58.19"
+  },
+  "financial": {
+   "registration": "15.96",
+   "renewal": "52.01"
+  },
+  "fish": {
+   "registration": "8.24",
+   "renewal": "39.65"
+  },
+  "fishing": {
+   "registration": "26.26",
+   "renewal": "26.26"
+  },
+  "fit": {
+   "registration": "2.06",
+   "renewal": "26.26"
+  },
+  "fitness": {
+   "registration": "5.66",
+   "renewal": "34.50"
+  },
+  "flights": {
+   "registration": "31.41",
+   "renewal": "52.01"
+  },
+  "florist": {
+   "registration": "8.24",
+   "renewal": "26.26"
+  },
+  "flowers": {
+   "registration": "103.50",
+   "renewal": "103.50"
+  },
+  "fly": {
+   "registration": "12.87",
+   "renewal": "12.87"
+  },
+  "fm": {
+   "registration": "87.85",
+   "renewal": "87.85"
+  },
+  "fo": {
+   "registration": "51.19",
+   "renewal": "51.19"
+  },
+  "foo": {
+   "registration": "10.81",
+   "renewal": "10.81"
+  },
+  "food": {
+   "registration": "2.56",
+   "renewal": "31.41"
+  },
+  "football": {
+   "registration": "10.81",
+   "renewal": "23.17"
+  },
+  "forex": {
+   "registration": "10.81",
+   "renewal": "92.17"
+  },
+  "forsale": {
+   "registration": "10.81",
+   "renewal": "31.41"
+  },
+  "forum": {
+   "registration": "1.54",
+   "renewal": "31.41"
+  },
+  "foundation": {
+   "registration": "5.99",
+   "renewal": "22.66"
+  },
+  "free": {
+   "registration": "11.33",
+   "renewal": "31.41"
+  },
+  "fun": {
+   "registration": "2.57",
+   "renewal": "31.41"
+  },
+  "fund": {
+   "registration": "8.75",
+   "renewal": "63.34"
+  },
+  "furniture": {
+   "registration": "21.11",
+   "renewal": "92.17"
+  },
+  "futbol": {
+   "registration": "5.66",
+   "renewal": "5.66"
+  },
+  "fyi": {
+   "registration": "5.66",
+   "renewal": "5.66"
+  },
+  "gallery": {
+   "registration": "26.26",
+   "renewal": "26.26"
+  },
+  "game": {
+   "registration": "340.37",
+   "renewal": "340.37"
+  },
+  "games": {
+   "registration": "8.24",
+   "renewal": "30.38"
+  },
+  "garden": {
+   "registration": "1.54",
+   "renewal": "26.26"
+  },
+  "gay": {
+   "registration": "2.06",
+   "renewal": "31.41"
+  },
+  "gg": {
+   "registration": "51.80",
+   "renewal": "51.80"
+  },
+  "gift": {
+   "registration": "16.58",
+   "renewal": "16.58"
+  },
+  "gifts": {
+   "registration": "8.24",
+   "renewal": "32.44"
+  },
+  "gives": {
+   "registration": "5.99",
+   "renewal": "22.66"
+  },
+  "giving": {
+   "registration": "5.99",
+   "renewal": "22.66"
+  },
+  "glass": {
+   "registration": "64.37",
+   "renewal": "64.37"
+  },
+  "global": {
+   "registration": "31.41",
+   "renewal": "87.02"
+  },
+  "gmbh": {
+   "registration": "46.86",
+   "renewal": "46.86"
+  },
+  "gold": {
+   "registration": "5.66",
+   "renewal": "92.17"
+  },
+  "golf": {
+   "registration": "4.63",
+   "renewal": "58.19"
+  },
+  "graphics": {
+   "registration": "21.11",
+   "renewal": "21.11"
+  },
+  "gratis": {
+   "registration": "21.11",
+   "renewal": "21.11"
+  },
+  "green": {
+   "registration": "6.69",
+   "renewal": "68.49"
+  },
+  "gripe": {
+   "registration": "5.66",
+   "renewal": "5.66"
+  },
+  "group": {
+   "registration": "6.18",
+   "renewal": "23.17"
+  },
+  "guide": {
+   "registration": "6.18",
+   "renewal": "34.50"
+  },
+  "guitars": {
+   "registration": "103.50",
+   "renewal": "103.50"
+  },
+  "guru": {
+   "registration": "2.57",
+   "renewal": "38.62"
+  },
+  "hair": {
+   "registration": "1.54",
+   "renewal": "14.21"
+  },
+  "haus": {
+   "registration": "10.81",
+   "renewal": "30.38"
+  },
+  "health": {
+   "registration": "10.81",
+   "renewal": "62.31"
+  },
+  "healthcare": {
+   "registration": "77.75",
+   "renewal": "77.75"
+  },
+  "help": {
+   "registration": "1.53",
+   "renewal": "26.26"
+  },
+  "here": {
+   "registration": "12.87",
+   "renewal": "12.87"
+  },
+  "hiphop": {
+   "registration": "21.11",
+   "renewal": "21.11"
+  },
+  "hiv": {
+   "registration": "184.86",
+   "renewal": "184.86"
+  },
+  "hockey": {
+   "registration": "8.24",
+   "renewal": "53.04"
+  },
+  "holdings": {
+   "registration": "58.19",
+   "renewal": "58.19"
+  },
+  "holiday": {
+   "registration": "5.66",
+   "renewal": "52.01"
+  },
+  "homes": {
+   "registration": "1.54",
+   "renewal": "14.21"
+  },
+  "horse": {
+   "registration": "26.26",
+   "renewal": "26.26"
+  },
+  "hospital": {
+   "registration": "56.13",
+   "renewal": "56.13"
+  },
+  "host": {
+   "registration": "4.63",
+   "renewal": "81.87"
+  },
+  "hosting": {
+   "registration": "340.37",
+   "renewal": "340.37"
+  },
+  "hot": {
+   "registration": "12.87",
+   "renewal": "41.71"
+  },
+  "house": {
+   "registration": "14.93",
+   "renewal": "39.65"
+  },
+  "how": {
+   "registration": "21.11",
+   "renewal": "21.11"
+  },
+  "icu": {
+   "registration": "1.54",
+   "renewal": "15.96"
+  },
+  "id": {
+   "registration": "18.33",
+   "renewal": "18.33"
+  },
+  "immo": {
+   "registration": "8.24",
+   "renewal": "31.41"
+  },
+  "immobilien": {
+   "registration": "8.24",
+   "renewal": "31.41"
+  },
+  "in": {
+   "registration": "7.83",
+   "renewal": "7.83"
+  },
+  "inc": {
+   "registration": "257.98",
+   "renewal": "2060.25"
+  },
+  "industries": {
+   "registration": "9.53",
+   "renewal": "40.68"
+  },
+  "info": {
+   "registration": "3.60",
+   "renewal": "22.14"
+  },
+  "ing": {
+   "registration": "10.81",
+   "renewal": "10.81"
+  },
+  "ink": {
+   "registration": "2.06",
+   "renewal": "26.26"
+  },
+  "institute": {
+   "registration": "7.72",
+   "renewal": "25.23"
+  },
+  "insure": {
+   "registration": "5.66",
+   "renewal": "64.37"
+  },
+  "international": {
+   "registration": "8.24",
+   "renewal": "28.32"
+  },
+  "investments": {
+   "registration": "8.24",
+   "renewal": "114.83"
+  },
+  "io": {
+   "registration": "28.12",
+   "renewal": "51.80"
+  },
+  "irish": {
+   "registration": "5.66",
+   "renewal": "20.08"
+  },
+  "je": {
+   "registration": "51.80",
+   "renewal": "51.80"
+  },
+  "jetzt": {
+   "registration": "7.72",
+   "renewal": "21.11"
+  },
+  "jewelry": {
+   "registration": "10.81",
+   "renewal": "58.19"
+  },
+  "jobs": {
+   "registration": "101.64",
+   "renewal": "101.64"
+  },
+  "juegos": {
+   "registration": "309.47",
+   "renewal": "309.47"
+  },
+  "kaufen": {
+   "registration": "5.66",
+   "renewal": "27.29"
+  },
+  "kids": {
+   "registration": "5.66",
+   "renewal": "19.05"
+  },
+  "kim": {
+   "registration": "8.24",
+   "renewal": "19.05"
+  },
+  "kitchen": {
+   "registration": "8.24",
+   "renewal": "58.19"
+  },
+  "kred": {
+   "registration": "12.87",
+   "renewal": "12.87"
+  },
+  "kyoto": {
+   "registration": "40.98",
+   "renewal": "40.98"
+  },
+  "la": {
+   "registration": "27.34",
+   "renewal": "27.94"
+  },
+  "land": {
+   "registration": "8.75",
+   "renewal": "34.50"
+  },
+  "lat": {
+   "registration": "1.54",
+   "renewal": "26.26"
+  },
+  "latino": {
+   "registration": "10.81",
+   "renewal": "15.96"
+  },
+  "law": {
+   "registration": "82.90",
+   "renewal": "82.90"
+  },
+  "lawyer": {
+   "registration": "56.13",
+   "renewal": "56.13"
+  },
+  "lc": {
+   "registration": "18.85",
+   "renewal": "18.85"
+  },
+  "lease": {
+   "registration": "8.24",
+   "renewal": "44.80"
+  },
+  "legal": {
+   "registration": "5.66",
+   "renewal": "63.34"
+  },
+  "lgbt": {
+   "registration": "10.81",
+   "renewal": "68.49"
+  },
+  "life": {
+   "registration": "2.57",
+   "renewal": "34.50"
+  },
+  "lifestyle": {
+   "registration": "2.56",
+   "renewal": "31.41"
+  },
+  "lighting": {
+   "registration": "8.24",
+   "renewal": "21.11"
+  },
+  "limited": {
+   "registration": "8.24",
+   "renewal": "32.44"
+  },
+  "limo": {
+   "registration": "10.81",
+   "renewal": "43.77"
+  },
+  "link": {
+   "registration": "7.72",
+   "renewal": "7.72"
+  },
+  "live": {
+   "registration": "2.57",
+   "renewal": "31.41"
+  },
+  "living": {
+   "registration": "2.56",
+   "renewal": "31.41"
+  },
+  "llc": {
+   "registration": "10.81",
+   "renewal": "34.50"
+  },
+  "loan": {
+   "registration": "4.61",
+   "renewal": "5.64"
+  },
+  "loans": {
+   "registration": "10.81",
+   "renewal": "93.20"
+  },
+  "locker": {
+   "registration": "5.66",
+   "renewal": "31.41"
+  },
+  "lol": {
+   "registration": "1.54",
+   "renewal": "26.26"
+  },
+  "london": {
+   "registration": "14.24",
+   "renewal": "27.98"
+  },
+  "lotto": {
+   "registration": "1648.30",
+   "renewal": "1648.30"
+  },
+  "love": {
+   "registration": "2.56",
+   "renewal": "23.17"
+  },
+  "ltd": {
+   "registration": "5.66",
+   "renewal": "34.50"
+  },
+  "ltda": {
+   "registration": "29.35",
+   "renewal": "30.16"
+  },
+  "luxe": {
+   "registration": "15.96",
+   "renewal": "15.96"
+  },
+  "luxury": {
+   "registration": "26.26",
+   "renewal": "26.26"
+  },
+  "maison": {
+   "registration": "13.39",
+   "renewal": "45.83"
+  },
+  "makeup": {
+   "registration": "1.54",
+   "renewal": "14.21"
+  },
+  "management": {
+   "registration": "8.24",
+   "renewal": "23.17"
+  },
+  "market": {
+   "registration": "39.65",
+   "renewal": "39.65"
+  },
+  "marketing": {
+   "registration": "5.66",
+   "renewal": "34.50"
+  },
+  "markets": {
+   "registration": "5.66",
+   "renewal": "15.96"
+  },
+  "mba": {
+   "registration": "10.81",
+   "renewal": "34.50"
+  },
+  "me": {
+   "registration": "17.27",
+   "renewal": "17.27"
+  },
+  "me.uk": {
+   "registration": "5.66",
+   "renewal": "5.66"
+  },
+  "med": {
+   "registration": "71.96",
+   "renewal": "147.65"
+  },
+  "media": {
+   "registration": "4.63",
+   "renewal": "40.68"
+  },
+  "melbourne": {
+   "registration": "40.12",
+   "renewal": "40.12"
+  },
+  "meme": {
+   "registration": "10.81",
+   "renewal": "10.81"
+  },
+  "memorial": {
+   "registration": "102.47",
+   "renewal": "102.47"
+  },
+  "men": {
+   "registration": "4.61",
+   "renewal": "5.64"
+  },
+  "menu": {
+   "registration": "26.96",
+   "renewal": "26.96"
+  },
+  "miami": {
+   "registration": "19.05",
+   "renewal": "19.05"
+  },
+  "mn": {
+   "registration": "41.50",
+   "renewal": "41.50"
+  },
+  "mobi": {
+   "registration": "4.12",
+   "renewal": "41.71"
+  },
+  "mobile": {
+   "registration": "10.81",
+   "renewal": "15.96"
+  },
+  "moda": {
+   "registration": "10.81",
+   "renewal": "33.47"
+  },
+  "moe": {
+   "registration": "6.69",
+   "renewal": "13.05"
+  },
+  "moi": {
+   "registration": "7.72",
+   "renewal": "21.11"
+  },
+  "mom": {
+   "registration": "1.54",
+   "renewal": "26.26"
+  },
+  "money": {
+   "registration": "10.81",
+   "renewal": "31.41"
+  },
+  "monster": {
+   "registration": "1.54",
+   "renewal": "14.21"
+  },
+  "mortgage": {
+   "registration": "8.24",
+   "renewal": "56.13"
+  },
+  "motorcycles": {
+   "registration": "1.54",
+   "renewal": "14.21"
+  },
+  "mov": {
+   "registration": "10.81",
+   "renewal": "10.81"
+  },
+  "movie": {
+   "registration": "36.56",
+   "renewal": "309.47"
+  },
+  "mu": {
+   "registration": "51.98",
+   "renewal": "52.98"
+  },
+  "music": {
+   "registration": "38.62",
+   "renewal": "38.62"
+  },
+  "mx": {
+   "registration": "17.99",
+   "renewal": "41.23"
+  },
+  "my": {
+   "registration": "2.37",
+   "renewal": "26.06"
+  },
+  "nagoya": {
+   "registration": "13.76",
+   "renewal": "13.76"
+  },
+  "name": {
+   "registration": "7.31",
+   "renewal": "7.31"
+  },
+  "navy": {
+   "registration": "82.90",
+   "renewal": "82.90"
+  },
+  "net": {
+   "registration": "12.52",
+   "renewal": "12.52"
+  },
+  "net.au": {
+   "registration": "8.13",
+   "renewal": "8.13"
+  },
+  "net.in": {
+   "registration": "5.80",
+   "renewal": "5.80"
+  },
+  "net.nz": {
+   "registration": "14.98",
+   "renewal": "14.99"
+  },
+  "network": {
+   "registration": "4.63",
+   "renewal": "31.41"
+  },
+  "new": {
+   "registration": "412.46",
+   "renewal": "412.46"
+  },
+  "news": {
+   "registration": "9.78",
+   "renewal": "29.35"
+  },
+  "nexus": {
+   "registration": "10.81",
+   "renewal": "10.81"
+  },
+  "ngo": {
+   "registration": "15.96",
+   "renewal": "15.96"
+  },
+  "ninja": {
+   "registration": "5.66",
+   "renewal": "28.32"
+  },
+  "nl": {
+   "registration": "7.50",
+   "renewal": "7.50"
+  },
+  "now": {
+   "registration": "10.81",
+   "renewal": "31.41"
+  },
+  "nrw": {
+   "registration": "39.29",
+   "renewal": "39.29"
+  },
+  "nyc": {
+   "registration": "5.66",
+   "renewal": "26.26"
+  },
+  "nz": {
+   "registration": "14.92",
+   "renewal": "14.99"
+  },
+  "observer": {
+   "registration": "9.78",
+   "renewal": "9.78"
+  },
+  "one": {
+   "registration": "4.63",
+   "renewal": "20.08"
+  },
+  "ong": {
+   "registration": "15.96",
+   "renewal": "15.96"
+  },
+  "onl": {
+   "registration": "3.09",
+   "renewal": "10.76"
+  },
+  "online": {
+   "registration": "1.96",
+   "renewal": "28.84"
+  },
+  "ooo": {
+   "registration": "21.10",
+   "renewal": "21.10"
+  },
+  "org": {
+   "registration": "7.98",
+   "renewal": "11.84"
+  },
+  "org.au": {
+   "registration": "11.98",
+   "renewal": "12.02"
+  },
+  "org.in": {
+   "registration": "5.80",
+   "renewal": "5.80"
+  },
+  "org.mx": {
+   "registration": "11.33",
+   "renewal": "21.13"
+  },
+  "org.nz": {
+   "registration": "14.98",
+   "renewal": "14.99"
+  },
+  "org.uk": {
+   "registration": "5.66",
+   "renewal": "5.66"
+  },
+  "organic": {
+   "registration": "10.81",
+   "renewal": "68.49"
+  },
+  "osaka": {
+   "registration": "26.68",
+   "renewal": "26.88"
+  },
+  "page": {
+   "registration": "10.81",
+   "renewal": "10.81"
+  },
+  "partners": {
+   "registration": "7.72",
+   "renewal": "63.34"
+  },
+  "parts": {
+   "registration": "8.75",
+   "renewal": "34.50"
+  },
+  "party": {
+   "registration": "4.61",
+   "renewal": "5.64"
+  },
+  "pet": {
+   "registration": "10.81",
+   "renewal": "23.17"
+  },
+  "ph": {
+   "registration": "42.36",
+   "renewal": "44.99"
+  },
+  "phd": {
+   "registration": "21.11",
+   "renewal": "21.11"
+  },
+  "photo": {
+   "registration": "26.26",
+   "renewal": "26.26"
+  },
+  "photography": {
+   "registration": "5.66",
+   "renewal": "32.44"
+  },
+  "photos": {
+   "registration": "8.24",
+   "renewal": "27.29"
+  },
+  "pics": {
+   "registration": "1.54",
+   "renewal": "26.26"
+  },
+  "pictures": {
+   "registration": "8.24",
+   "renewal": "13.90"
+  },
+  "pink": {
+   "registration": "8.24",
+   "renewal": "21.11"
+  },
+  "pizza": {
+   "registration": "10.81",
+   "renewal": "58.19"
+  },
+  "place": {
+   "registration": "20.08",
+   "renewal": "20.08"
+  },
+  "plumbing": {
+   "registration": "8.24",
+   "renewal": "64.37"
+  },
+  "plus": {
+   "registration": "9.78",
+   "renewal": "47.89"
+  },
+  "poker": {
+   "registration": "8.24",
+   "renewal": "54.07"
+  },
+  "porn": {
+   "registration": "52.01",
+   "renewal": "98.35"
+  },
+  "pr": {
+   "registration": "1039.98",
+   "renewal": "1039.98"
+  },
+  "press": {
+   "registration": "4.63",
+   "renewal": "64.37"
+  },
+  "pro": {
+   "registration": "3.09",
+   "renewal": "22.14"
+  },
+  "productions": {
+   "registration": "8.24",
+   "renewal": "34.50"
+  },
+  "prof": {
+   "registration": "21.11",
+   "renewal": "21.11"
+  },
+  "promo": {
+   "registration": "10.81",
+   "renewal": "22.14"
+  },
+  "properties": {
+   "registration": "6.18",
+   "renewal": "34.50"
+  },
+  "property": {
+   "registration": "10.80",
+   "renewal": "103.50"
+  },
+  "protection": {
+   "registration": "2060.25",
+   "renewal": "2060.25"
+  },
+  "pub": {
+   "registration": "36.56",
+   "renewal": "36.56"
+  },
+  "pw": {
+   "registration": "4.43",
+   "renewal": "18.33"
+  },
+  "qpon": {
+   "registration": "1.54",
+   "renewal": "9.66"
+  },
+  "quest": {
+   "registration": "1.54",
+   "renewal": "14.21"
+  },
+  "racing": {
+   "registration": "10.79",
+   "renewal": "10.79"
+  },
+  "realty": {
+   "registration": "10.80",
+   "renewal": "288.88"
+  },
+  "recipes": {
+   "registration": "6.69",
+   "renewal": "68.49"
+  },
+  "red": {
+   "registration": "8.24",
+   "renewal": "21.11"
+  },
+  "rehab": {
+   "registration": "8.24",
+   "renewal": "32.44"
+  },
+  "reise": {
+   "registration": "87.02",
+   "renewal": "87.02"
+  },
+  "reisen": {
+   "registration": "19.05",
+   "renewal": "19.05"
+  },
+  "rent": {
+   "registration": "4.84",
+   "renewal": "52.01"
+  },
+  "rentals": {
+   "registration": "6.69",
+   "renewal": "39.65"
+  },
+  "repair": {
+   "registration": "7.72",
+   "renewal": "32.44"
+  },
+  "report": {
+   "registration": "6.69",
+   "renewal": "21.11"
+  },
+  "republican": {
+   "registration": "5.66",
+   "renewal": "5.66"
+  },
+  "rest": {
+   "registration": "1.53",
+   "renewal": "26.26"
+  },
+  "restaurant": {
+   "registration": "12.87",
+   "renewal": "58.19"
+  },
+  "review": {
+   "registration": "10.79",
+   "renewal": "10.79"
+  },
+  "reviews": {
+   "registration": "4.63",
+   "renewal": "56.13"
+  },
+  "rich": {
+   "registration": "78.99",
+   "renewal": "160.71"
+  },
+  "rip": {
+   "registration": "4.63",
+   "renewal": "21.11"
+  },
+  "rocks": {
+   "registration": "3.60",
+   "renewal": "20.08"
+  },
+  "rodeo": {
+   "registration": "10.81",
+   "renewal": "10.81"
+  },
+  "rsvp": {
+   "registration": "10.81",
+   "renewal": "10.81"
+  },
+  "rugby": {
+   "registration": "41.98",
+   "renewal": "42.98"
+  },
+  "run": {
+   "registration": "4.12",
+   "renewal": "25.23"
+  },
+  "saarland": {
+   "registration": "22.33",
+   "renewal": "22.33"
+  },
+  "sale": {
+   "registration": "3.60",
+   "renewal": "35.53"
+  },
+  "salon": {
+   "registration": "10.81",
+   "renewal": "50.98"
+  },
+  "sarl": {
+   "registration": "5.66",
+   "renewal": "5.66"
+  },
+  "sbs": {
+   "registration": "1.28",
+   "renewal": "15.96"
+  },
+  "sc": {
+   "registration": "87.85",
+   "renewal": "87.85"
+  },
+  "school": {
+   "registration": "5.66",
+   "renewal": "34.50"
+  },
+  "schule": {
+   "registration": "10.81",
+   "renewal": "26.26"
+  },
+  "science": {
+   "registration": "10.79",
+   "renewal": "10.79"
+  },
+  "security": {
+   "registration": "2060.25",
+   "renewal": "2060.25"
+  },
+  "select": {
+   "registration": "26.26",
+   "renewal": "26.26"
+  },
+  "services": {
+   "registration": "8.75",
+   "renewal": "34.50"
+  },
+  "sex": {
+   "registration": "52.01",
+   "renewal": "98.35"
+  },
+  "sexy": {
+   "registration": "2575.18",
+   "renewal": "2575.18"
+  },
+  "sh": {
+   "registration": "31.20",
+   "renewal": "46.65"
+  },
+  "shiksha": {
+   "registration": "10.81",
+   "renewal": "41.71"
+  },
+  "shoes": {
+   "registration": "21.11",
+   "renewal": "58.19"
+  },
+  "shop": {
+   "registration": "2.06",
+   "renewal": "31.41"
+  },
+  "shopping": {
+   "registration": "8.24",
+   "renewal": "24.20"
+  },
+  "show": {
+   "registration": "8.24",
+   "renewal": "39.65"
+  },
+  "si": {
+   "registration": "20.00",
+   "renewal": "17.17"
+  },
+  "singles": {
+   "registration": "7.21",
+   "renewal": "27.29"
+  },
+  "site": {
+   "registration": "1.96",
+   "renewal": "28.84"
+  },
+  "ski": {
+   "registration": "21.11",
+   "renewal": "58.19"
+  },
+  "skin": {
+   "registration": "1.54",
+   "renewal": "14.21"
+  },
+  "soccer": {
+   "registration": "10.81",
+   "renewal": "23.17"
+  },
+  "social": {
+   "registration": "6.69",
+   "renewal": "34.50"
+  },
+  "software": {
+   "registration": "15.96",
+   "renewal": "36.56"
+  },
+  "solar": {
+   "registration": "5.66",
+   "renewal": "58.19"
+  },
+  "solutions": {
+   "registration": "3.60",
+   "renewal": "31.41"
+  },
+  "soy": {
+   "registration": "19.05",
+   "renewal": "19.05"
+  },
+  "spa": {
+   "registration": "21.61",
+   "renewal": "21.61"
+  },
+  "space": {
+   "registration": "1.96",
+   "renewal": "26.26"
+  },
+  "spot": {
+   "registration": "7.72",
+   "renewal": "21.11"
+  },
+  "srl": {
+   "registration": "27.29",
+   "renewal": "28.03"
+  },
+  "storage": {
+   "registration": "515.45",
+   "renewal": "515.45"
+  },
+  "store": {
+   "registration": "2.57",
+   "renewal": "43.77"
+  },
+  "stream": {
+   "registration": "4.61",
+   "renewal": "5.64"
+  },
+  "studio": {
+   "registration": "11.84",
+   "renewal": "41.71"
+  },
+  "study": {
+   "registration": "1.54",
+   "renewal": "31.41"
+  },
+  "style": {
+   "registration": "7.21",
+   "renewal": "34.50"
+  },
+  "sucks": {
+   "registration": "205.46",
+   "renewal": "213.14"
+  },
+  "supplies": {
+   "registration": "22.14",
+   "renewal": "22.14"
+  },
+  "supply": {
+   "registration": "23.17",
+   "renewal": "23.17"
+  },
+  "support": {
+   "registration": "6.69",
+   "renewal": "24.20"
+  },
+  "surf": {
+   "registration": "1.54",
+   "renewal": "26.26"
+  },
+  "surgery": {
+   "registration": "48.92",
+   "renewal": "48.92"
+  },
+  "sydney": {
+   "registration": "40.12",
+   "renewal": "40.12"
+  },
+  "systems": {
+   "registration": "11.84",
+   "renewal": "31.41"
+  },
+  "taipei": {
+   "registration": "14.98",
+   "renewal": "15.19"
+  },
+  "talk": {
+   "registration": "11.33",
+   "renewal": "31.41"
+  },
+  "tattoo": {
+   "registration": "2.06",
+   "renewal": "31.41"
+  },
+  "tax": {
+   "registration": "8.24",
+   "renewal": "60.25"
+  },
+  "taxi": {
+   "registration": "6.18",
+   "renewal": "56.13"
+  },
+  "team": {
+   "registration": "4.63",
+   "renewal": "32.44"
+  },
+  "tech": {
+   "registration": "6.99",
+   "renewal": "50.98"
+  },
+  "technology": {
+   "registration": "9.78",
+   "renewal": "26.26"
+  },
+  "tel": {
+   "registration": "9.78",
+   "renewal": "9.78"
+  },
+  "tennis": {
+   "registration": "67.46",
+   "renewal": "67.46"
+  },
+  "theater": {
+   "registration": "10.81",
+   "renewal": "52.01"
+  },
+  "theatre": {
+   "registration": "515.45",
+   "renewal": "515.45"
+  },
+  "tickets": {
+   "registration": "386.71",
+   "renewal": "386.71"
+  },
+  "tienda": {
+   "registration": "5.66",
+   "renewal": "47.89"
+  },
+  "tips": {
+   "registration": "8.24",
+   "renewal": "28.32"
+  },
+  "tires": {
+   "registration": "8.24",
+   "renewal": "80.84"
+  },
+  "tm": {
+   "registration": "432.85",
+   "renewal": "432.85"
+  },
+  "to": {
+   "registration": "51.80",
+   "renewal": "51.80"
+  },
+  "today": {
+   "registration": "2.57",
+   "renewal": "26.26"
+  },
+  "tokyo": {
+   "registration": "13.76",
+   "renewal": "13.76"
+  },
+  "tools": {
+   "registration": "9.78",
+   "renewal": "32.44"
+  },
+  "top": {
+   "registration": "1.63",
+   "renewal": "4.63"
+  },
+  "tours": {
+   "registration": "5.66",
+   "renewal": "56.13"
+  },
+  "town": {
+   "registration": "5.66",
+   "renewal": "32.44"
+  },
+  "toys": {
+   "registration": "10.81",
+   "renewal": "58.19"
+  },
+  "trade": {
+   "registration": "4.61",
+   "renewal": "5.64"
+  },
+  "trading": {
+   "registration": "19.05",
+   "renewal": "19.05"
+  },
+  "training": {
+   "registration": "11.84",
+   "renewal": "36.56"
+  },
+  "travel": {
+   "registration": "15.96",
+   "renewal": "129.25"
+  },
+  "tube": {
+   "registration": "21.11",
+   "renewal": "21.11"
+  },
+  "tv": {
+   "registration": "26.26",
+   "renewal": "26.26"
+  },
+  "tw": {
+   "registration": "11.89",
+   "renewal": "17.72"
+  },
+  "uk": {
+   "registration": "5.66",
+   "renewal": "5.66"
+  },
+  "university": {
+   "registration": "10.81",
+   "renewal": "56.13"
+  },
+  "uno": {
+   "registration": "4.63",
+   "renewal": "21.11"
+  },
+  "us": {
+   "registration": "4.43",
+   "renewal": "7.00"
+  },
+  "vacations": {
+   "registration": "5.66",
+   "renewal": "34.50"
+  },
+  "vana": {
+   "registration": "2060.25",
+   "renewal": "2060.25"
+  },
+  "vc": {
+   "registration": "26.06",
+   "renewal": "26.06"
+  },
+  "vegas": {
+   "registration": "15.96",
+   "renewal": "43.39"
+  },
+  "ventures": {
+   "registration": "5.66",
+   "renewal": "53.04"
+  },
+  "vet": {
+   "registration": "36.56",
+   "renewal": "36.56"
+  },
+  "viajes": {
+   "registration": "77.75",
+   "renewal": "77.75"
+  },
+  "video": {
+   "registration": "8.24",
+   "renewal": "31.41"
+  },
+  "villas": {
+   "registration": "10.81",
+   "renewal": "53.04"
+  },
+  "vin": {
+   "registration": "6.69",
+   "renewal": "53.04"
+  },
+  "vip": {
+   "registration": "4.12",
+   "renewal": "5.15"
+  },
+  "vision": {
+   "registration": "5.66",
+   "renewal": "40.68"
+  },
+  "vodka": {
+   "registration": "26.26",
+   "renewal": "26.26"
+  },
+  "vote": {
+   "registration": "26.26",
+   "renewal": "80.84"
+  },
+  "voto": {
+   "registration": "10.81",
+   "renewal": "56.13"
+  },
+  "voyage": {
+   "registration": "5.66",
+   "renewal": "46.86"
+  },
+  "wales": {
+   "registration": "10.59",
+   "renewal": "10.59"
+  },
+  "wang": {
+   "registration": "4.12",
+   "renewal": "6.05"
+  },
+  "watch": {
+   "registration": "3.09",
+   "renewal": "39.65"
+  },
+  "watches": {
+   "registration": "52.01",
+   "renewal": "257.98"
+  },
+  "webcam": {
+   "registration": "10.79",
+   "renewal": "10.79"
+  },
+  "website": {
+   "registration": "1.96",
+   "renewal": "21.11"
+  },
+  "wedding": {
+   "registration": "26.26",
+   "renewal": "26.26"
+  },
+  "wiki": {
+   "registration": "2.06",
+   "renewal": "26.26"
+  },
+  "win": {
+   "registration": "4.61",
+   "renewal": "5.64"
+  },
+  "wine": {
+   "registration": "5.66",
+   "renewal": "53.04"
+  },
+  "work": {
+   "registration": "2.06",
+   "renewal": "10.81"
+  },
+  "works": {
+   "registration": "4.63",
+   "renewal": "34.50"
+  },
+  "world": {
+   "registration": "2.57",
+   "renewal": "37.59"
+  },
+  "ws": {
+   "registration": "22.97",
+   "renewal": "22.97"
+  },
+  "wtf": {
+   "registration": "2.57",
+   "renewal": "32.44"
+  },
+  "xin": {
+   "registration": "2.37",
+   "renewal": "13.05"
+  },
+  "xn--5tzm5g": {
+   "registration": "11.84",
+   "renewal": "11.84"
+  },
+  "xn--6frz82g": {
+   "registration": "13.90",
+   "renewal": "13.90"
+  },
+  "xn--czrs0t": {
+   "registration": "37.59",
+   "renewal": "37.59"
+  },
+  "xn--fjq720a": {
+   "registration": "69.52",
+   "renewal": "69.52"
+  },
+  "xn--q9jyb4c": {
+   "registration": "7.43",
+   "renewal": "7.43"
+  },
+  "xn--unup4y": {
+   "registration": "69.52",
+   "renewal": "69.52"
+  },
+  "xn--vhquv": {
+   "registration": "69.52",
+   "renewal": "69.52"
+  },
+  "xxx": {
+   "registration": "52.01",
+   "renewal": "98.35"
+  },
+  "xyz": {
+   "registration": "1.29",
+   "renewal": "14.21"
+  },
+  "yachts": {
+   "registration": "1.54",
+   "renewal": "14.21"
+  },
+  "yoga": {
+   "registration": "26.26",
+   "renewal": "26.26"
+  },
+  "yokohama": {
+   "registration": "13.76",
+   "renewal": "13.76"
+  },
+  "you": {
+   "registration": "7.72",
+   "renewal": "18.54"
+  },
+  "zip": {
+   "registration": "10.81",
+   "renewal": "10.81"
+  },
+  "zone": {
+   "registration": "8.24",
+   "renewal": "34.50"
+  }
+ }
+}

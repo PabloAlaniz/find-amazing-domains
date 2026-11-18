@@ -22,6 +22,7 @@ CSV_FIELDS = (
     "parked_hint",
     "dns_nameservers",
     "dns_conflict",
+    "for_sale",
 )
 STATUS_SEPARATOR = ";"
 LIST_SEPARATOR = STATUS_SEPARATOR
@@ -40,7 +41,9 @@ class CsvResultWriter(ResultWriter):
     taken name, empty when unknown. ``dns_nameservers`` (joined with ``;``)
     are the NS hosts public DNS returned, empty when DNS was not consulted;
     ``dns_conflict`` is ``true`` when the registry said available but DNS
-    shows a delegation, else ``false``.
+    shows a delegation, else ``false``. ``for_sale`` is what the holder's
+    ``_for-sale`` DNS record says (``listed`` when it says nothing more),
+    empty when there is none or DNS was not consulted.
 
     The header is written immediately and each row is flushed as it is written,
     so an interrupted run keeps every result checked so far.
@@ -71,6 +74,7 @@ class CsvResultWriter(ResultWriter):
                 result.parked_hint,
                 LIST_SEPARATOR.join(result.dns.nameservers) if result.dns is not None else "",
                 "true" if result.dns_conflict else "false",
+                result.dns.for_sale if result.dns is not None else "",
             )
         )
         self._sink.stream.flush()

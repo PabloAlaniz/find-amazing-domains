@@ -6,7 +6,7 @@ The server exposes the same features as the CLI, as four tools:
 
 | Tool | What it does | Network |
 |---|---|---|
-| `find_domain_for_name` | What `domainhack name` does: exact name under a TLD preset, domain hacks that spell it (subdomain ones included), optional brand variants with the default or your own `prefixes` and `suffixes`, ranked recommendation, details for taken names | registries |
+| `find_domain_for_name` | What `domainhack name` does: exact name under a TLD preset, domain hacks that spell it (subdomain ones included), optional brand variants with the default or your own `prefixes` and `suffixes`, reference prices, optionally the name's `handles` on GitHub, npm and PyPI, ranked recommendation, details for taken names | registries |
 | `check_domains` | Availability and registration details for specific names (`pla.to`, `foto.com.ar`), with the DNS cross-check | registries |
 | `find_hacks_for_words` | Which words end in a TLD and the hack each forms (`testing` -> `test.ing`) | none |
 | `list_tlds` | Which TLDs can be checked, how, and why not | none |
@@ -72,7 +72,10 @@ client starts the server in a directory of its own choosing, prefer `--config` o
 `taken`, `unverifiable` and `dns_conflicts` entries (each with `domain`, `status`, `detail`
 and, for taken names, `statuses`, `registered_at`, `expires_at`, `registrar`, `parked_hint`),
 the `recommendations` with their reason, `advice`, `notes`, the check `summary` and any
-`warnings` (an unsupported TLD, for instance). Only `available` names are recommended;
+`warnings` (an unsupported TLD, for instance). Available entries carry a `price`
+(`registration` and `renewal`, as strings) when the bundled price list has their TLD, and
+`prices` names the list's source and date; with `handles: true`, `handles` has one entry per
+service with `status` `taken`, `not-found`, `invalid` or `unknown`. Only `available` names are recommended;
 `dns-conflict`, `dropping` and `taken` ones are not free.
 
 The server's instructions tell the model that "available" means "not registered" and that

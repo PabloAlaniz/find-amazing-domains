@@ -67,6 +67,8 @@ What it checks:
 - **Exact name** under every TLD of `--tlds`. It takes presets and TLDs, mixed: `--tlds startup,com.ar,la`. The presets are `startup` (the default: com, app, io, ai, co, dev, so, xyz), `latam` (com.ar, ar, com.mx, mx, com.co, co, com.br, cl, pe), `classic` (com, net, org) and `all-supported` (every TLD the tool can check). A TLD the tool cannot check (e.g. `.es`, whose registry only serves accredited users) is reported as unsupported, with the reason.
 - **Domain hacks**: the name split at a TLD it ends with (`plato` -> `pla.to`), and the name plus a curated word ending in a TLD (`sumanda` + studio -> `sumandastud.io`, or `sumanda.studio` where the word is itself a TLD). The words and their meanings live in `src/domainhack/data/hack_words.json`. When the name ends in no TLD, the report says so. When it does, hacks that move part of the name to a subdomain are checked too: `delicious` -> `del.icio.us`, where the name to register is `icio.us`. `--no-subdomain-hacks` leaves them out.
 - **Brand variants** (`--variants`): `get`/`use`/`try`/`hola`/`my` + name and name + `hq`/`app`/`labs`/`studio`. They are checked under `.com` and the first 3 other requested TLDs only, so there are at most 36 of them. `--prefix get,try` and `--suffix hq,labs` use your own words instead (at most 10 of each). On their own they add only the words you give; with `--variants` the side you did not name keeps its default list.
+- **Reference prices**: available names show what their TLD costs a year (`$28.12/yr, renews $51.50`) when the bundled price list has it. The list is a dated snapshot of one registrar's public prices for an ordinary name, not a quote: premium and reserved names cost more. The report names its source and date. `--no-prices` hides them.
+- **Handles** (`--handles`): whether the name is taken as a GitHub user or organization, an npm package and a PyPI project, with one request to each. "Not found" means nothing answers to that name today; services also reserve names and refuse look-alikes. Anything a service does not answer clearly is reported as "could not check".
 
 The report lists the exact names by TLD, the hacks, the available variants and the taken names. Taken names come with their details (registration and expiry dates, parking service, dropping status). It also names everything it could not verify (registry error or unreachable, no registrar for the TLD) and every DNS conflict (the registry says available, but DNS has nameservers). `--format` picks `text` (default), `markdown` (to share) or `json`. `--output FILE` also saves the raw results as CSV or JSON Lines, like `check`.
 
@@ -80,7 +82,7 @@ The recommendation ranks available names only:
 - then other variants;
 - then hacks with an extra word or with a subdomain.
 
-Shorter names win within a tier. Taken, dropping, DNS-conflict and unverifiable names are never recommended.
+Shorter names win within a tier, and between two names of the same tier and length the one with the cheaper TLD comes first. Handles never change the ranking. Taken, dropping, DNS-conflict and unverifiable names are never recommended.
 
 `--confirm-dns` / `--no-confirm-dns` turns the DNS cross-check on or off (on by default when a resolver is available). The registry check uses the same options as `check`: `--delay`, `--parallel`, `--no-cache`, `--cache-*`, `--contact` and `--no-progress`. The exit status follows `check`: it is 1 when some check ended in an error, and the report is still printed.
 

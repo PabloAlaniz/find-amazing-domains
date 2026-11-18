@@ -48,6 +48,15 @@ fixtures.
 
 Registries limit automated lookups. Probe each one a handful of times, not in a loop.
 
+## Refreshing the reference prices
+
+The prices `domainhack name` shows come from `src/domainhack/data/tld_prices.json`, a dated
+snapshot of Porkbun's public price list. Refresh it before a release and commit the diff:
+
+```bash
+python tools/refresh_prices.py
+```
+
 ## Pull requests
 
 - One topic per PR. Small PRs get reviewed faster.

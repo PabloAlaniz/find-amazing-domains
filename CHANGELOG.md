@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `domainhack watch add|remove|list|run`: keep a watchlist and report what
+  changed since the last run (became available, dropping, registered,
+  restored, expiry date moved, parking changed). `--format json`, and
+  `--exit-code` to exit 3 on a change. The watchlist is a JSON file under
+  `$XDG_DATA_HOME/domainhack/` (`--watchlist`, `$DOMAINHACK_WATCHLIST`).
+- Reference prices in the `name` report and the MCP tool: available names
+  show their TLD's yearly registration and renewal price from a bundled, dated
+  snapshot of a public registrar price list (`data/tld_prices.json`, refreshed
+  with `tools/refresh_prices.py`), and the cheaper of two equally good names
+  is recommended first. `--no-prices` hides them.
+- `name --handles` (MCP: `handles: true`): whether the name is taken on
+  GitHub, npm and PyPI. Information only.
+- The DNS cross-check reads the `_for-sale` TXT record of delegated names:
+  `check --show-taken` and the `name` report say when a holder lists a name
+  for sale, and CSV and JSON Lines gain a `for_sale` column, appended at the end.
+- Weekly report: a "Changes since" section (newly available, registered by
+  someone, newly dropping) and an Atom feed, `reports/feed.xml`, on the
+  `reports` branch.
 - Pattern mode: `check --pattern CVCV` checks the names a pattern matches
   (`C` consonant, `V` vowel, `L` letter, `D` digit; lowercase letters, digits
   and hyphens are literal), with the same estimate, `--limit`, `--dry-run`

@@ -177,7 +177,9 @@ domainhack --tld io,com.ar check --file words.txt --confirm-dns
   AVAILABLE? x.io -- registry says free but DNS has NS records
 ```
 
-and the summary counts these names. Treat them as taken until a registrar confirms otherwise. NXDOMAIN means "not in DNS". It is not an error, because many registered names are not delegated. Timeouts and SERVFAIL are recorded as DNS errors and never stop the run.
+and the summary counts these names. Treat them as taken until a registrar confirms otherwise.
+
+For a taken name that is delegated, the same lookup asks for a `_for-sale` TXT record: the way a holder says "this name can be bought" in DNS (an IETF draft, in use on `.nl` among others). When there is one, the name prints as `TAKEN: x.io (expires 2027-03-01, for sale: fval=EUR999)`, with whatever the record says after its version tag, or `for sale: listed` when it says nothing more. NXDOMAIN means "not in DNS". It is not an error, because many registered names are not delegated. Timeouts and SERVFAIL are recorded as DNS errors and never stop the run.
 
 #### Unreachable registries
 
@@ -204,6 +206,39 @@ domainhack --tld to,io,it check --file data/words_en.txt --keep-order
 - **Memory stays bounded in range and pattern modes.** Candidates are generated lazily. Each host has a queue of at most 16 waiting domains; when it is full, generation pauses until that host catches up. At most `hosts x 16` candidates (plus their results) are in memory, however large `--range-max` is.
 - **Ctrl-C** stops dispatching at once, gives checks in flight up to a second to finish (their results are kept), and exits with status 130 as before.
 
+### Watching names
+
+Some names are worth waiting for: the `.com` that expires next month, the hack that is in redemption. `watch` keeps a list of them and tells you what changed since the last time it looked.
+
+```bash
+domainhack watch add sumanda.com pla.to    # start watching (asks no registry)
+domainhack watch run                       # check them all, print only the changes
+domainhack watch list                      # what was last seen
+domainhack watch remove pla.to
+```
+
+The first `watch run` records where each name stands. From then on a run prints one line per change, and nothing when nothing changed:
+
+```
+sumanda.com: is dropping: pending delete, expires 2026-11-12: it may be free soon
+pla.to: is available now (was taken, expires 2026-11-02)
+gus.to: expiry date moved: 2026-12-01 -> 2027-12-01
+```
+
+The changes it reports: a name became available, started dropping (redemption or pending delete), was registered, was restored by its holder, its expiry date moved, or its parking service changed. A name whose check fails keeps its last known state, so the change is still reported once the registry answers again.
+
+- Every run asks the registries afresh; the result cache is not read. The pacing options of `check` apply (`--delay`, `--parallel`, `--contact`).
+- `--format json` prints the changes as data (`changes`, `first_checks`, `not_checked`).
+- `--exit-code` exits with status 3 when something changed, so a script can act on it:
+
+  ```bash
+  # crontab: every morning, mail me only when something changed
+  0 8 * * *  domainhack watch run --exit-code --no-progress > /tmp/watch.txt; [ $? -eq 3 ] && mail -s "domain watch" you@example.com < /tmp/watch.txt
+  ```
+
+- The watchlist is a JSON file: `$XDG_DATA_HOME/domainhack/watchlist.json` (`~/.local/share/domainhack/watchlist.json`), or `$DOMAINHACK_WATCHLIST`, or `--watchlist FILE` to keep several.
+- `watch add` refuses names under a TLD that cannot be checked, and says why.
+
 ### Saving results
 
 ```bash
@@ -214,7 +249,7 @@ domainhack --tld to check --file data/words_es.txt --output results.csv
 domainhack --tld to check --file data/words_es.txt --output results.jsonl
 ```
 
-Rows are written as they are checked, so an interrupted run (Ctrl-C) keeps everything checked so far. Columns: `fqdn` (ASCII, what was queried), `display` (as written, e.g. `ñandú.de`), `word`, `sld`, `tld`, `availability`, `error_message`, `statuses`, `expires_at`, `registered_at`, `registrar`, `nameservers`, `parked_hint`, `dns_nameservers`, `dns_conflict`. New columns are always appended, so existing positions stay stable.
+Rows are written as they are checked, so an interrupted run (Ctrl-C) keeps everything checked so far. Columns: `fqdn` (ASCII, what was queried), `display` (as written, e.g. `ñandú.de`), `word`, `sld`, `tld`, `availability`, `error_message`, `statuses`, `expires_at`, `registered_at`, `registrar`, `nameservers`, `parked_hint`, `dns_nameservers`, `dns_conflict`, `for_sale`. New columns are always appended, so existing positions stay stable.
 
 - `statuses`: registry statuses of a taken name (RFC 9083 form, e.g. `client transfer prohibited`).
 - `expires_at` / `registered_at`: expiration and registration dates in ISO 8601 UTC (`2026-11-30T07:38:29Z`).
@@ -223,6 +258,7 @@ Rows are written as they are checked, so an interrupted run (Ctrl-C) keeps every
 - `parked_hint`: the parking/aftermarket service those nameservers belong to (e.g. `domainrecover`), empty if none is recognised.
 - `dns_nameservers`: NS hosts public DNS returned, when DNS was consulted.
 - `dns_conflict`: `true` when the registry said available but DNS shows a delegation (do not trust it as free), else `false`.
+- `for_sale`: what the holder's `_for-sale` DNS record says (`listed` when it says nothing more); empty when there is none or DNS was not consulted.
 
 Lists are joined with `;` in CSV and are arrays in JSON; unknown values are empty in CSV and `null` (dates) or empty in JSON.
 
@@ -299,6 +335,7 @@ domainhack uses the first of these that applies: `--config FILE`, the `DOMAINHAC
 | 0 | Completed, no errors |
 | 1 | Completed with some failed checks, or a runtime error |
 | 2 | Usage error |
+| 3 | `watch run --exit-code`: something changed since the last run |
 | 130 | Interrupted (Ctrl-C) |
 
 ## Word Lists

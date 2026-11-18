@@ -1,9 +1,11 @@
 """domainhack as an MCP server, so an agent can find a domain while it names a project.
 
-Four tools, built on the same use cases as the CLI:
+Six tools, built on the same use cases as the CLI:
 
 - ``find_domain_for_name``: what ``domainhack name`` does, as structured data;
 - ``check_domains``: availability of specific names, with registration details;
+- ``check_pattern``: the names a pattern matches (``CVCV``), a bounded number per call;
+- ``watch_domains``: the watchlist of ``domainhack watch`` (add, remove, list, run);
 - ``find_hacks_for_words``: which words end in a TLD (offline, no network);
 - ``list_tlds``: which TLDs can be checked, how, and why not (offline).
 
@@ -20,6 +22,7 @@ import argparse
 import dataclasses
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any, Literal
 
 import anyio
@@ -41,6 +44,7 @@ from domainhack.adapters.json_writer import result_record
 from domainhack.adapters.rdap_bootstrap import RdapBootstrap
 from domainhack.adapters.registrar_catalog import describe_backend
 from domainhack.adapters.registry_sources import unsupported_message
+from domainhack.adapters.watch_store import WatchlistError, WatchStore
 from domainhack.cli import app
 from domainhack.cli.checks import check_names, parse_domains
 from domainhack.cli.name_cmd import (
@@ -52,9 +56,19 @@ from domainhack.cli.name_cmd import (
     validate_brand_name,
 )
 from domainhack.cli.tlds_cmd import offline_bootstrap
-from domainhack.domain.entities import TLD, DomainHack, InvalidLabelError
+from domainhack.cli.watch_cmd import add_names, entry_json, remove_names, run_watch
+from domainhack.domain.entities import (
+    TLD,
+    Availability,
+    DomainCheckResult,
+    DomainHack,
+    InvalidLabelError,
+)
 from domainhack.usecases.brand_candidates import MAX_AFFIXES
 from domainhack.usecases.check_domains import CheckSummary
+from domainhack.usecases.generate_pattern import PatternError, PatternWordSource
+from domainhack.usecases.generate_range import RangeCandidatesUseCase
+from domainhack.usecases.rank_candidates import CandidateOrder, RankCandidatesUseCase
 
 SERVER_NAME = "domainhack"
 
@@ -68,6 +82,9 @@ domain availability directly against the registries over RDAP and WHOIS, with no
   recommendation. Only names with status "available" are recommended; "dns-conflict",
   "taken", "dropping" and "unverifiable" names are not free.
 - To check specific names, call check_domains with full domain names.
+- To look for a short invented name, call check_pattern (CVCV under "to" -> baba.to...).
+- To wait for a taken name, call watch_domains: "add" it, then "run" from time to time;
+  a run returns only what changed (became available, dropping, registered...).
 - find_hacks_for_words and list_tlds are offline and instant.
 
 Registries limit automated lookups: a call may take several seconds per TLD, results are
@@ -76,6 +93,9 @@ available). Confirm with a registrar before buying.
 """
 
 TldKind = Literal["supported", "unsupported", "all"]
+WatchAction = Literal["add", "remove", "list", "run"]
+# Most names one check_pattern call sends to the registries, across its TLDs.
+MAX_PATTERN_CHECKS = 100
 
 
 def run_options(argv: Sequence[str] = ()) -> argparse.Namespace:
@@ -132,6 +152,10 @@ def _summary_dict(summary: CheckSummary | None) -> dict[str, Any]:
     }
 
 
+def _is_free(result: DomainCheckResult) -> bool:
+    return result.availability is Availability.AVAILABLE and not result.dns_conflict
+
+
 def _unsupported_entry(domain: DomainHack) -> dict[str, str]:
     reason = unsupported_message(domain.tld.suffix) or f"no registrar supports .{domain.tld.suffix}"
     return {"domain": domain.display, "reason": reason}
@@ -143,8 +167,9 @@ def build_server(
     catalog: app.RegistrarCatalog | None = None,
     services: NameServices | None = None,
     bootstrap: RdapBootstrap | None = None,
+    watchlist: Path | None = None,
 ) -> MCPServer:
-    """The MCP server with its four tools.
+    """The MCP server with its six tools.
 
     Requests that cannot be served (invalid name, no valid TLD, no registrar
     for any candidate) raise ``ToolError``, which the client sees as a tool
@@ -152,7 +177,8 @@ def build_server(
     the CLI defaults, no progress bar). ``catalog`` and ``services`` replace the registrar catalog
     and the ``name`` services, as in the CLI (tests pass fakes). ``bootstrap``
     is the RDAP bootstrap ``list_tlds`` describes (default: the bundled
-    snapshot, offline).
+    snapshot, offline). ``watchlist`` is the file ``watch_domains`` uses
+    (default: the CLI's own, see ``adapters/watch_store.py``).
     """
     run_opts = run if run is not None else run_options()
     svc = services if services is not None else default_services()
@@ -258,6 +284,110 @@ def build_server(
                 "rejected": rejected,
                 "summary": _summary_dict(summary),
             }
+
+        return await anyio.to_thread.run_sync(work)
+
+    @server.tool(
+        name="check_pattern",
+        description=(
+            "Check short, pronounceable names that fit a pattern, under one or more TLDs. "
+            "One pattern character per letter of the name: C = consonant, V = vowel, "
+            "L = any letter, D = digit; lowercase letters, digits and hyphens stand for "
+            "themselves (CVCV -> baba, babe...; goCV -> goba...). Names are checked in "
+            f"order, at most 'limit' per TLD and {MAX_PATTERN_CHECKS} in the whole call; "
+            "'total' says how many names fit, so a narrower pattern (more literals) is the "
+            "way to reach the rest. Queries the registries live."
+        ),
+    )
+    async def check_pattern(
+        pattern: str,
+        tlds: list[str],
+        limit: int = 20,
+        confirm_dns: bool = False,
+    ) -> dict[str, Any]:
+        try:
+            source = PatternWordSource(pattern)
+        except PatternError as exc:
+            raise ToolError(f"invalid pattern {pattern!r}: {exc}") from None
+        try:
+            suffixes = app.parse_tld_list(",".join(tlds))
+        except argparse.ArgumentTypeError as exc:
+            raise ToolError(str(exc)) from None
+        if limit < 1:
+            raise ToolError("limit must be at least 1")
+        per_tld = min(limit, max(1, MAX_PATTERN_CHECKS // len(suffixes)))
+        candidates = RangeCandidatesUseCase(source, suffixes)
+        ranker = RankCandidatesUseCase(CandidateOrder.INPUT, limit=per_tld, tlds=suffixes)
+        domains = list(ranker.execute(candidates.execute()))
+        if not domains:
+            raise ToolError(f"no name fitting {pattern!r} is valid under these TLDs")
+        dns = svc.dns if confirm_dns else None
+
+        def work() -> dict[str, Any]:
+            results, summary, unsupported = check_names(
+                domains, run=run_opts, catalog=catalog, dns=dns
+            )
+            skipped_tlds = sorted({d.tld.suffix for d in unsupported})
+            return {
+                "pattern": pattern,
+                "total": candidates.total(),
+                "checked_per_tld": per_tld,
+                "available": [r.domain.display for r in results if _is_free(r)],
+                "results": [result_record(r) for r in results],
+                "unsupported": [
+                    {
+                        "tld": suffix,
+                        "reason": unsupported_message(suffix) or f"no registrar supports .{suffix}",
+                    }
+                    for suffix in skipped_tlds
+                ],
+                "summary": _summary_dict(summary),
+            }
+
+        return await anyio.to_thread.run_sync(work)
+
+    @server.tool(
+        name="watch_domains",
+        description=(
+            "Follow names over time. action 'add' / 'remove' edit the watchlist (full "
+            "domain names); 'list' shows it with what was last seen; 'run' asks the "
+            "registries afresh and returns only what changed since the last run: a name "
+            "became available, started dropping (redemption or pending delete), was "
+            "registered or restored, its expiry date moved or its parking changed. The "
+            "first run of a name only records where it stands. The watchlist is the same "
+            "file the CLI's 'domainhack watch' uses."
+        ),
+    )
+    async def watch_domains(
+        action: WatchAction, domains: list[str] | None = None
+    ) -> dict[str, Any]:
+        names = domains or []
+        if action in ("add", "remove") and not names:
+            raise ToolError(f"'{action}' needs at least one domain name")
+
+        def work() -> dict[str, Any]:
+            store = WatchStore(watchlist)
+            try:
+                if action == "add":
+                    change = add_names(names, store, catalog)
+                    return {
+                        "added": change.done,
+                        "already_watched": change.unchanged,
+                        "refused": change.refused,
+                        "watched": change.watched,
+                    }
+                if action == "remove":
+                    change = remove_names(names, store)
+                    return {
+                        "removed": change.done,
+                        "refused": change.refused,
+                        "watched": change.watched,
+                    }
+                if action == "list":
+                    return {"watched": [entry_json(e) for e in store.load().values()]}
+                return run_watch(store, run_opts, catalog).to_dict()
+            except WatchlistError as exc:
+                raise ToolError(str(exc)) from None
 
         return await anyio.to_thread.run_sync(work)
 

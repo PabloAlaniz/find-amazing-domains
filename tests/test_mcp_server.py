@@ -54,7 +54,7 @@ def _data(server: Any, tool: str, **arguments: Any) -> dict[str, Any]:
 
 
 class TestServer:
-    def test_lists_four_tools_with_schemas(self) -> None:
+    def test_lists_the_tools_with_schemas(self) -> None:
         server, _ = _server()
         tools = anyio.run(server.list_tools)
         by_name = {t.name: t for t in tools}
@@ -63,7 +63,11 @@ class TestServer:
             "check_domains",
             "find_hacks_for_words",
             "list_tlds",
+            "check_pattern",
+            "watch_domains",
         }
+        assert by_name["check_pattern"].input_schema["required"] == ["pattern", "tlds"]
+        assert by_name["watch_domains"].input_schema["required"] == ["action"]
         assert by_name["find_domain_for_name"].input_schema["required"] == ["name"]
         assert by_name["check_domains"].input_schema["required"] == ["domains"]
         assert "startup" in (by_name["find_domain_for_name"].description or "")
@@ -273,3 +277,111 @@ class TestOfflineTools:
         server, _ = _server()
         with pytest.raises(ToolError, match="not a known TLD: zzz"):
             _call(server, "list_tlds", only=["zzz"])
+
+
+class TestCheckPattern:
+    def test_checks_the_first_names_under_each_tld(self) -> None:
+        server, registrar = _server({"goa.to": Availability.TAKEN})
+        data = _data(server, "check_pattern", pattern="goV", tlds=["to", ".IO"], limit=2)
+        assert registrar.calls == ["goa.to", "goa.io", "goe.to", "goe.io"]
+        assert data["total"] == 10
+        assert data["checked_per_tld"] == 2
+        assert data["available"] == ["goa.io", "goe.to", "goe.io"]
+        assert [r["fqdn"] for r in data["results"]] == registrar.calls
+        assert data["summary"]["checked"] == 4
+
+    def test_one_call_is_bounded_whatever_the_limit(self) -> None:
+        server, registrar = _server()
+        data = _data(server, "check_pattern", pattern="CVCV", tlds=["to", "io", "ai"], limit=5000)
+        assert data["total"] == 3 * 11025
+        assert data["checked_per_tld"] == mcp_server.MAX_PATTERN_CHECKS // 3
+        assert len(registrar.calls) == 3 * (mcp_server.MAX_PATTERN_CHECKS // 3)
+
+    def test_dns_conflicts_are_not_listed_as_available(self) -> None:
+        dns = FakeDnsLookup({"goa.to": DnsEvidence(nameservers=("ns1.example.net",))})
+        server, _ = _server(dns=dns)
+        data = _data(server, "check_pattern", pattern="goV", tlds=["to"], limit=2, confirm_dns=True)
+        assert data["available"] == ["goe.to"]
+        assert dns.calls == ["goa.to", "goe.to"]
+
+    def test_unsupported_tlds_are_reported(self) -> None:
+        registrar = ScriptedRegistrar(default=Availability.AVAILABLE)
+        server, _ = _server(catalog=FakeCatalog(by_tld={"to": registrar}))
+        data = _data(server, "check_pattern", pattern="goV", tlds=["to", "es"], limit=1)
+        assert data["available"] == ["goa.to"]
+        assert [u["tld"] for u in data["unsupported"]] == ["es"]
+
+    @pytest.mark.parametrize(
+        ("arguments", "message"),
+        [
+            ({"pattern": "go!", "tlds": ["to"]}, "invalid pattern"),
+            ({"pattern": "CV", "tlds": ["t"]}, "invalid TLD"),
+            ({"pattern": "CV", "tlds": []}, "at least one TLD"),
+            ({"pattern": "CV", "tlds": ["to"], "limit": 0}, "limit must be at least 1"),
+            ({"pattern": "CV", "tlds": ["it"]}, "no name fitting"),  # .it wants 3+ characters
+        ],
+    )
+    def test_bad_requests_are_tool_errors(self, arguments: dict[str, Any], message: str) -> None:
+        server, registrar = _server()
+        with pytest.raises(ToolError, match=message):
+            _call(server, "check_pattern", **arguments)
+        assert registrar.calls == []
+
+
+class TestWatchDomains:
+    @staticmethod
+    def _server(tmp_path: Any, script: dict[str, Any]) -> tuple[Any, ScriptedRegistrar]:
+        registrar = ScriptedRegistrar(script)
+        server = build_server(
+            run=run_options(["--no-cache"]),
+            catalog=FakeCatalog(by_tld={"to": registrar}),
+            services=_services(),
+            watchlist=tmp_path / "watch.json",
+        )
+        return server, registrar
+
+    def test_add_list_run_remove(self, tmp_path: Any) -> None:
+        script: dict[str, Any] = {"pla.to": Availability.TAKEN}
+        server, registrar = self._server(tmp_path, script)
+        data = _data(server, "watch_domains", action="add", domains=["Pla.to", "x.es", "nope"])
+        assert data["added"] == ["pla.to"]
+        assert [r["domain"] for r in data["refused"]] == ["nope", "x.es"]
+        assert data["watched"] == 1
+        assert registrar.calls == []
+        again = _data(server, "watch_domains", action="add", domains=["pla.to"])
+        assert (again["added"], again["already_watched"]) == ([], ["pla.to"])
+
+        listed = _data(server, "watch_domains", action="list")
+        assert [(e["domain"], e["state"]) for e in listed["watched"]] == [("pla.to", None)]
+
+        first = _data(server, "watch_domains", action="run")
+        assert (first["checked"], first["changes"]) == (1, [])
+        assert [e["domain"] for e in first["first_checks"]] == ["pla.to"]
+
+        registrar._script["pla.to"] = Availability.AVAILABLE
+        second = _data(server, "watch_domains", action="run")
+        (change,) = second["changes"]
+        assert (change["domain"], change["kind"]) == ("pla.to", "became-available")
+        assert _data(server, "watch_domains", action="run")["changes"] == []
+
+        removed = _data(server, "watch_domains", action="remove", domains=["pla.to", "gus.to"])
+        assert removed["removed"] == ["pla.to"]
+        assert removed["refused"] == [{"domain": "gus.to", "reason": "not watched"}]
+        assert removed["watched"] == 0
+
+    def test_run_with_nothing_watched(self, tmp_path: Any) -> None:
+        server, _ = self._server(tmp_path, {})
+        data = _data(server, "watch_domains", action="run")
+        assert data == {"checked": 0, "changes": [], "first_checks": [], "not_checked": []}
+
+    @pytest.mark.parametrize("action", ["add", "remove"])
+    def test_add_and_remove_need_names(self, tmp_path: Any, action: str) -> None:
+        server, _ = self._server(tmp_path, {})
+        with pytest.raises(ToolError, match="needs at least one domain name"):
+            _call(server, "watch_domains", action=action)
+
+    def test_a_broken_watchlist_is_a_tool_error(self, tmp_path: Any) -> None:
+        server, _ = self._server(tmp_path, {})
+        (tmp_path / "watch.json").write_text("nope")
+        with pytest.raises(ToolError, match="not a domainhack watchlist"):
+            _call(server, "watch_domains", action="list")

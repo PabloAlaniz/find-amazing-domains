@@ -2,12 +2,14 @@
 
 domainhack runs as a [Model Context Protocol](https://modelcontextprotocol.io/) server, so
 Claude, Cursor or any MCP client can look for a domain while it helps you name a project.
-The server exposes the same features as the CLI, as four tools:
+The server exposes the same features as the CLI, as six tools:
 
 | Tool | What it does | Network |
 |---|---|---|
 | `find_domain_for_name` | What `domainhack name` does: exact name under a TLD preset, domain hacks that spell it (subdomain ones included), optional brand variants with the default or your own `prefixes` and `suffixes`, reference prices, optionally the name's `handles` on GitHub, npm and PyPI, ranked recommendation, details for taken names | registries |
 | `check_domains` | Availability and registration details for specific names (`pla.to`, `foto.com.ar`), with the DNS cross-check | registries |
+| `check_pattern` | Short names that fit a pattern (`CVCV` -> `baba`, `babe`...; `goCV`) under the TLDs you give, at most 100 per call; returns the available ones and how many names fit in all | registries |
+| `watch_domains` | The watchlist of `domainhack watch`: `add`, `remove`, `list`, and `run`, which returns only what changed since the last run (became available, dropping, registered, restored, expiry moved, parking changed) | registries (`run`) |
 | `find_hacks_for_words` | Which words end in a TLD and the hack each forms (`testing` -> `test.ing`) | none |
 | `list_tlds` | Which TLDs can be checked, how, and why not | none |
 
@@ -20,7 +22,7 @@ uvx --from "domainhack[mcp]" domainhack-mcp
 ```
 
 The server speaks MCP over stdio. It accepts the run options the CLI shares
-(`--delay`, `--parallel`, `--no-cache`, `--cache-path`, `--contact EMAIL`); the progress
+(`--delay`, `--parallel`, `--no-cache`, `--no-zones`, `--cache-path`, `--contact EMAIL`); the progress
 bar is always off. Results are cached like the CLI's, so repeated questions do not hit the
 registries again.
 
@@ -89,3 +91,10 @@ registry host, adaptive backoff, `Retry-After` honoured, a circuit breaker per h
 identifying `User-Agent`. An agent asking for a name under the `startup` preset makes a few
 dozen queries spread over eight registries; `all-supported` asks every registry the tool knows
 and takes minutes. The tool descriptions say so.
+
+## A skill instead of a server
+
+If you use Claude Code and would rather not run a server,
+[`skills/domainhack/SKILL.md`](https://github.com/PabloAlaniz/find-amazing-domains/blob/main/skills/domainhack/SKILL.md)
+teaches it to drive the CLI: which command fits a request and how to read the results. Copy
+the `domainhack` folder into `~/.claude/skills/` (or a project's `.claude/skills/`).

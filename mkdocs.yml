@@ -10,6 +10,7 @@ nav:
   - Overview: index.md
   - Usage: usage.md
   - Supported TLDs: tlds.md
+  - Browse available hacks: browse.md
   - Use it from an AI agent (MCP): mcp.md
   - How it compares: compare.md
   - Architecture: architecture.md
@@ -58,6 +59,11 @@ markdown_extensions:
 
 plugins:
   - search
+
+extra_javascript:
+  - javascripts/browse.js
+extra_css:
+  - stylesheets/browse.css
 
 extra:
   social:

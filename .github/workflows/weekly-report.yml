@@ -3,7 +3,8 @@ name: Weekly domain hacks report
 # Checks the bundled word lists (data/wordlists/) against every TLD domainhack
 # can query and publishes reports/latest.md plus a dated copy on the `reports`
 # branch (main is protected by required checks), with what changed since the
-# previous run and an Atom feed (reports/feed.xml). One request in flight per
+# previous run, an Atom feed (reports/feed.xml) and the data the documentation
+# site's Browse page reads (reports/available.json). One request in flight per
 # registry host, one second apart; the result cache is kept between runs so
 # taken names are not asked again before they could have expired. Raw results
 # are kept as a workflow artifact, not in the repository.

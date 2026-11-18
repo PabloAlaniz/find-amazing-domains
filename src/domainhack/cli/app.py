@@ -4,6 +4,7 @@ import os
 import re
 import sys
 from collections.abc import Hashable, Iterable, Sequence
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
@@ -33,10 +34,13 @@ from domainhack.adapters.registrar_catalog import build_registrar_for
 from domainhack.adapters.registrar_router import RegistrarFactory, RegistrarRouter
 from domainhack.adapters.registry_sources import describe_unsupported
 from domainhack.adapters.tqdm_progress import TqdmProgressReporter
+from domainhack.adapters.zone_cache import ZoneAwareCache
+from domainhack.adapters.zone_snapshot import ZoneError, ZoneStore
 from domainhack.domain.entities import TLD, DomainHack
 from domainhack.ports.dns_lookup import DnsLookup
 from domainhack.ports.progress import NullProgressReporter, ProgressReporter
 from domainhack.ports.registrar import RegistrarClient
+from domainhack.ports.result_cache import ResultCache
 from domainhack.ports.result_writer import ResultWriter
 from domainhack.usecases.check_domains import (
     DEFAULT_PARALLEL,
@@ -295,6 +299,12 @@ def add_run_options(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--no-cache", action="store_true", help="Disable the result cache")
     parser.add_argument(
+        "--no-zones",
+        action="store_true",
+        help="Ask the registry even for names an imported zone snapshot lists as "
+        "delegated (see 'domainhack zones')",
+    )
+    parser.add_argument(
         "--cache-ttl",
         type=_non_negative_float,
         default=None,
@@ -444,11 +454,12 @@ def build_parser(config: Config | None = None) -> argparse.ArgumentParser:
         "An available name with NS records prints as 'AVAILABLE?': do not trust it as free",
     )
     # Imported here: name_cmd imports this module's helpers.
-    from domainhack.cli import name_cmd, tlds_cmd, watch_cmd
+    from domainhack.cli import name_cmd, tlds_cmd, watch_cmd, zones_cmd
 
     name_cmd.register(sub, epilog=_EPILOG, config=config)
     tlds_cmd.register(sub, epilog=_EPILOG)
     watch_cmd.register(sub, epilog=_EPILOG, config=config)
+    zones_cmd.register(sub, epilog=_EPILOG)
     return parser
 
 
@@ -673,6 +684,28 @@ def _build_registrar(
     )
 
 
+def result_cache(args: argparse.Namespace, registrar: RegistrarClient) -> ResultCache | None:
+    """What the check use case consults before it queries: the result cache (unless
+    ``--no-cache``) and the fresh zone snapshots (unless ``--no-zones``).
+
+    A stale snapshot is named on stderr and ignored.
+    """
+    cache: ResultCache | None = registrar if isinstance(registrar, CachedRegistrarClient) else None
+    if getattr(args, "no_zones", False):
+        return cache
+    try:
+        zones, stale = ZoneStore().open_fresh(date.today())
+    except ZoneError as exc:
+        _stderr(f"warning: zone snapshots not used: {exc}")
+        return cache
+    for info in stale:
+        _stderr(
+            f"warning: the zone snapshot of .{info.suffix} is from {info.imported.isoformat()}; "
+            "it is too old to use. Import it again or remove it (domainhack zones)"
+        )
+    return ZoneAwareCache(cache, zones) if zones else cache
+
+
 def _lane_key(args: argparse.Namespace, router: RegistrarRouter) -> LaneKey:
     """One lane per registry host (see ``pacing.lane_for``), resolved once per TLD."""
     lanes: dict[TLD, Hashable] = {}
@@ -684,6 +717,12 @@ def _lane_key(args: argparse.Namespace, router: RegistrarRouter) -> LaneKey:
         return lanes[tld]
 
     return lane
+
+
+def close_zones(cache: ResultCache | None) -> None:
+    """Release the zone snapshots ``result_cache`` opened, if any."""
+    if isinstance(cache, ZoneAwareCache):
+        cache.close()
 
 
 def _cache_ttl_policy(args: argparse.Namespace) -> CacheTtlPolicy:
@@ -816,7 +855,7 @@ def cmd_check(
         progress = _build_progress(args)
         # Workers call the router directly; the cache is read and written on
         # this thread only, so cache hits never wait for a lane.
-        cache = registrar if isinstance(registrar, CachedRegistrarClient) else None
+        cache = result_cache(args, registrar)
         use_case = CheckDomainsUseCase(
             router,
             writer,
@@ -826,8 +865,13 @@ def cmd_check(
             lane_key=_lane_key(args, router),
             keep_order=getattr(args, "keep_order", False),
         )
-        summary = use_case.execute(domains, total=total)
+        try:
+            summary = use_case.execute(domains, total=total)
+        finally:
+            close_zones(cache)
     _warn_skipped(candidates.skipped)
+    if isinstance(cache, ZoneAwareCache) and cache.zone_hits:
+        _stderr(f"{cache.zone_hits} names were answered from zone snapshots, without a query.")
     conflicts = writer.conflicts if isinstance(writer, DnsConfirmingWriter) else 0
     return _report(summary, dns_conflicts=conflicts)
 
@@ -922,6 +966,10 @@ def main(
             from domainhack.cli import watch_cmd
 
             return watch_cmd.cmd_watch(args, catalog=catalog)
+        if args.command == "zones":
+            from domainhack.cli import zones_cmd
+
+            return zones_cmd.cmd_zones(args)
         return cmd_check(args, catalog=catalog, dns_lookup=dns_lookup)
     except OutputFormatError as exc:
         parser.print_usage(sys.stderr)

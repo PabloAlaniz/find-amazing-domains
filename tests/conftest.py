@@ -32,6 +32,7 @@ def _isolated_cache_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg-cache"))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg-data"))
     monkeypatch.delenv("DOMAINHACK_WATCHLIST", raising=False)
+    monkeypatch.delenv("DOMAINHACK_ZONES", raising=False)
 
 
 @pytest.fixture(autouse=True)

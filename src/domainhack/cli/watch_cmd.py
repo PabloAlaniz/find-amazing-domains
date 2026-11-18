@@ -17,7 +17,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -97,12 +98,25 @@ def _names(count: int) -> str:
     return f"{count} name{'s' if count != 1 else ''}"
 
 
-def _add(args: argparse.Namespace, store: WatchStore, catalog: app.RegistrarCatalog | None) -> int:
-    domains, rejected = parse_domains(args.names)
-    for item in rejected:
-        app._stderr(f"error: {item['domain']}: {item['reason']}")
+@dataclass(frozen=True)
+class ListChange:
+    """What ``add_names`` or ``remove_names`` did. ``refused`` has ``{"domain", "reason"}``
+    items; ``unchanged`` names were already watched (add) and needed nothing."""
+
+    done: list[str]
+    unchanged: list[str]
+    refused: list[dict[str, str]]
+    watched: int
+
+
+def add_names(
+    names: Sequence[str], store: WatchStore, catalog: app.RegistrarCatalog | None
+) -> ListChange:
+    """Start watching ``names`` (full domain names). Asks no registry."""
+    domains, refused = parse_domains(names)
     entries = store.load()
-    added = 0
+    added: list[str] = []
+    unchanged: list[str] = []
     # Only asked which TLDs it supports; it sends nothing.
     router = app._build_router(argparse.Namespace(delay=1.0, contact=None), catalog)
     try:
@@ -110,40 +124,54 @@ def _add(args: argparse.Namespace, store: WatchStore, catalog: app.RegistrarCata
             if not router.supports(domain.tld):
                 suffix = domain.tld.suffix
                 reason = unsupported_message(suffix) or f"no registrar supports .{suffix}"
-                app._stderr(f"error: {domain.display}: {reason}")
-                rejected.append({"domain": domain.display, "reason": reason})
+                refused.append({"domain": domain.display, "reason": reason})
             elif domain.fqdn in entries:
-                app._stderr(f"{domain.display} is already watched")
+                unchanged.append(domain.display)
             else:
                 entries[domain.fqdn] = WatchEntry(domain.fqdn, domain.display, format_utc(_now()))
-                added += 1
+                added.append(domain.display)
     finally:
         router.close()
     if added:
         store.save(entries)
-    app._stderr(f"Watching {_names(len(entries))} ({added} added).")
-    return app.EXIT_USAGE if rejected else app.EXIT_OK
+    return ListChange(added, unchanged, refused, len(entries))
+
+
+def remove_names(names: Sequence[str], store: WatchStore) -> ListChange:
+    """Stop watching ``names``; the ones that were not watched are ``refused``."""
+    entries = store.load()
+    domains, rejected = parse_domains(names)
+    refused = [{"domain": item["domain"], "reason": "not watched"} for item in rejected]
+    removed: list[str] = []
+    for domain in domains:
+        if entries.pop(domain.fqdn, None) is None:
+            refused.append({"domain": domain.display, "reason": "not watched"})
+        else:
+            removed.append(domain.display)
+    if removed:
+        store.save(entries)
+    return ListChange(removed, [], refused, len(entries))
+
+
+def _add(args: argparse.Namespace, store: WatchStore, catalog: app.RegistrarCatalog | None) -> int:
+    change = add_names(args.names, store, catalog)
+    for item in change.refused:
+        app._stderr(f"error: {item['domain']}: {item['reason']}")
+    for name in change.unchanged:
+        app._stderr(f"{name} is already watched")
+    app._stderr(f"Watching {_names(change.watched)} ({len(change.done)} added).")
+    return app.EXIT_USAGE if change.refused else app.EXIT_OK
 
 
 def _remove(args: argparse.Namespace, store: WatchStore) -> int:
-    entries = store.load()
-    domains, rejected = parse_domains(args.names)
-    missing = [item["domain"] for item in rejected]
-    removed = 0
-    for domain in domains:
-        if entries.pop(domain.fqdn, None) is None:
-            missing.append(domain.display)
-        else:
-            removed += 1
-    for name in missing:
-        app._stderr(f"error: {name} is not watched")
-    if removed:
-        store.save(entries)
-    app._stderr(f"Watching {_names(len(entries))} ({removed} removed).")
-    return app.EXIT_USAGE if missing else app.EXIT_OK
+    change = remove_names(args.names, store)
+    for item in change.refused:
+        app._stderr(f"error: {item['domain']} is not watched")
+    app._stderr(f"Watching {_names(change.watched)} ({len(change.done)} removed).")
+    return app.EXIT_USAGE if change.refused else app.EXIT_OK
 
 
-def _entry_json(entry: WatchEntry) -> dict[str, Any]:
+def entry_json(entry: WatchEntry) -> dict[str, Any]:
     return {
         "domain": entry.display,
         "fqdn": entry.fqdn,
@@ -167,7 +195,7 @@ def _state_json(state: WatchState | None) -> dict[str, Any] | None:
 def _list(args: argparse.Namespace, store: WatchStore) -> int:
     entries = list(store.load().values())
     if args.json:
-        print(json.dumps([_entry_json(e) for e in entries], indent=2, ensure_ascii=False))
+        print(json.dumps([entry_json(e) for e in entries], indent=2, ensure_ascii=False))
         return app.EXIT_OK
     if not entries:
         app._stderr("No names are watched yet: domainhack watch add NAME.TLD")
@@ -190,20 +218,47 @@ def _event_json(event: WatchEvent) -> dict[str, Any]:
     }
 
 
-def _run(
-    args: argparse.Namespace,
+@dataclass(frozen=True)
+class WatchRun:
+    """The outcome of checking the watchlist. ``failed`` has ``{"domain", "reason"}`` items."""
+
+    watched: int
+    checked: int
+    events: list[WatchEvent]
+    failed: list[dict[str, str]]
+    interrupted: bool = False
+
+    @property
+    def changes(self) -> list[WatchEvent]:
+        return [e for e in self.events if e.is_change]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "checked": self.checked,
+            "changes": [_event_json(e) for e in self.changes],
+            "first_checks": [_event_json(e) for e in self.events if not e.is_change],
+            "not_checked": self.failed,
+        }
+
+
+def run_watch(
     store: WatchStore,
+    run: argparse.Namespace,
     catalog: app.RegistrarCatalog | None,
-    clock: Clock,
-) -> int:
+    clock: Clock = _now,
+) -> WatchRun:
+    """Check every watched name, store what was seen and return what changed.
+
+    ``run`` holds the shared run options. Cached results are not read: a
+    watch wants today's answer (new ones are still stored).
+    """
     entries = store.load()
     if not entries:
-        app._stderr("No names are watched yet: domainhack watch add NAME.TLD")
-        return app.EXIT_OK
+        return WatchRun(0, 0, [], [])
     domains, _ = parse_domains(list(entries))
-    # A watch wants today's answer: cached results are not read (new ones are still stored).
-    args.cache_ttl = 0.0
-    results, summary, unsupported = check_names(domains, run=args, catalog=catalog, dns=None)
+    # Nor are zone snapshots: they cannot tell a dropping name or an expiry date.
+    fresh = argparse.Namespace(**{**vars(run), "cache_ttl": 0.0, "no_zones": True})
+    results, summary, unsupported = check_names(domains, run=fresh, catalog=catalog, dns=None)
 
     checked_at = format_utc(clock())
     events: list[WatchEvent] = []
@@ -214,6 +269,7 @@ def _run(
         }
         for d in unsupported
     ]
+    checked = 0
     for result in results:
         entry = entries[result.domain.fqdn]
         state = state_of(result)
@@ -221,36 +277,43 @@ def _run(
             reason = result.error_message or "check failed"
             failed.append({"domain": entry.display, "reason": reason})
             continue
+        checked += 1
         events += compare(entry.display, entry.state, state)
         entries[entry.fqdn] = WatchEntry(
             entry.fqdn, entry.display, entry.added_at, checked_at, state
         )
     store.save(entries)
+    interrupted = summary is not None and summary.interrupted
+    return WatchRun(len(entries), checked, events, failed, interrupted)
 
-    changes = [e for e in events if e.is_change]
+
+def _run(
+    args: argparse.Namespace,
+    store: WatchStore,
+    catalog: app.RegistrarCatalog | None,
+    clock: Clock,
+) -> int:
+    outcome = run_watch(store, args, catalog, clock)
+    if not outcome.watched:
+        app._stderr("No names are watched yet: domainhack watch add NAME.TLD")
+        return app.EXIT_OK
     if args.format == "json":
-        data = {
-            "checked": len(results) - sum(1 for r in results if state_of(r) is None),
-            "changes": [_event_json(e) for e in changes],
-            "first_checks": [_event_json(e) for e in events if not e.is_change],
-            "not_checked": failed,
-        }
-        print(json.dumps(data, indent=2, ensure_ascii=False))
+        print(json.dumps(outcome.to_dict(), indent=2, ensure_ascii=False))
     else:
-        for event in events:
+        for event in outcome.events:
             print(f"{event.name}: {event.message}")
-    for item in failed:
+    for item in outcome.failed:
         app._stderr(f"warning: {item['domain']} could not be checked: {item['reason']}")
-    count = len(changes)
+    count = len(outcome.changes)
     app._stderr(
-        f"Checked {_names(len(entries))}: {count} change{'s' if count != 1 else ''}, "
-        f"{len(failed)} not checked."
+        f"Checked {_names(outcome.watched)}: {count} change{'s' if count != 1 else ''}, "
+        f"{len(outcome.failed)} not checked."
     )
-    if summary is not None and summary.interrupted:
+    if outcome.interrupted:
         return app.EXIT_INTERRUPTED
-    if changes and args.exit_code:
+    if outcome.changes and args.exit_code:
         return EXIT_CHANGED
-    return app.EXIT_FAILURE if failed else app.EXIT_OK
+    return app.EXIT_FAILURE if outcome.failed else app.EXIT_OK
 
 
 def cmd_watch(

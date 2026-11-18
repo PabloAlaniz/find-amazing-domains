@@ -30,3 +30,10 @@ def network_guard(request: pytest.FixtureRequest) -> Iterator[NetworkGuard | Non
 def _isolated_cache_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep the default result cache out of the real user cache directory."""
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg-cache"))
+
+
+@pytest.fixture(autouse=True)
+def _isolated_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the developer's own configuration file out of the tests."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg-config"))
+    monkeypatch.delenv("DOMAINHACK_CONFIG", raising=False)

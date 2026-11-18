@@ -4,13 +4,17 @@
 
 - EXACT: ``sumanda.<tld>`` for every requested TLD.
 - VARIANT (opt-in): ``get``/``use``/``try``/``hola``/``my`` + name and
-  name + ``hq``/``app``/``labs``/``studio``, only under ``.com`` plus the
+  name + ``hq``/``app``/``labs``/``studio`` (or the caller's own prefixes and
+  suffixes, at most ``MAX_AFFIXES`` of each), only under ``.com`` plus the
   first ``VARIANT_TLD_LIMIT`` other requested TLDs. That bounds variants to
-  9 x 4 = 36 names whatever the preset (``all-supported`` included).
+  9 x 4 = 36 names by default, and to 20 x 4 = 80 with custom lists,
+  whatever the preset (``all-supported`` included).
 - HACK: (a) the name split at a known TLD it ends with (``plato`` ->
   ``pla.to``); (b) the name plus a curated word whose ending is a known TLD
-  (``sumanda`` + ``studio`` -> ``sumandastud.io``). Hacks may use TLDs outside
-  the requested ones: finding them is the point.
+  (``sumanda`` + ``studio`` -> ``sumandastud.io``); (c) opt-in, a split hack
+  with part of the name moved to a subdomain (``delicious`` ->
+  ``del.icio.us``: the name to register is ``icio.us``). Hacks may use TLDs
+  outside the requested ones: finding them is the point.
 
 Every candidate goes through ``DomainHack.from_sld`` (label rules, IDN);
 invalid ones are counted in ``skipped``.
@@ -31,6 +35,12 @@ VARIANT_SUFFIXES: tuple[str, ...] = ("hq", "app", "labs", "studio")
 # request order, i.e. the preset's top ones).
 VARIANT_TLD_LIMIT = 3
 VARIANT_BASE_TLD = "com"
+# Most prefixes, and most suffixes, a caller may pass.
+MAX_AFFIXES = 10
+# A subdomain hack keeps at least this many characters on each side of the
+# extra dot: ``del.icio.us`` reads as a name, ``d.elicio.us`` does not.
+SUBDOMAIN_MIN_LENGTH = 2
+SUBDOMAIN_MIN_SLD_LENGTH = 3
 
 # A preset whose value is this string expands to every TLD the catalog supports.
 CATALOG_PRESET = "catalog"
@@ -110,6 +120,30 @@ def resolve_tld_spec(
     return TldSelection(tuple(tlds), tuple(rejected))
 
 
+def variant_affixes(
+    variants: bool,
+    prefixes: Sequence[str] | None = None,
+    suffixes: Sequence[str] | None = None,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """The prefixes and suffixes to build variants with.
+
+    ``variants`` alone means the default lists. A custom list replaces its
+    default, and when only one custom list is given the other side stays
+    empty unless ``variants`` is also set. Entries are lowercased and
+    deduplicated; more than ``MAX_AFFIXES`` on a side is a ``ValueError``.
+    """
+
+    def clean(values: Sequence[str] | None, default: tuple[str, ...]) -> tuple[str, ...]:
+        if values is None:
+            return default if variants else ()
+        out = tuple(dict.fromkeys(v.strip().lower() for v in values if v.strip()))
+        if len(out) > MAX_AFFIXES:
+            raise ValueError(f"at most {MAX_AFFIXES} are allowed, got {len(out)}")
+        return out
+
+    return clean(prefixes, VARIANT_PREFIXES), clean(suffixes, VARIANT_SUFFIXES)
+
+
 class BrandCandidates:
     """Builds the candidate list for a name (see the module docstring).
 
@@ -128,15 +162,24 @@ class BrandCandidates:
         *,
         variants: bool = False,
         hack_words: Sequence[HackWord] = (),
+        prefixes: Sequence[str] | None = None,
+        suffixes: Sequence[str] | None = None,
+        subdomain_hacks: bool = False,
     ) -> None:
         self.name = DomainHack._normalize(name)
         self._tlds = tuple(tlds)
         self._known = known_tlds
-        self._variants = variants
+        self._prefixes, self._suffixes = variant_affixes(variants, prefixes, suffixes)
+        self._subdomain_hacks = subdomain_hacks
         self._hack_words = tuple(hack_words)
         self.skipped = 0
         self.suffix_hack_found = False
         self.unusable_suffixes: list[str] = []
+
+    @property
+    def variants_requested(self) -> bool:
+        """True when there is at least one prefix or suffix to try."""
+        return bool(self._prefixes or self._suffixes)
 
     def execute(self) -> list[BrandCandidate]:
         self.skipped = 0
@@ -167,11 +210,20 @@ class BrandCandidates:
             # The TLD must lie within the extra word, so the name stays whole.
             for sld, tld in self._split(name + hw.word, min_tail=len(hw.word)):
                 yield sld, tld, CandidateKind.HACK, f"{name} {hw.word}", hw.meaning
-        if self._variants:
+        if self._subdomain_hacks:
+            for whole, tld in self._split(name, min_tail=0):
+                last = len(whole) - SUBDOMAIN_MIN_SLD_LENGTH
+                for cut in range(SUBDOMAIN_MIN_LENGTH, last + 1):
+                    sub, sld = whole[:cut], whole[cut:]
+                    if self._known.is_known(f"{sld}.{tld.suffix}"):
+                        continue  # com.ar is a registry's zone, not a name to register
+                    reading = f"{sub}.{sld}.{tld.suffix}"
+                    yield sld, tld, CandidateKind.HACK, reading, f"with the subdomain {sub!r}"
+        if self.variants_requested:
             for tld in self._variant_tlds():
-                for prefix in VARIANT_PREFIXES:
+                for prefix in self._prefixes:
                     yield prefix + name, tld, CandidateKind.VARIANT, f"{prefix} {name}", ""
-                for suffix in VARIANT_SUFFIXES:
+                for suffix in self._suffixes:
                     yield name + suffix, tld, CandidateKind.VARIANT, f"{name} {suffix}", ""
 
     def _split(self, text: str, *, min_tail: int) -> Iterable[tuple[str, TLD]]:

@@ -9,7 +9,8 @@ Four tools, built on the same use cases as the CLI:
 
 Run ``domainhack-mcp`` (stdio transport). It takes the run options the CLI
 shares (``--delay``, ``--parallel``, ``--no-cache``, ``--cache-path``,
-``--contact``); the progress bar is always off because stdout carries the
+``--contact``) and reads the same configuration file (``--config``,
+``--no-config``); the progress bar is always off because stdout carries the
 protocol. Install with ``pip install "domainhack[mcp]"``.
 """
 
@@ -35,6 +36,7 @@ from domainhack import __version__
 from domainhack.adapters.brand_data import DEFAULT_PRESET, load_tld_presets
 from domainhack.adapters.brand_report_render import report_to_dict
 from domainhack.adapters.cached_registrar import CachedRegistrarClient
+from domainhack.adapters.config_file import Config, ConfigError
 from domainhack.adapters.iana_tlds import IanaTldList
 from domainhack.adapters.json_writer import result_record
 from domainhack.adapters.rdap_bootstrap import RdapBootstrap
@@ -47,11 +49,13 @@ from domainhack.cli.name_cmd import (
     ResultCollector,
     default_services,
     find_name,
+    parse_affixes,
     validate_brand_name,
 )
 from domainhack.cli.tlds_cmd import offline_bootstrap
 from domainhack.domain.entities import TLD, DomainCheckResult, DomainHack, InvalidLabelError
 from domainhack.ports.dns_lookup import DnsLookup
+from domainhack.usecases.brand_candidates import MAX_AFFIXES
 from domainhack.usecases.check_domains import CheckDomainsUseCase, CheckSummary
 from domainhack.usecases.confirm_dns import ConfirmWithDns
 
@@ -89,8 +93,15 @@ def run_options(argv: Sequence[str] = ()) -> argparse.Namespace:
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     app.add_run_options(parser)
+    app.add_config_options(parser, top_level=True)
+    try:
+        config = app.config_from_argv(list(argv))
+    except ConfigError as exc:
+        parser.error(str(exc))
+    app.apply_run_config(parser, config)
     args = parser.parse_args(list(argv))
     args.no_progress = True
+    args.config_data = config
     return args
 
 
@@ -211,7 +222,9 @@ def build_server(
     run_opts = run if run is not None else run_options()
     svc = services if services is not None else default_services()
     rdap = bootstrap if bootstrap is not None else offline_bootstrap()
-    presets = ", ".join(load_tld_presets())
+    config: Config = getattr(run_opts, "config_data", None) or Config()
+    default_tlds = config.name_tlds or DEFAULT_PRESET
+    presets = ", ".join(load_tld_presets(config.presets))
 
     server = MCPServer(SERVER_NAME, version=__version__, instructions=INSTRUCTIONS)
 
@@ -220,21 +233,36 @@ def build_server(
         description=(
             "Find a domain for a project or brand name: checks the exact name under a set of "
             f"TLDs (presets: {presets}; or suffixes, mixed: 'startup,com.ar,la'), finds domain "
-            "hacks that spell it, optionally brand variants, and returns a ranked "
-            "recommendation with registration details for taken names. Queries the "
-            "registries live; may take several seconds."
+            "hacks that spell it (including ones with a subdomain, delicious -> "
+            "del.icio.us), optionally brand variants, and returns a ranked "
+            "recommendation with registration details for taken names. 'variants' tries "
+            "get/use/try/hola/my + name and name + hq/app/labs/studio; 'prefixes' and "
+            f"'suffixes' (at most {MAX_AFFIXES} each) are your own words instead. "
+            "Queries the registries live; may take several seconds."
         ),
     )
     async def find_domain_for_name(
         name: str,
-        tlds: str = DEFAULT_PRESET,
+        tlds: str = default_tlds,
         variants: bool = False,
         confirm_dns: bool = True,
+        prefixes: list[str] | None = None,
+        suffixes: list[str] | None = None,
+        subdomain_hacks: bool = True,
     ) -> dict[str, Any]:
+        clean_prefixes: Sequence[str] | None = None
+        clean_suffixes: Sequence[str] | None = None
         try:
             clean = validate_brand_name(name)
+            if prefixes:
+                clean_prefixes = parse_affixes(",".join(prefixes))
+            if suffixes:
+                clean_suffixes = parse_affixes(",".join(suffixes))
         except ValueError as exc:
             raise ToolError(str(exc)) from None
+        if clean_prefixes is None and clean_suffixes is None and not variants:
+            # The configuration file's own words apply only when the caller names none.
+            clean_prefixes, clean_suffixes = config.name_prefixes, config.name_suffixes
         warnings: list[str] = []
 
         def work() -> dict[str, Any]:
@@ -244,6 +272,10 @@ def build_server(
                     tlds,
                     run=run_opts,
                     variants=variants,
+                    prefixes=clean_prefixes,
+                    suffixes=clean_suffixes,
+                    subdomain_hacks=subdomain_hacks,
+                    presets=config.presets,
                     # True means "when a DNS lookup is available" (None to find_name).
                     confirm_dns=None if confirm_dns else False,
                     catalog=catalog,

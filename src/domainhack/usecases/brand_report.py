@@ -21,7 +21,8 @@ Recommendation score (higher is better)::
            60  brand variant under .com (getsumanda.com)
            50  hack that spells the name itself (plato -> pla.to)
            45  brand variant under another TLD
-           40  hack with an extra word (sumandastud.io)
+           40  hack with an extra word (sumandastud.io) or with part of the
+               name in a subdomain (del.icio.us)
 
 The tier always decides; length (of the name as displayed) only breaks ties
 within a tier, then alphabetical order. Only AVAILABLE names without a DNS

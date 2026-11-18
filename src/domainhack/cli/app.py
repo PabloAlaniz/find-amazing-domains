@@ -15,6 +15,13 @@ from domainhack.adapters.cached_registrar import (
     CacheTtlPolicy,
 )
 from domainhack.adapters.composite_writer import CompositeResultWriter
+from domainhack.adapters.config_file import (
+    CONFIG_ENV,
+    Config,
+    ConfigError,
+    find_config,
+    load_config,
+)
 from domainhack.adapters.console_writer import ConsoleResultWriter
 from domainhack.adapters.csv_writer import CsvResultWriter
 from domainhack.adapters.dns_confirming_writer import DnsConfirmingWriter
@@ -46,12 +53,20 @@ from domainhack.usecases.estimate_run import (
     format_duration,
 )
 from domainhack.usecases.filter_words import FilterWordsUseCase
+from domainhack.usecases.generate_pattern import PatternError, PatternWordSource, parse_pattern
 from domainhack.usecases.generate_range import (
     MAX_RANGE_LENGTH,
+    GeneratedWordSource,
     RangeCandidatesUseCase,
     RangeWordSource,
 )
-from domainhack.usecases.rank_candidates import CandidateOrder, RankCandidatesUseCase
+from domainhack.usecases.rank_candidates import (
+    CandidateOrder,
+    RankCandidatesUseCase,
+    frequency_score,
+    length_score,
+    word_ranks,
+)
 
 if TYPE_CHECKING:
     from domainhack.cli.name_cmd import NameServices
@@ -181,6 +196,14 @@ def _range_end(value: str) -> str:
     return value
 
 
+def _pattern(value: str) -> str:
+    try:
+        parse_pattern(value)
+    except PatternError as exc:
+        raise argparse.ArgumentTypeError(f"invalid pattern {value!r}: {exc}") from None
+    return value
+
+
 def _encoding(value: str) -> str:
     try:
         return codecs.lookup(value).name
@@ -204,6 +227,48 @@ def _add_encoding_option(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def add_config_options(parser: argparse.ArgumentParser, *, top_level: bool = False) -> None:
+    """``--config`` / ``--no-config``. They are read before the real parse (see
+    ``config_from_argv``); every parser accepts them so they work in any position."""
+    default = None if top_level else argparse.SUPPRESS
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=default,
+        metavar="FILE",
+        help=f"Configuration file (default: ${CONFIG_ENV}, ./domainhack.toml, then "
+        "$XDG_CONFIG_HOME/domainhack/config.toml)",
+    )
+    parser.add_argument(
+        "--no-config",
+        action="store_true",
+        default=False if top_level else argparse.SUPPRESS,
+        help="Ignore any configuration file",
+    )
+
+
+def config_from_argv(argv: Sequence[str] | None) -> Config:
+    """Find and load the configuration file ``argv`` asks for (``ConfigError`` if unusable)."""
+    pre = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+    pre.add_argument("--config", type=Path, default=None)
+    pre.add_argument("--no-config", action="store_true")
+    known, _ = pre.parse_known_args(argv)
+    if known.no_config:
+        return Config()
+    return load_config(find_config(known.config), contact=_contact)
+
+
+def apply_run_config(parser: argparse.ArgumentParser, config: Config) -> None:
+    """Make the file's ``[run]`` values the defaults of ``parser``'s run options.
+
+    ``$DOMAINHACK_CONTACT`` still wins over the file's ``contact``.
+    """
+    run = dict(config.run)
+    if os.environ.get(CONTACT_ENV):
+        run.pop("contact", None)
+    parser.set_defaults(**run)
+
+
 def add_run_options(parser: argparse.ArgumentParser) -> None:
     """Options shared by every command that queries registries (``check``, ``name``):
     pacing, parallelism, progress, cache and contact."""
@@ -211,7 +276,7 @@ def add_run_options(parser: argparse.ArgumentParser) -> None:
         "--delay",
         type=_non_negative_float,
         default=1.0,
-        help="Seconds between requests (default: 1.0)",
+        help="Seconds between requests (default: %(default)s)",
     )
     parser.add_argument(
         "--no-progress",
@@ -224,7 +289,7 @@ def add_run_options(parser: argparse.ArgumentParser) -> None:
         default=DEFAULT_PARALLEL,
         metavar="N",
         help="Check up to N registry hosts at once, never more than one request per "
-        f"host (default: {DEFAULT_PARALLEL}); results print as they complete. "
+        "host (default: %(default)s); results print as they complete. "
         "--parallel 1 checks one domain at a time, in order",
     )
     parser.add_argument("--no-cache", action="store_true", help="Disable the result cache")
@@ -261,7 +326,9 @@ def add_run_options(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser(config: Config | None = None) -> argparse.ArgumentParser:
+    """The CLI parser; ``config`` (a loaded configuration file) supplies defaults."""
+    config = config if config is not None else Config()
     parser = argparse.ArgumentParser(
         prog="domainhack",
         description="Find domain hacks hiding in real words.",
@@ -269,6 +336,8 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    add_config_options(parser, top_level=True)
+    parser.set_defaults(config_data=config)
     parser.add_argument(
         "--tld",
         type=parse_tld_list,
@@ -284,6 +353,7 @@ def build_parser() -> argparse.ArgumentParser:
     filt.add_argument("file", type=Path, help="Path to word list file")
     filt.add_argument("--min-length", type=_non_negative_int, default=0, help="Minimum word length")
     _add_encoding_option(filt)
+    add_config_options(filt)
 
     # check subcommand
     chk = sub.add_parser(
@@ -293,6 +363,8 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     add_run_options(chk)
+    add_config_options(chk)
+    apply_run_config(chk, config)
     chk.add_argument("--show-taken", action="store_true", help="Also print taken domains")
     chk.add_argument(
         "--show-dropping",
@@ -309,14 +381,33 @@ def build_parser() -> argparse.ArgumentParser:
         type=_range_max,
         help=f"Max combination length, 1-{MAX_RANGE_LENGTH} (range mode)",
     )
+    source_group.add_argument(
+        "--pattern",
+        type=_pattern,
+        metavar="PATTERN",
+        help="Check every name the pattern matches (pattern mode): C = consonant, "
+        "V = vowel, L = letter, D = digit; lowercase letters, digits and hyphens are "
+        "literal. CVCV -> baba.to ... zuzu.to; goCV -> goba.to ...",
+    )
     chk.add_argument("--range-end", type=_range_end, default=None, help="Stop at this combination")
     chk.add_argument(
         "--order",
         choices=[o.value for o in CandidateOrder],
         default=None,
         help="Check order in list mode: score = shortest SLD, then shortest word, then "
-        "alphabetical (default); alpha = alphabetical; input = word-list order. "
-        "Range mode is always generated shortest-first (input)",
+        "alphabetical (default); frequency = most common words first (needs "
+        "--frequency-list); alpha = alphabetical; input = word-list order. "
+        "Range and pattern modes are always checked as generated (input)",
+    )
+    chk.add_argument(
+        "--frequency-list",
+        type=Path,
+        action="append",
+        default=None,
+        metavar="FILE",
+        help="Word list sorted most common first, for --order frequency; repeat it for "
+        "several languages (a word takes its best rank). Words missing from every list "
+        "are checked last, shortest first",
     )
     chk.add_argument(
         "--limit",
@@ -334,7 +425,8 @@ def build_parser() -> argparse.ArgumentParser:
     chk.add_argument(
         "--yes",
         action="store_true",
-        help=f"Run a brute-force check estimated at more than {GUARDRAIL_MAX_QUERIES:,} queries",
+        help="Run a range or pattern check estimated at more than "
+        f"{GUARDRAIL_MAX_QUERIES:,} queries",
     )
     _add_encoding_option(chk)
     chk.add_argument("--output", type=Path, default=None, help="Also save results to FILE")
@@ -353,7 +445,7 @@ def build_parser() -> argparse.ArgumentParser:
     # Imported here: name_cmd imports this module's helpers.
     from domainhack.cli import name_cmd, tlds_cmd
 
-    name_cmd.register(sub, epilog=_EPILOG)
+    name_cmd.register(sub, epilog=_EPILOG, config=config)
     tlds_cmd.register(sub, epilog=_EPILOG)
     return parser
 
@@ -362,10 +454,15 @@ def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) ->
     """Cross-option checks argparse cannot express; exits with status 2 on error."""
     if args.command != "check":
         return
-    if args.range_max is not None and args.order not in (None, CandidateOrder.INPUT.value):
+    if args.file is None and args.order not in (None, CandidateOrder.INPUT.value):
         parser.error(
-            f"--order {args.order} needs --file; range mode is generated shortest-first "
-            "and too large to sort"
+            f"--order {args.order} needs --file; range and pattern modes are checked "
+            "as generated and are too large to sort"
+        )
+    if args.order == CandidateOrder.FREQUENCY.value and not _frequency_lists(args):
+        parser.error(
+            "--order frequency needs --frequency-list FILE (a word list sorted most "
+            "common first), or [check] frequency_list in the configuration file"
         )
     if args.range_end is None:
         return
@@ -413,20 +510,56 @@ def _build_candidates(
     tld_list: tuple[TLD, ...] = (tlds,) if isinstance(tlds, TLD) else tuple(tlds)
     if args.file:
         return FilterWordsUseCase(_word_source(args, args.file), tld_list)
-    range_source = RangeWordSource(args.range_max, end_at=args.range_end)
-    return RangeCandidatesUseCase(range_source, tld_list)
+    return RangeCandidatesUseCase(_generated_source(args), tld_list)
+
+
+def _generated_source(args: argparse.Namespace) -> GeneratedWordSource:
+    """The SLD generator of range mode (``--range-max``) or pattern mode (``--pattern``)."""
+    pattern: str | None = getattr(args, "pattern", None)
+    if pattern is not None:
+        return PatternWordSource(pattern)
+    return RangeWordSource(args.range_max, end_at=args.range_end)
+
+
+def _frequency_lists(args: argparse.Namespace) -> list[Path]:
+    """``--frequency-list``, else the configuration file's ``[check] frequency_list``."""
+    given: list[Path] | None = getattr(args, "frequency_list", None)
+    if given:
+        return given
+    config: Config | None = getattr(args, "config_data", None)
+    return list(config.frequency_lists) if config is not None else []
+
+
+def _frequency_ranks(args: argparse.Namespace) -> dict[str, int]:
+    """Each word's best rank across the frequency lists (0 = most common)."""
+    ranks: dict[str, int] = {}
+    for path in _frequency_lists(args):
+        for word, rank in word_ranks(_word_source(args, path).words()).items():
+            ranks[word] = min(rank, ranks.get(word, rank))
+    return ranks
 
 
 def _order(args: argparse.Namespace) -> CandidateOrder:
-    """``--order``; by default ``score`` in list mode and ``input`` in range mode."""
+    """``--order``. By default ``score`` in list mode (``frequency`` when
+    ``--frequency-list`` is given) and ``input`` in range and pattern modes."""
     value: str | None = getattr(args, "order", None)
     if value is not None:
         return CandidateOrder(value)
-    return CandidateOrder.SCORE if args.file else CandidateOrder.INPUT
+    if not args.file:
+        return CandidateOrder.INPUT
+    # Passing --frequency-list says what order is wanted.
+    if getattr(args, "frequency_list", None):
+        return CandidateOrder.FREQUENCY
+    return CandidateOrder.SCORE
 
 
 def _build_ranker(args: argparse.Namespace, tlds: Sequence[TLD]) -> RankCandidatesUseCase:
-    return RankCandidatesUseCase(_order(args), limit=getattr(args, "limit", None), tlds=tlds)
+    order = _order(args)
+    frequency = order is CandidateOrder.FREQUENCY
+    scorer = frequency_score(_frequency_ranks(args)) if frequency else length_score
+    return RankCandidatesUseCase(
+        order, limit=getattr(args, "limit", None), scorer=scorer, tlds=tlds
+    )
 
 
 def _build_domains(args: argparse.Namespace, tlds: TLD | Sequence[TLD]) -> Iterable[DomainHack]:
@@ -472,9 +605,8 @@ def build_file_writer(output: Path, fmt: str) -> ResultWriter:
 
 
 def _range_totals(args: argparse.Namespace, tlds: Sequence[TLD]) -> dict[TLD, int]:
-    """Range mode: exact candidates per TLD, capped by ``--limit``."""
-    range_source = RangeWordSource(args.range_max, end_at=args.range_end)
-    totals = RangeCandidatesUseCase(range_source, tlds).totals_by_tld()
+    """Range and pattern modes: exact candidates per TLD, capped by ``--limit``."""
+    totals = RangeCandidatesUseCase(_generated_source(args), tlds).totals_by_tld()
     limit: int | None = getattr(args, "limit", None)
     if limit is not None:
         totals = {tld: min(count, limit) for tld, count in totals.items()}
@@ -576,7 +708,7 @@ def _estimate_range_run(
 def _range_guardrail(
     args: argparse.Namespace, router: RegistrarRouter, tlds: Sequence[TLD]
 ) -> int | None:
-    """Print the cost of a brute-force run; refuse a large one without ``--yes``.
+    """Print the cost of a range or pattern run; refuse a large one without ``--yes``.
 
     Returns EXIT_USAGE when the run is refused, None when it may go ahead.
     """
@@ -596,8 +728,8 @@ def _range_guardrail(
         return None
     _stderr(
         f"error: refusing to send more than {GUARDRAIL_MAX_QUERIES:,} queries without --yes; "
-        "registries ask clients not to bulk-query. Narrow the run with --range-end "
-        "or --limit, preview it with --dry-run, or pass --yes."
+        "registries ask clients not to bulk-query. Narrow the run with --limit, "
+        "--range-end or a tighter --pattern, preview it with --dry-run, or pass --yes."
     )
     return EXIT_USAGE
 
@@ -653,6 +785,9 @@ def cmd_check(
         _resolve_output_format(args.output, getattr(args, "format", None))
     if args.file:
         _word_source(args, args.file).check_readable()
+        if _order(args) is CandidateOrder.FREQUENCY:
+            for path in _frequency_lists(args):
+                _word_source(args, path).check_readable()
 
     router = _build_router(args, catalog)
     tlds = _supported_tlds(router, tlds)
@@ -758,7 +893,12 @@ def main(
     ``check --confirm-dns``); ``services`` replaces the ``name`` command's TLD
     list and DNS lookup.
     """
-    parser = build_parser()
+    try:
+        config = config_from_argv(argv)
+    except ConfigError as exc:
+        _stderr(f"error: {exc}")
+        return EXIT_USAGE
+    parser = build_parser(config)
     try:
         args = parser.parse_args(argv)
         _validate_args(parser, args)

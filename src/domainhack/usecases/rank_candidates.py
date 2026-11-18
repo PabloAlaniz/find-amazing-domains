@@ -7,7 +7,7 @@ first alphabetically.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from enum import Enum
 
 from domainhack.domain.entities import TLD, DomainHack
@@ -19,6 +19,7 @@ Scorer = Callable[[DomainHack], ScoreKey]
 
 class CandidateOrder(str, Enum):
     SCORE = "score"  # best candidates first, by ``Scorer``
+    FREQUENCY = "frequency"  # most common words first, by ``frequency_score``
     ALPHA = "alpha"  # alphabetical by domain name
     INPUT = "input"  # as produced (word-list order, or range generation order)
 
@@ -33,6 +34,34 @@ def length_score(domain: DomainHack) -> ScoreKey:
     return (len(domain.sld), len(domain.word))
 
 
+def word_ranks(words: Iterable[str]) -> dict[str, int]:
+    """Rank (0 = most common) of each word in a list sorted most common first.
+
+    Words are compared lowercased; a repeated word keeps its first rank.
+    """
+    ranks: dict[str, int] = {}
+    for word in words:
+        ranks.setdefault(word.strip().lower(), len(ranks))
+    return ranks
+
+
+def frequency_score(ranks: Mapping[str, int]) -> Scorer:
+    """A scorer that puts common words first: a domain hack is worth more when
+    people already know the word.
+
+    Words in ``ranks`` come first, most common first. The others follow in
+    ``length_score`` order.
+    """
+
+    def score(domain: DomainHack) -> ScoreKey:
+        rank = ranks.get(domain.word)
+        if rank is None:
+            return (1, *length_score(domain))
+        return (0, rank)
+
+    return score
+
+
 def _tiebreak(domain: DomainHack) -> tuple[str, str, str]:
     # References to strings the DomainHack already holds: sorting a large
     # list does not build a new name string per candidate.
@@ -42,13 +71,14 @@ def _tiebreak(domain: DomainHack) -> tuple[str, str, str]:
 class RankCandidatesUseCase:
     """Orders candidates and caps how many are checked per TLD.
 
-    * ``SCORE``: by ``scorer`` (default ``length_score``), ties broken
+    * ``SCORE`` and ``FREQUENCY``: by ``scorer`` (default ``length_score``;
+      pass ``frequency_score(...)`` for ``FREQUENCY``), ties broken
       alphabetically by name, then TLD, then word, so the order is total and
       deterministic whatever the input order.
     * ``ALPHA``: alphabetically by name, then TLD, then word.
     * ``INPUT``: unchanged and lazy, so it can wrap the huge range generator.
 
-    ``SCORE`` and ``ALPHA`` materialize the candidates (DomainHack objects
+    Every order but ``INPUT`` materializes the candidates (DomainHack objects
     only), which suits bounded word lists, not range mode.
 
     ``limit`` keeps at most that many candidates per TLD, counted after

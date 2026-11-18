@@ -65,8 +65,8 @@ Recommendation
 What it checks:
 
 - **Exact name** under every TLD of `--tlds`. It takes presets and TLDs, mixed: `--tlds startup,com.ar,la`. The presets are `startup` (the default: com, app, io, ai, co, dev, so, xyz), `latam` (com.ar, ar, com.mx, mx, com.co, co, com.br, cl, pe), `classic` (com, net, org) and `all-supported` (every TLD the tool can check). A TLD the tool cannot check (e.g. `.es`, whose registry only serves accredited users) is reported as unsupported, with the reason.
-- **Domain hacks**: the name split at a TLD it ends with (`plato` -> `pla.to`), and the name plus a curated word ending in a TLD (`sumanda` + studio -> `sumandastud.io`, or `sumanda.studio` where the word is itself a TLD). The words and their meanings live in `src/domainhack/data/hack_words.json`. When the name ends in no TLD, the report says so.
-- **Brand variants** (`--variants`): `get`/`use`/`try`/`hola`/`my` + name and name + `hq`/`app`/`labs`/`studio`. They are checked under `.com` and the first 3 other requested TLDs only, so there are at most 36 of them.
+- **Domain hacks**: the name split at a TLD it ends with (`plato` -> `pla.to`), and the name plus a curated word ending in a TLD (`sumanda` + studio -> `sumandastud.io`, or `sumanda.studio` where the word is itself a TLD). The words and their meanings live in `src/domainhack/data/hack_words.json`. When the name ends in no TLD, the report says so. When it does, hacks that move part of the name to a subdomain are checked too: `delicious` -> `del.icio.us`, where the name to register is `icio.us`. `--no-subdomain-hacks` leaves them out.
+- **Brand variants** (`--variants`): `get`/`use`/`try`/`hola`/`my` + name and name + `hq`/`app`/`labs`/`studio`. They are checked under `.com` and the first 3 other requested TLDs only, so there are at most 36 of them. `--prefix get,try` and `--suffix hq,labs` use your own words instead (at most 10 of each). On their own they add only the words you give; with `--variants` the side you did not name keeps its default list.
 
 The report lists the exact names by TLD, the hacks, the available variants and the taken names. Taken names come with their details (registration and expiry dates, parking service, dropping status). It also names everything it could not verify (registry error or unreachable, no registrar for the TLD) and every DNS conflict (the registry says available, but DNS has nameservers). `--format` picks `text` (default), `markdown` (to share) or `json`. `--output FILE` also saves the raw results as CSV or JSON Lines, like `check`.
 
@@ -78,7 +78,7 @@ The recommendation ranks available names only:
 - then a `.com` variant;
 - then a hack that spells the name;
 - then other variants;
-- then hacks with an extra word.
+- then hacks with an extra word or with a subdomain.
 
 Shorter names win within a tier. Taken, dropping, DNS-conflict and unverifiable names are never recommended.
 
@@ -97,7 +97,7 @@ Shorter names win within a tier. Taken, dropping, DNS-conflict and unverifiable 
 
 ## Next
 
-- [Usage](usage.md): word-list and brute-force modes, DNS confirmation, parallel checks, output files, caching.
+- [Usage](usage.md): word-list, brute-force and pattern modes, the configuration file, DNS confirmation, parallel checks, output files, caching.
 - [Supported TLDs](tlds.md): every TLD, how it is checked, and why some cannot be.
 - [How it compares](compare.md) with other domain tools.
 - [Architecture](architecture.md) and [contributing](contributing.md).

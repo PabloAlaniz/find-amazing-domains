@@ -15,6 +15,7 @@ around it (argument parsing, rendering, exit status). The MCP server calls
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ from pathlib import Path
 from domainhack.adapters.brand_data import DEFAULT_PRESET, load_hack_words, load_tld_presets
 from domainhack.adapters.brand_report_render import RENDERERS
 from domainhack.adapters.cached_registrar import CachedRegistrarClient
+from domainhack.adapters.config_file import Config
 from domainhack.adapters.dns_resolver import DnsPythonLookup
 from domainhack.adapters.iana_tlds import IanaTldList
 from domainhack.adapters.registrar_catalog import supported_tlds
@@ -32,12 +34,18 @@ from domainhack.domain.entities import DomainCheckResult
 from domainhack.ports.dns_lookup import DnsLookup
 from domainhack.ports.known_tlds import KnownTlds
 from domainhack.ports.result_writer import ResultWriter
-from domainhack.usecases.brand_candidates import BrandCandidates, resolve_tld_spec
+from domainhack.usecases.brand_candidates import (
+    MAX_AFFIXES,
+    BrandCandidates,
+    Presets,
+    resolve_tld_spec,
+)
 from domainhack.usecases.brand_report import BrandReport, build_brand_report
 from domainhack.usecases.check_domains import CheckDomainsUseCase, CheckSummary
 from domainhack.usecases.confirm_dns import ConfirmWithDns
 
 REPORT_FORMATS = tuple(RENDERERS)
+_AFFIX_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
 
 @dataclass(frozen=True)
@@ -106,9 +114,44 @@ def _brand_name(value: str) -> str:
         raise argparse.ArgumentTypeError(str(exc)) from None
 
 
-def register(sub: argparse._SubParsersAction[argparse.ArgumentParser], *, epilog: str) -> None:
-    """Add the ``name`` subcommand to the CLI's subparsers."""
-    presets = ", ".join(load_tld_presets())
+def parse_affixes(value: str) -> list[str]:
+    """``"get,try"`` as a list of lowercase words to put before or after a name.
+
+    Raises ValueError when the list is empty, too long or has a word that is
+    not letters, digits and inner hyphens.
+    """
+    words = list(dict.fromkeys(w.strip().lower() for w in value.split(",") if w.strip()))
+    if not words:
+        raise ValueError("at least one word is required")
+    if len(words) > MAX_AFFIXES:
+        raise ValueError(f"at most {MAX_AFFIXES} words are allowed, got {len(words)}")
+    for word in words:
+        if not _AFFIX_RE.fullmatch(word):
+            raise ValueError(f"not letters, digits and inner hyphens: {word!r}")
+    return words
+
+
+def _affixes(value: str) -> list[str]:
+    try:
+        return parse_affixes(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from None
+
+
+def register(
+    sub: argparse._SubParsersAction[argparse.ArgumentParser],
+    *,
+    epilog: str,
+    config: Config | None = None,
+) -> None:
+    """Add the ``name`` subcommand to the CLI's subparsers.
+
+    ``config`` (a loaded configuration file) adds its presets and supplies
+    the defaults of ``--tlds`` and the run options.
+    """
+    config = config if config is not None else Config()
+    presets = ", ".join(load_tld_presets(config.presets))
+    default_tlds = config.name_tlds or DEFAULT_PRESET
     parser = sub.add_parser(
         "name",
         help="Find a domain for a brand name (exact, hacks, variants) and recommend one",
@@ -121,15 +164,38 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser], *, epilog
     parser.add_argument("name", type=_brand_name, help="The name, without a TLD (e.g. sumanda)")
     parser.add_argument(
         "--tlds",
-        default=DEFAULT_PRESET,
+        default=default_tlds,
         metavar="PRESET|TLD[,...]",
-        help=f"Presets ({presets}) and TLDs, mixed: startup,com.ar,la (default: {DEFAULT_PRESET})",
+        help=f"Presets ({presets}) and TLDs, mixed: startup,com.ar,la (default: {default_tlds})",
     )
     parser.add_argument(
         "--variants",
         action="store_true",
         help="Also check get-/use-/try-/hola-/my- NAME and NAME -hq/-app/-labs/-studio, "
         "under .com and the first 3 other TLDs",
+    )
+    parser.add_argument(
+        "--prefix",
+        type=_affixes,
+        default=None,
+        metavar="WORD[,...]",
+        help="Your own words to put before NAME instead of get/use/try/hola/my "
+        f"(at most {MAX_AFFIXES}): --prefix get,try -> getNAME, tryNAME. Turns variants on",
+    )
+    parser.add_argument(
+        "--suffix",
+        type=_affixes,
+        default=None,
+        metavar="WORD[,...]",
+        help="Your own words to put after NAME instead of hq/app/labs/studio "
+        f"(at most {MAX_AFFIXES}): --suffix hq,labs -> NAMEhq, NAMElabs. Turns variants on",
+    )
+    parser.add_argument(
+        "--subdomain-hacks",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="When NAME ends in a TLD, also check hacks that put part of it in a subdomain "
+        "(delicious -> del.icio.us, registering icio.us). Default: on",
     )
     parser.add_argument(
         "--format",
@@ -150,6 +216,8 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser], *, epilog
         help="Confirm results against public DNS (default: on when a DNS resolver is available)",
     )
     app.add_run_options(parser)
+    app.add_config_options(parser)
+    app.apply_run_config(parser, config)
 
 
 def find_name(
@@ -158,6 +226,10 @@ def find_name(
     *,
     run: argparse.Namespace,
     variants: bool = False,
+    prefixes: Sequence[str] | None = None,
+    suffixes: Sequence[str] | None = None,
+    subdomain_hacks: bool = True,
+    presets: Presets | None = None,
     confirm_dns: bool | None = None,
     catalog: app.RegistrarCatalog | None = None,
     services: NameServices | None = None,
@@ -165,6 +237,11 @@ def find_name(
     warn: Callable[[str], None] = app._stderr,
 ) -> NameOutcome:
     """Check ``name`` under ``tlds`` (presets and suffixes, mixed) and build the report.
+
+    ``variants`` tries the default prefixes and suffixes; ``prefixes`` and
+    ``suffixes`` replace them (see ``brand_candidates.variant_affixes``).
+    ``subdomain_hacks`` adds hacks such as ``del.icio.us`` when the name ends
+    in a TLD. ``presets`` are extra TLD presets (the user's own).
 
     ``run`` holds the shared run options (``app.add_run_options``: delay,
     parallelism, cache, contact, progress). ``confirm_dns`` None means "when
@@ -178,7 +255,7 @@ def find_name(
     """
     services = services if services is not None else default_services()
     notes: list[str] = []
-    selection = resolve_tld_spec(tlds, load_tld_presets(), services.supported_tlds)
+    selection = resolve_tld_spec(tlds, load_tld_presets(presets), services.supported_tlds)
     for suffix in selection.rejected:
         notes.append(f".{suffix} skipped: not a TLD this version can check")
         warn(f"warning: .{suffix} is not a TLD this version can check; skipping")
@@ -190,13 +267,19 @@ def find_name(
         warn("warning: no DNS resolver available; results are not confirmed in DNS")
         confirm = False
 
-    generator = BrandCandidates(
-        name,
-        selection.tlds,
-        services.known_tlds,
-        variants=variants,
-        hack_words=load_hack_words(),
-    )
+    try:
+        generator = BrandCandidates(
+            name,
+            selection.tlds,
+            services.known_tlds,
+            variants=variants,
+            hack_words=load_hack_words(),
+            prefixes=prefixes,
+            suffixes=suffixes,
+            subdomain_hacks=subdomain_hacks,
+        )
+    except ValueError as exc:
+        raise NameUsageError(f"prefixes and suffixes: {exc}") from None
     candidates = generator.execute()
     if not candidates:
         raise NameUsageError(f"{name!r} is not a valid domain name label")
@@ -251,7 +334,7 @@ def find_name(
         results,
         tlds=selection.tlds,
         suffix_hack_found=generator.suffix_hack_found,
-        variants_requested=variants,
+        variants_requested=generator.variants_requested,
         unsupported=unsupported,
         notes=notes,
         unsupported_reasons={t: unsupported_message(t.suffix) for t in unsupported},
@@ -274,12 +357,17 @@ def cmd_name(
         def open_file_writer() -> ResultWriter:
             return app.build_file_writer(path, chosen)
 
+    config: Config = getattr(args, "config_data", None) or Config()
     try:
         outcome = find_name(
             args.name,
             args.tlds,
             run=args,
             variants=args.variants,
+            prefixes=args.prefix if args.prefix is not None else config.name_prefixes,
+            suffixes=args.suffix if args.suffix is not None else config.name_suffixes,
+            subdomain_hacks=args.subdomain_hacks,
+            presets=config.presets,
             confirm_dns=args.confirm_dns,
             catalog=catalog,
             services=services,

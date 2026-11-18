@@ -99,6 +99,7 @@ Shorter names win within a tier, and between two names of the same tier and leng
 
 ## Next
 
+- [Browse available hacks](browse.md): search this week's available and dropping hacks by word, TLD, language and length.
 - [Usage](usage.md): word-list, brute-force and pattern modes, the configuration file, DNS confirmation, parallel checks, output files, caching.
 - [Supported TLDs](tlds.md): every TLD, how it is checked, and why some cannot be.
 - [How it compares](compare.md) with other domain tools.

@@ -319,3 +319,61 @@ def test_feed_lists_only_the_first_names() -> None:
     feed = weekly_report.render_feed([entry])
     assert "w049.to and 10 more." in feed
     assert weekly_report.render_feed([]).count("<entry>") == 0
+
+
+# ── available.json, read by the documentation site's "Browse" page ───────────
+
+
+def test_word_languages_come_from_the_list_names(tmp_path: Path) -> None:
+    en = tmp_path / "en-common.txt"
+    en.write_text("Veto\ngusto\n\n", encoding="utf-8")
+    es = tmp_path / "es-common.txt"
+    es.write_text("plato\ngusto\n", encoding="utf-8")
+    assert weekly_report.word_languages([es, en]) == {
+        "veto": ["en"],
+        "gusto": ["en", "es"],
+        "plato": ["es"],
+    }
+
+
+def test_browse_data_lists_available_and_dropping_best_first() -> None:
+    data = weekly_report.browse_data(
+        [*NEXT_WEEK, _record("pla.net", "planet", "available")],
+        dt.date(2026, 11, 10),
+        {"veto": ["en", "es"], "gusto": ["en"]},
+    )
+    assert data["date"] == "2026-11-10"
+    assert data["available"] == [
+        {"domain": "ve.to", "word": "veto", "tld": "to", "langs": ["en", "es"]},
+        {"domain": "can.to", "word": "canto", "tld": "to", "langs": []},
+        {"domain": "pla.net", "word": "planet", "tld": "net", "langs": []},
+    ]
+    assert data["dropping"] == [
+        {
+            "domain": "gus.to",
+            "word": "gusto",
+            "tld": "to",
+            "langs": ["en"],
+            "status": "pending delete",
+            "expires": None,
+        },
+        {
+            "domain": "abas.to",
+            "word": "abasto",
+            "tld": "to",
+            "langs": [],
+            "status": "redemption period",
+            "expires": None,
+        },
+    ]
+
+
+def test_main_writes_available_json(tmp_path: Path) -> None:
+    out = _main(tmp_path, RESULTS, "2026-11-03")
+    data = json.loads((out / "available.json").read_text(encoding="utf-8"))
+    assert [item["domain"] for item in data["available"]] == ["can.to", "pla.to"]
+    assert data["available"][1]["langs"] == ["words"]  # the test list is words.txt
+    assert data["dropping"][0]["expires"] == "2026-10-01"
+    # An older report does not replace the newer data.
+    _main(tmp_path, NEXT_WEEK, "2026-10-27")
+    assert json.loads((out / "available.json").read_text())["date"] == "2026-11-03"

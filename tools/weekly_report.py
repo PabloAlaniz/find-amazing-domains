@@ -14,7 +14,10 @@ registered) and three more files are kept up to date:
 - ``latest.json``: the names available and dropping in this run, which the
   next run compares itself with;
 - ``history.json``: one summary per run, newest first (the last 26);
-- ``feed.xml``: an Atom feed with one entry per run, built from the history.
+- ``feed.xml``: an Atom feed with one entry per run, built from the history;
+- ``available.json``: every available and dropping hack with its word, TLD and
+  the languages of the word lists it came from. The "Browse" page of the
+  documentation site reads it.
 """
 
 from __future__ import annotations
@@ -254,6 +257,47 @@ def load_results(path: Path) -> list[Record]:
     return records
 
 
+def word_languages(paths: list[Path]) -> dict[str, list[str]]:
+    """The languages each word belongs to, from the word lists' names:
+    ``en-common.txt`` is ``en``. A word in two lists has both, sorted."""
+    languages: dict[str, set[str]] = defaultdict(set)
+    for path in paths:
+        language = path.stem.split("-")[0].lower()
+        for word in path.read_text(encoding="utf-8").split("\n"):
+            if word.strip():
+                languages[word.strip().lower()].add(language)
+    return {word: sorted(found) for word, found in languages.items()}
+
+
+def browse_data(
+    results: list[Record], date: dt.date, languages: dict[str, list[str]]
+) -> dict[str, Any]:
+    """What the documentation site's "Browse" page shows: the available and the
+    dropping hacks, each with its word, TLD and languages, best first."""
+
+    def item(record: Record) -> dict[str, Any]:
+        return {
+            "domain": record["display"],
+            "word": record["word"],
+            "tld": record["tld"],
+            "langs": languages.get(record["word"], []),
+        }
+
+    dropping = sorted((r for r in results if _is_dropping(r)), key=_order)
+    return {
+        "date": date.isoformat(),
+        "available": [item(r) for r in sorted(filter(_is_available, results), key=_order)],
+        "dropping": [
+            {
+                **item(r),
+                "status": ", ".join(s for s in r["statuses"] if s in DROPPING_STATUSES),
+                "expires": _date(r["expires_at"]) if r["expires_at"] else None,
+            }
+            for r in dropping
+        ],
+    }
+
+
 def count_words(paths: list[Path]) -> int:
     """Distinct non-empty lines across the word lists."""
     words: set[str] = set()
@@ -480,6 +524,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     (args.out / "history.json").write_text(json.dumps(history, indent=1) + "\n", encoding="utf-8")
     (args.out / "feed.xml").write_text(render_feed(history), encoding="utf-8")
+    if stored is None or stored["date"] <= args.date.isoformat():
+        browse = browse_data(results, args.date, word_languages(args.words))
+        (args.out / "available.json").write_text(
+            json.dumps(browse, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8"
+        )
     # Written last, so a run that failed above leaves the previous snapshot in place; a
     # report rendered for an older date never replaces a newer snapshot.
     if stored is None or stored["date"] <= args.date.isoformat():

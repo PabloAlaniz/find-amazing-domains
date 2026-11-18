@@ -320,7 +320,8 @@ class TestChecksUseSnapshots:
         argv = ["name", "gus", "--tlds", "nu,com", "--format", "json", "--no-progress"]
         code = main([*argv, "--no-cache"], catalog=FakeCatalog(registrar), services=services)
         assert code == EXIT_OK
-        assert "gus.nu" not in registrar.calls and "gus.com" in registrar.calls
+        assert registrar.calls.count("gus.nu") == 0
+        assert registrar.calls.count("gus.com") == 1
         data = json.loads(capsys.readouterr().out)
         assert [(e["domain"], e["status"]) for e in data["exact"]] == [
             ("gus.nu", "taken"),

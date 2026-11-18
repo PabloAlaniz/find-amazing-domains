@@ -3,24 +3,26 @@
 Looking for a domain hack finder, a domain availability checker for the terminal, or an
 alternative to a web-based generator? This page compares domainhack with the tools people
 usually weigh it against: [domaingrep](https://github.com/ysm-dev/domaingrep),
-[tldx](https://github.com/brandonyoungdev/tldx) and [DomainHacks.info](https://domainhacks.info/).
+[tldx](https://github.com/brandonyoungdev/tldx), [DomainHacks.info](https://domainhacks.info/),
+[domain-check](https://github.com/saidutt46/domain-check) and
+[domh](https://github.com/codeatlasdev/domain-hunter).
 The table only states what each project documents in its README or on its site; if a cell is
 wrong, [open an issue](https://github.com/PabloAlaniz/find-amazing-domains/issues) and it will
 be fixed.
 
 
-| | domainhack | [domaingrep](https://github.com/ysm-dev/domaingrep) | [tldx](https://github.com/brandonyoungdev/tldx) | [DomainHacks.info](https://domainhacks.info/) |
-|---|---|---|---|---|
-| Finds domain hacks (word split at a TLD) | yes | yes | no: prefix/suffix permutations | yes |
-| Availability source | registry RDAP + WHOIS | DNS | RDAP | registry lookups (about 900 of 1466 TLDs) |
-| Cross-checks "available" against DNS | yes | DNS is the source | not documented | not documented |
-| Taken-name details (expiry, registrar, parking, dropping) | yes | not documented | `_for-sale` TXT record | not documented |
-| Second-level suffixes (`com.ar`, `co.uk`) and IDN | yes | not documented | not documented | not documented |
-| Country-code TLDs you can check | 170 of 248, each verified live | "every TLD", list not published | not published | about 900 TLDs |
-| Runs as | CLI, Python 3.10+ | CLI, Rust | CLI, Go | website |
-| License | MIT | MIT | Apache-2.0 | proprietary |
+| | domainhack | [domaingrep](https://github.com/ysm-dev/domaingrep) | [tldx](https://github.com/brandonyoungdev/tldx) | [DomainHacks.info](https://domainhacks.info/) | [domain-check](https://github.com/saidutt46/domain-check) | [domh](https://github.com/codeatlasdev/domain-hunter) |
+|---|---|---|---|---|---|---|
+| Finds domain hacks (word split at a TLD) | yes | yes | no: prefix/suffix permutations | yes | no: patterns and prefix/suffix | no: pronounceable patterns and prefix/suffix |
+| Availability source | registry RDAP + WHOIS | DNS | RDAP | registry lookups (about 900 of 1466 TLDs) | RDAP, WHOIS as fallback | DNS first, then RDAP, WHOIS and SSL |
+| Cross-checks "available" against DNS | yes | DNS is the source | not documented | not documented | not documented | DNS is the first filter |
+| Taken-name details (expiry, registrar, parking, dropping) | yes | not documented | `_for-sale` TXT record | not documented | registrar, dates and status codes (`--info`) | registrar (`--info`) |
+| Second-level suffixes (`com.ar`, `co.uk`) and IDN | yes | not documented | not documented | not documented | not documented | `com.br` and its siblings; IDN not documented |
+| Country-code TLDs you can check | 170 of 248, each verified live | "every TLD", list not published | not published | about 900 TLDs | "1,200+ TLDs", list not published | 1,437 TLDs (1,199 with RDAP), listed by `domh tlds` |
+| Runs as | CLI and MCP server, Python 3.10+ | CLI, Rust | CLI, Go | website | CLI, Rust library, MCP server | CLI and TUI, MCP server, Go |
+| License | MIT | MIT | Apache-2.0 | proprietary | MIT or Apache-2.0 | MIT |
 
-"Not documented" means the project's README or site did not say so in October 2026; corrections are welcome in an issue.
+"Not documented" means the project's README or site did not say so when it was last read (domaingrep, tldx and DomainHacks.info in October 2026; domain-check and domh in November 2026); corrections are welcome in an issue.
 
 ## What the differences mean in practice
 

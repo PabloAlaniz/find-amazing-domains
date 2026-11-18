@@ -1,0 +1,7 @@
+{
+  "_comment": "Reference prices per TLD, written by tools/refresh_prices.py. Amounts are strings. An empty 'prices' object means this build has no price data, and none is shown.",
+  "source": "",
+  "retrieved": "",
+  "currency": "USD",
+  "prices": {}
+}

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Sequence
+from decimal import Decimal
 from typing import Any
 
 from domainhack.ports.handle_checker import HandleResult, HandleStatus
@@ -40,6 +41,13 @@ def _handle_row(handle: HandleResult) -> tuple[str, str, str]:
     return handle.service, _HANDLE_STATUS[handle.status], handle.detail or handle.url
 
 
+def _price(report: BrandReport, entry: ReportEntry) -> str:
+    """``"$11.08/yr, renews $12.52"`` for an available name with a known price, else ``""``."""
+    if report.prices is None or entry.price is None:
+        return ""
+    return report.prices.describe(entry.price)
+
+
 def _with_detail(*parts: str) -> str:
     return " -- ".join(p for p in parts if p)
 
@@ -67,9 +75,13 @@ def render_text(report: BrandReport) -> str:
         f"Domains for {report.name!r}",
         f"TLDs: {', '.join(t.suffix for t in report.tlds) or _NONE}",
     ]
-    lines += _text_section("Exact name", [(e.name, e.status.value, e.detail) for e in report.exact])
+    lines += _text_section(
+        "Exact name",
+        [(e.name, e.status.value, _with_detail(e.detail, _price(report, e))) for e in report.exact],
+    )
     hack_rows = [
-        (e.name, e.status.value, _with_detail(_hack_reading(e), e.detail)) for e in report.hacks
+        (e.name, e.status.value, _with_detail(_hack_reading(e), e.detail, _price(report, e)))
+        for e in report.hacks
     ]
     hack_lines = _text_section("Domain hacks", hack_rows)
     if not report.suffix_hack_found:
@@ -79,7 +91,7 @@ def render_text(report: BrandReport) -> str:
     lines += hack_lines
     lines += _text_section(
         "Brand variants (available)",
-        [(e.name, _with_detail(e.label, e.detail)) for e in report.variants],
+        [(e.name, _with_detail(e.label, e.detail, _price(report, e))) for e in report.variants],
         _variants_empty(report),
     )
     lines += _text_section("Taken", [(e.name, e.status.value, e.detail) for e in report.taken])
@@ -91,14 +103,27 @@ def render_text(report: BrandReport) -> str:
         lines += _text_section(
             f"Handles for {report.name!r}", [_handle_row(h) for h in report.handles]
         )
-    rec_rows = [(f"{r.rank}.", r.entry.name, r.reason) for r in report.recommendations]
+    rec_rows = [
+        (f"{r.rank}.", r.entry.name, _with_detail(r.reason, _price(report, r.entry)))
+        for r in report.recommendations
+    ]
     lines += _text_section("Recommendation", rec_rows, "nothing available to recommend")
     if report.more_available:
         lines.append(f"  (+{report.more_available} more available above)")
     lines += [f"  - {line}" for line in report.advice]
-    if report.notes:
-        lines += ["", "Notes", *(f"  - {note}" for note in report.notes)]
+    notes = _notes(report)
+    if notes:
+        lines += ["", "Notes", *(f"  - {note}" for note in notes)]
     return "\n".join(lines) + "\n"
+
+
+def _notes(report: BrandReport) -> list[str]:
+    """The report's notes, plus the price caveat when a price is shown."""
+    notes = list(report.notes)
+    entries = (*report.exact, *report.hacks, *report.variants)
+    if report.prices is not None and any(e.price is not None for e in entries):
+        notes.append(report.prices.caveat)
+    return notes
 
 
 # ── markdown ─────────────────────────────────────────────
@@ -133,12 +158,20 @@ def render_markdown(report: BrandReport) -> str:
         return f"`{entry.name}`"
 
     lines += _md_section(
-        "Exact name", status_headers, [(code(e), e.status.value, e.detail) for e in report.exact]
+        "Exact name",
+        status_headers,
+        [
+            (code(e), e.status.value, _with_detail(e.detail, _price(report, e)))
+            for e in report.exact
+        ],
     )
     hack_section = _md_section(
         "Domain hacks",
         ("Domain", "Status", "Reads as", "Details"),
-        [(code(e), e.status.value, _hack_reading(e), e.detail) for e in report.hacks],
+        [
+            (code(e), e.status.value, _hack_reading(e), _with_detail(e.detail, _price(report, e)))
+            for e in report.hacks
+        ],
     )
     if not report.suffix_hack_found:
         note = f"_{report.no_suffix_hack_note[0].upper()}{report.no_suffix_hack_note[1:]}._"
@@ -150,7 +183,7 @@ def render_markdown(report: BrandReport) -> str:
     lines += _md_section(
         "Brand variants (available)",
         ("Domain", "Reads as", "Details"),
-        [(code(e), e.label, e.detail) for e in report.variants],
+        [(code(e), e.label, _with_detail(e.detail, _price(report, e))) for e in report.variants],
         _variants_empty(report).capitalize() + ".",
     )
     lines += _md_section(
@@ -172,15 +205,19 @@ def render_markdown(report: BrandReport) -> str:
         )
     lines += ["", "## Recommendation", ""]
     if report.recommendations:
-        lines += [f"{r.rank}. **`{r.entry.name}`**: {r.reason}" for r in report.recommendations]
+        lines += [
+            f"{r.rank}. **`{r.entry.name}`**: {_with_detail(r.reason, _price(report, r.entry))}"
+            for r in report.recommendations
+        ]
     else:
         lines.append("_Nothing available to recommend._")
     if report.more_available:
         lines += ["", f"_+{report.more_available} more available above._"]
     if report.advice:
         lines += ["", *(f"- {line}" for line in report.advice)]
-    if report.notes:
-        lines += ["", "## Notes", "", *(f"- {note}" for note in report.notes)]
+    notes = _notes(report)
+    if notes:
+        lines += ["", "## Notes", "", *(f"- {note}" for note in notes)]
     return "\n".join(lines) + "\n"
 
 
@@ -198,6 +235,11 @@ def _entry_json(entry: ReportEntry) -> dict[str, Any]:
     }
     if entry.candidate.meaning:
         data["meaning"] = entry.candidate.meaning
+    if entry.price is not None:
+        data["price"] = {
+            "registration": _amount(entry.price.registration),
+            "renewal": _amount(entry.price.renewal),
+        }
     result = entry.result
     if result is not None and (result.registered_at or result.expires_at or result.statuses):
         data["registered_at"] = result.registered_at.isoformat() if result.registered_at else None
@@ -215,6 +257,10 @@ def _entry_json(entry: ReportEntry) -> dict[str, Any]:
             "for_sale": result.dns.for_sale,
         }
     return data
+
+
+def _amount(value: Decimal | None) -> str | None:
+    return f"{value:.2f}" if value is not None else None
 
 
 def report_to_dict(report: BrandReport) -> dict[str, Any]:
@@ -237,6 +283,14 @@ def report_to_dict(report: BrandReport) -> dict[str, Any]:
         "more_available": report.more_available,
         "advice": list(report.advice),
         "notes": list(report.notes),
+        "prices": None
+        if report.prices is None
+        else {
+            "source": report.prices.source,
+            "retrieved": report.prices.retrieved,
+            "currency": report.prices.currency,
+            "note": report.prices.caveat,
+        },
         "handles": None
         if report.handles is None
         else [

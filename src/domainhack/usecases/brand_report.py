@@ -27,7 +27,9 @@ Recommendation score (higher is better)::
                name in a subdomain (del.icio.us)
 
 The tier always decides; length (of the name as displayed) only breaks ties
-within a tier, then alphabetical order. Only AVAILABLE names without a DNS
+within a tier, then the TLD's reference price when a price list is given (the
+cheaper of two equally good names first, counting the dearer of registration
+and renewal), then alphabetical order. Only AVAILABLE names without a DNS
 conflict are recommended: taken, dropping, DNS-conflict and unverifiable names
 never are. Advice lines mention a taken exact ``.com`` (listed for sale by its
 owner, or its parking service, if any) and dropping names.
@@ -35,11 +37,14 @@ owner, or its parking service, if any) and dropping names.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from decimal import Decimal
 from enum import Enum
 
 from domainhack.domain.entities import TLD, Availability, DomainCheckResult
+from domainhack.domain.pricing import PriceList, TldPrice
 from domainhack.ports.handle_checker import HandleResult
 from domainhack.usecases.brand_candidates import BrandCandidate, CandidateKind
 
@@ -65,6 +70,7 @@ class EntryStatus(Enum):
     NOT_CHECKED = "not-checked"
 
 
+_UNKNOWN_COST = Decimal("Infinity")
 _UNVERIFIABLE = frozenset({EntryStatus.ERROR, EntryStatus.UNSUPPORTED, EntryStatus.NOT_CHECKED})
 
 
@@ -76,6 +82,8 @@ class ReportEntry:
     status: EntryStatus
     detail: str = ""
     result: DomainCheckResult | None = None
+    # The TLD's reference price, set on available names when a price list is given.
+    price: TldPrice | None = None
 
     @property
     def name(self) -> str:
@@ -120,6 +128,8 @@ class BrandReport:
     notes: tuple[str, ...]
     # The name as a handle on GitHub, npm and PyPI; None when that was not asked for.
     handles: tuple[HandleResult, ...] | None = None
+    # The price list the entries' ``price`` comes from; None when prices are not shown.
+    prices: PriceList | None = None
 
     @property
     def no_suffix_hack_note(self) -> str:
@@ -202,6 +212,15 @@ def score(entry: ReportEntry) -> int:
     return _tier(entry)[0] * 100 - len(entry.name)
 
 
+def _yearly_cost(entry: ReportEntry) -> Decimal:
+    """What the name costs a year, for breaking ties: unknown prices sort last."""
+    price = entry.price
+    if price is None:
+        return _UNKNOWN_COST
+    known = [p for p in (price.registration, price.renewal) if p is not None]
+    return max(known) if known else _UNKNOWN_COST
+
+
 def _advice(entries: Sequence[ReportEntry]) -> list[str]:
     lines: list[str] = []
     for entry in entries:
@@ -238,6 +257,7 @@ def build_brand_report(
     notes: Sequence[str] = (),
     unsupported_reasons: Mapping[TLD, str] | None = None,
     handles: Sequence[HandleResult] | None = None,
+    prices: PriceList | None = None,
 ) -> BrandReport:
     """Build the report. Candidates without a result are unverifiable: "no registrar
     supports .x" when their TLD is in ``unsupported`` (or the message given for it
@@ -258,8 +278,15 @@ def build_brand_report(
     def of(kind: CandidateKind) -> list[ReportEntry]:
         return [e for e in entries if e.kind is kind]
 
+    if prices is not None:
+        entries = [
+            dataclasses.replace(e, price=prices.price_for(e.candidate.domain.tld.suffix))
+            if e.status is EntryStatus.AVAILABLE
+            else e
+            for e in entries
+        ]
     available = [e for e in entries if e.status is EntryStatus.AVAILABLE]
-    ranked = sorted(available, key=lambda e: (-score(e), e.name))
+    ranked = sorted(available, key=lambda e: (-score(e), _yearly_cost(e), e.name))
     recommendations = tuple(
         Recommendation(i, e, score(e), _tier(e)[1])
         for i, e in enumerate(ranked[:RECOMMENDATION_LIMIT], start=1)
@@ -280,4 +307,5 @@ def build_brand_report(
         advice=tuple(_advice(entries)),
         notes=tuple(notes),
         handles=tuple(handles) if handles is not None else None,
+        prices=prices,
     )

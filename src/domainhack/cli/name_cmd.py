@@ -30,8 +30,10 @@ from domainhack.adapters.handle_http import HttpHandleChecker
 from domainhack.adapters.iana_tlds import IanaTldList
 from domainhack.adapters.registrar_catalog import supported_tlds
 from domainhack.adapters.registry_sources import describe_unsupported, unsupported_message
+from domainhack.adapters.tld_prices import load_price_list
 from domainhack.cli import app
 from domainhack.domain.entities import DomainCheckResult
+from domainhack.domain.pricing import PriceList
 from domainhack.ports.dns_lookup import DnsLookup
 from domainhack.ports.handle_checker import HandleChecker, HandleResult
 from domainhack.ports.known_tlds import KnownTlds
@@ -58,12 +60,14 @@ class NameServices:
     ``supported_tlds`` lists the catalog's TLDs for the ``all-supported`` preset.
     ``handles`` checks the name on GitHub, npm and PyPI when asked to; without
     it, the production checker is built with the run's contact address.
+    ``prices`` loads the reference price list (None: this build has none).
     """
 
     known_tlds: KnownTlds
     dns: DnsLookup | None = None
     supported_tlds: Callable[[], Iterable[str]] = supported_tlds
     handles: HandleChecker | None = None
+    prices: Callable[[], PriceList | None] = load_price_list
 
 
 def default_services() -> NameServices:
@@ -203,6 +207,13 @@ def register(
         "(delicious -> del.icio.us, registering icio.us). Default: on",
     )
     parser.add_argument(
+        "--prices",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show each TLD's reference price next to available names (a dated snapshot of "
+        "a registrar's public price list, not a quote). Default: on",
+    )
+    parser.add_argument(
         "--handles",
         action="store_true",
         help="Also say whether NAME is taken on GitHub (user or organization), npm and "
@@ -242,6 +253,7 @@ def find_name(
     subdomain_hacks: bool = True,
     presets: Presets | None = None,
     handles: bool = False,
+    prices: bool = True,
     confirm_dns: bool | None = None,
     catalog: app.RegistrarCatalog | None = None,
     services: NameServices | None = None,
@@ -254,7 +266,8 @@ def find_name(
     ``suffixes`` replace them (see ``brand_candidates.variant_affixes``).
     ``subdomain_hacks`` adds hacks such as ``del.icio.us`` when the name ends
     in a TLD. ``presets`` are extra TLD presets (the user's own). ``handles``
-    also asks GitHub, npm and PyPI whether the name is taken there.
+    also asks GitHub, npm and PyPI whether the name is taken there. ``prices``
+    shows each TLD's reference price next to available names.
 
     ``run`` holds the shared run options (``app.add_run_options``: delay,
     parallelism, cache, contact, progress). ``confirm_dns`` None means "when
@@ -358,6 +371,7 @@ def find_name(
         notes=notes,
         unsupported_reasons={t: unsupported_message(t.suffix) for t in unsupported},
         handles=handle_results,
+        prices=services.prices() if prices else None,
     )
     return NameOutcome(report, summary, generator.skipped)
 
@@ -389,6 +403,7 @@ def cmd_name(
             subdomain_hacks=args.subdomain_hacks,
             presets=config.presets,
             handles=args.handles,
+            prices=args.prices,
             confirm_dns=args.confirm_dns,
             catalog=catalog,
             services=services,

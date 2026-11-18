@@ -256,7 +256,8 @@ def run_watch(
     if not entries:
         return WatchRun(0, 0, [], [])
     domains, _ = parse_domains(list(entries))
-    fresh = argparse.Namespace(**{**vars(run), "cache_ttl": 0.0})
+    # Nor are zone snapshots: they cannot tell a dropping name or an expiry date.
+    fresh = argparse.Namespace(**{**vars(run), "cache_ttl": 0.0, "no_zones": True})
     results, summary, unsupported = check_names(domains, run=fresh, catalog=catalog, dns=None)
 
     checked_at = format_utc(clock())

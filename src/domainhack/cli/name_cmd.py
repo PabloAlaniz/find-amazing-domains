@@ -23,7 +23,6 @@ from pathlib import Path
 
 from domainhack.adapters.brand_data import DEFAULT_PRESET, load_hack_words, load_tld_presets
 from domainhack.adapters.brand_report_render import RENDERERS
-from domainhack.adapters.cached_registrar import CachedRegistrarClient
 from domainhack.adapters.config_file import Config
 from domainhack.adapters.dns_resolver import DnsPythonLookup
 from domainhack.adapters.handle_http import HttpHandleChecker
@@ -330,7 +329,7 @@ def find_name(
 
     collector = ResultCollector()
     with app._build_registrar(run, router) as registrar:
-        cache = registrar if isinstance(registrar, CachedRegistrarClient) else None
+        cache = app.result_cache(run, registrar)
         use_case = CheckDomainsUseCase(
             router,
             collector,
@@ -339,7 +338,10 @@ def find_name(
             parallel=run.parallel,
             lane_key=app._lane_key(run, router),
         )
-        summary = use_case.execute(domains, total=len(domains))
+        try:
+            summary = use_case.execute(domains, total=len(domains))
+        finally:
+            app.close_zones(cache)
 
     order = {c.domain.fqdn: i for i, c in enumerate(candidates)}
     results = sorted(collector.results, key=lambda r: order[r.domain.fqdn])

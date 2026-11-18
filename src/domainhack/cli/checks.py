@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 from collections.abc import Sequence
 
-from domainhack.adapters.cached_registrar import CachedRegistrarClient
 from domainhack.cli import app
 from domainhack.cli.name_cmd import ResultCollector
 from domainhack.domain.entities import TLD, DomainCheckResult, DomainHack, InvalidLabelError
@@ -65,7 +64,7 @@ def check_names(
         raise
     collector = ResultCollector()
     with app._build_registrar(run, router) as registrar:
-        cache = registrar if isinstance(registrar, CachedRegistrarClient) else None
+        cache = app.result_cache(run, registrar)
         use_case = CheckDomainsUseCase(
             router,
             collector,
@@ -74,7 +73,10 @@ def check_names(
             parallel=run.parallel,
             lane_key=app._lane_key(run, router),
         )
-        summary = use_case.execute(supported, total=len(supported))
+        try:
+            summary = use_case.execute(supported, total=len(supported))
+        finally:
+            app.close_zones(cache)
     order = {d.fqdn: i for i, d in enumerate(supported)}
     results = sorted(collector.results, key=lambda r: order[r.domain.fqdn])
     if dns is not None and not summary.interrupted:

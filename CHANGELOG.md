@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `domainhack zones import|list|remove`: zone snapshots. Names in a registry's
+  imported zone file are reported as taken without a query; names that are
+  not in it are still checked live. Used for 7 days; `--no-zones` turns them
+  off.
+- MCP tools `check_pattern` (names fitting a pattern, at most 100 per call)
+  and `watch_domains` (add, remove, list, run on the CLI's watchlist).
+- A Claude Code skill, `skills/domainhack/SKILL.md`.
+- Documentation site: a "Browse available hacks" page that searches the
+  latest weekly report by word, TLD, language and length, from the new
+  `reports/available.json`.
 - `domainhack watch add|remove|list|run`: keep a watchlist and report what
   changed since the last run (became available, dropping, registered,
   restored, expiry date moved, parking changed). `--format json`, and

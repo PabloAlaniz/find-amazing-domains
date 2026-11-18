@@ -105,7 +105,7 @@ Shorter names win within a tier, and between two names of the same tier and leng
 
 ## Use it from an AI agent (MCP)
 
-domainhack runs as a [Model Context Protocol](https://modelcontextprotocol.io/) server with four tools: `find_domain_for_name` (what `name` does, as structured data), `check_domains` (specific names, with registration details), `find_hacks_for_words` (offline) and `list_tlds` (offline).
+domainhack runs as a [Model Context Protocol](https://modelcontextprotocol.io/) server with six tools: `find_domain_for_name` (what `name` does, as structured data), `check_domains` (specific names, with registration details), `check_pattern` (short names that fit a pattern such as `CVCV`), `watch_domains` (the watchlist of `domainhack watch`), `find_hacks_for_words` (offline) and `list_tlds` (offline).
 
 ```bash
 pipx install "domainhack[mcp]"
@@ -119,6 +119,8 @@ For Claude Desktop, Cursor and other clients, add a stdio server that runs `doma
 ```
 
 The server takes the run options the CLI shares (`--delay`, `--parallel`, `--no-cache`, `--contact`) and reads the same [configuration file](#configuration-file). Only names with status `available` are recommended; the agent is told that "available" means "not registered" and to confirm with a registrar before buying. Details in the [docs](https://pabloalaniz.github.io/find-amazing-domains/mcp/).
+
+Prefer a skill to a server? [`skills/domainhack/SKILL.md`](skills/domainhack/SKILL.md) teaches Claude Code to drive the CLI: copy the `domainhack` folder into `~/.claude/skills/` (or a project's `.claude/skills/`).
 
 ## Weekly report
 
@@ -420,6 +422,26 @@ Word lists are read as UTF-8; use `--encoding latin-1` for older lists.
 
   `--cache-ttl HOURS` caps all of these (e.g. `--cache-ttl 1` rechecks anything older than an hour). Use `--no-cache` to skip the cache and `--cache-path PATH` to move it. Cache files from older versions are upgraded in place. The cache keeps registration details (statuses, dates, registrar, nameservers, parking hint) but never DNS evidence, which is looked up fresh.
 
+### Zone snapshots
+
+Some registries publish their whole zone: every name that has nameservers. A name in the zone is certainly registered, so there is nothing to ask. Import the zone file once and domainhack answers those names offline:
+
+```bash
+dig @ZONE-SERVER nu AXFR > nu.zone      # the server and any key are in the registry's instructions
+domainhack zones import nu nu.zone
+domainhack zones list
+domainhack zones remove nu
+```
+
+From then on `check`, `name` and the MCP tools report every name in the snapshot as taken without a query, and say how many they answered that way. For a word list most of whose hacks are taken, that is most of the run.
+
+- **A snapshot can only save queries.** A name that is *not* in the zone may still be registered (without nameservers, on hold, in redemption), so it is checked at the registry as always. Nothing is ever reported available from a zone file.
+- **Names answered from a snapshot have no details**: no expiry date, registrar or parking hint, and they are never shown as dropping. `watch` ignores snapshots for that reason. Pass `--no-zones` when you want the registry's full answer.
+- **Snapshots are used for 7 days**, then ignored with a warning until you import the zone again: a zone file goes stale as names are registered and deleted.
+- `import` reads `dig AXFR` output or any master-format zone file, gzip or not, and keeps the names exactly one label below the TLD that have NS records. A plain list of names, one per line, works too.
+- Where to get zone files: SWITCH publishes `.ch` and `.li` and Internetstiftelsen `.se` and `.nu`, both by zone transfer, and ICANN's [Centralized Zone Data Service](https://czds.icann.org/) gives access to the generic TLDs on request. Follow each registry's own instructions and terms.
+- Snapshots live in `$XDG_DATA_HOME/domainhack/zones` (`~/.local/share/domainhack/zones`), or `$DOMAINHACK_ZONES`, or `--zone-dir`. Lookups are a binary search over the file, so a zone of millions of names costs no memory at check time.
+
 ### Configuration file
 
 Options you would otherwise repeat can live in a TOML file. Every table and key is optional:
@@ -591,8 +613,10 @@ Bug reports, new TLDs and WHOIS pattern fixes are welcome. [CONTRIBUTING.md](CON
 | Pattern mode (`--pattern CVCV`) | Done |
 | Your own prefixes and suffixes for `name`, subdomain hacks (`del.icio.us`) | Done |
 | Configuration file (`domainhack.toml`): run options, presets, defaults | Done |
-| Open zone files (.nu, .ch, .li) as an offline "registered" source | Planned |
-| Async HTTP (`httpx.AsyncClient`) | Planned |
+| Zone files as an offline "registered" source (`domainhack zones`) | Done |
+| MCP tools `check_pattern` and `watch_domains`; Claude Code skill | Done |
+| Browse page on the documentation site for the weekly report | Done |
+| Async HTTP (`httpx.AsyncClient`) | Dropped: each registry host gets one request at a time over a kept-alive connection, so async would change the thread count, not the speed |
 
 ## License
 

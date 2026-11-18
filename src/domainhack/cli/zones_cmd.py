@@ -1,6 +1,6 @@
 """``domainhack zones``: import a registry's zone file so its names need no query.
 
-    dig @zonedata.iis.se nu AXFR > nu.zone      # see the registry's own instructions
+    dig @ZONE-SERVER nu AXFR > nu.zone      # see the registry's own instructions
     domainhack zones import nu nu.zone
     domainhack zones list
     domainhack zones remove nu

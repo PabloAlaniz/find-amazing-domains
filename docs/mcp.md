@@ -6,7 +6,7 @@ The server exposes the same features as the CLI, as four tools:
 
 | Tool | What it does | Network |
 |---|---|---|
-| `find_domain_for_name` | What `domainhack name` does: exact name under a TLD preset, domain hacks that spell it, optional brand variants, ranked recommendation, details for taken names | registries |
+| `find_domain_for_name` | What `domainhack name` does: exact name under a TLD preset, domain hacks that spell it (subdomain ones included), optional brand variants with the default or your own `prefixes` and `suffixes`, ranked recommendation, details for taken names | registries |
 | `check_domains` | Availability and registration details for specific names (`pla.to`, `foto.com.ar`), with the DNS cross-check | registries |
 | `find_hacks_for_words` | Which words end in a TLD and the hack each forms (`testing` -> `test.ing`) | none |
 | `list_tlds` | Which TLDs can be checked, how, and why not | none |
@@ -58,6 +58,13 @@ Cursor reads the same shape from `.cursor/mcp.json` (project) or `~/.cursor/mcp.
 To send a contact address with RDAP requests, as the CLI's `--contact` does, add
 `"args": ["--from", "domainhack[mcp]", "domainhack-mcp", "--contact", "you@example.com"]`
 or set `DOMAINHACK_CONTACT` in the server's `env`.
+
+The server also reads the CLI's [configuration file](usage.md#configuration-file): its `[run]`
+values, your own `[presets]`, and the `[name]` defaults (`tlds` becomes the default of the
+`tlds` argument; `prefixes` and `suffixes` apply when a call names neither and does not set
+`variants`). Pass `--config FILE` to name a file or `--no-config` to ignore them. Since a
+client starts the server in a directory of its own choosing, prefer `--config` or
+`~/.config/domainhack/config.toml` over a `./domainhack.toml`.
 
 ## What the agent gets back
 

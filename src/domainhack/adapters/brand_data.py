@@ -38,8 +38,9 @@ def parse_presets(data: dict[str, Any]) -> Presets:
     return presets
 
 
-def load_tld_presets() -> Presets:
-    return parse_presets(_load(TLD_PRESETS_FILE))
+def load_tld_presets(extra: Presets | None = None) -> Presets:
+    """The bundled presets, plus ``extra`` (the user's own; they win on a name clash)."""
+    return {**parse_presets(_load(TLD_PRESETS_FILE)), **(extra or {})}
 
 
 def load_hack_words() -> tuple[HackWord, ...]:

@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Pattern mode: `check --pattern CVCV` checks the names a pattern matches
+  (`C` consonant, `V` vowel, `L` letter, `D` digit; lowercase letters, digits
+  and hyphens are literal), with the same estimate, `--limit`, `--dry-run`
+  and `--yes` threshold as range mode.
+- `check --order frequency` with `--frequency-list FILE` (repeatable): the
+  most common words are checked first; words in no list follow in `score`
+  order. Passing `--frequency-list` alone picks this order.
+- `name --prefix get,try` and `--suffix hq,labs`: your own words for brand
+  variants (at most 10 of each) instead of the default lists. The MCP tool
+  `find_domain_for_name` takes them as `prefixes` and `suffixes`.
+- Subdomain hacks in `name`: when the name ends in a TLD, hacks that move
+  part of it to a subdomain are checked too (`delicious` -> `del.icio.us`,
+  registering `icio.us`). On by default; `--no-subdomain-hacks` (MCP:
+  `subdomain_hacks: false`) leaves them out.
+- Configuration file (`--config FILE`, `$DOMAINHACK_CONFIG`,
+  `./domainhack.toml` or `$XDG_CONFIG_HOME/domainhack/config.toml`;
+  `--no-config` ignores it): `[run]` defaults (`delay`, `parallel`,
+  `contact`, `cache_path`), your own `[presets]` for `name --tlds`, `[name]`
+  defaults (`tlds`, `prefixes`, `suffixes`) and `[check] frequency_list`.
+  `domainhack-mcp` reads it too. Python 3.10 gains a dependency on `tomli`.
 - Homebrew formula: `brew install pabloalaniz/tap/domainhack`
   (https://github.com/PabloAlaniz/homebrew-tap).
 - MCP server (`domainhack-mcp`, extra `mcp`): `find_domain_for_name`,

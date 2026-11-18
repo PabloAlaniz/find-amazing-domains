@@ -81,8 +81,8 @@ Recommendation
 What it checks:
 
 - **Exact name** under every TLD of `--tlds`. It takes presets and TLDs, mixed: `--tlds startup,com.ar,la`. The presets are `startup` (the default: com, app, io, ai, co, dev, so, xyz), `latam` (com.ar, ar, com.mx, mx, com.co, co, com.br, cl, pe), `classic` (com, net, org) and `all-supported` (every TLD the tool can check). A TLD the tool cannot check (e.g. `.es`, whose registry only serves accredited users) is reported as unsupported, with the reason.
-- **Domain hacks**: the name split at a TLD it ends with (`plato` -> `pla.to`), and the name plus a curated word ending in a TLD (`sumanda` + studio -> `sumandastud.io`, or `sumanda.studio` where the word is itself a TLD). The words and their meanings live in `src/domainhack/data/hack_words.json`. When the name ends in no TLD, the report says so.
-- **Brand variants** (`--variants`): `get`/`use`/`try`/`hola`/`my` + name and name + `hq`/`app`/`labs`/`studio`. They are checked under `.com` and the first 3 other requested TLDs only, so there are at most 36 of them.
+- **Domain hacks**: the name split at a TLD it ends with (`plato` -> `pla.to`), and the name plus a curated word ending in a TLD (`sumanda` + studio -> `sumandastud.io`, or `sumanda.studio` where the word is itself a TLD). The words and their meanings live in `src/domainhack/data/hack_words.json`. When the name ends in no TLD, the report says so. When it does, hacks that move part of the name to a subdomain are checked too: `delicious` -> `del.icio.us`, where the name to register is `icio.us`. `--no-subdomain-hacks` leaves them out.
+- **Brand variants** (`--variants`): `get`/`use`/`try`/`hola`/`my` + name and name + `hq`/`app`/`labs`/`studio`. They are checked under `.com` and the first 3 other requested TLDs only, so there are at most 36 of them. `--prefix get,try` and `--suffix hq,labs` use your own words instead (at most 10 of each). On their own they add only the words you give; with `--variants` the side you did not name keeps its default list.
 
 The report lists the exact names by TLD, the hacks, the available variants and the taken names. Taken names come with their details (registration and expiry dates, parking service, dropping status). It also names everything it could not verify (registry error or unreachable, no registrar for the TLD) and every DNS conflict (the registry says available, but DNS has nameservers). `--format` picks `text` (default), `markdown` (to share) or `json`. `--output FILE` also saves the raw results as CSV or JSON Lines, like `check`.
 
@@ -94,7 +94,7 @@ The recommendation ranks available names only:
 - then a `.com` variant;
 - then a hack that spells the name;
 - then other variants;
-- then hacks with an extra word.
+- then hacks with an extra word or with a subdomain.
 
 Shorter names win within a tier. Taken, dropping, DNS-conflict and unverifiable names are never recommended.
 
@@ -115,7 +115,7 @@ For Claude Desktop, Cursor and other clients, add a stdio server that runs `doma
 {"mcpServers": {"domainhack": {"command": "uvx", "args": ["--from", "domainhack[mcp]", "domainhack-mcp"]}}}
 ```
 
-The server takes the run options the CLI shares (`--delay`, `--parallel`, `--no-cache`, `--contact`). Only names with status `available` are recommended; the agent is told that "available" means "not registered" and to confirm with a registrar before buying. Details in the [docs](https://pabloalaniz.github.io/find-amazing-domains/mcp/).
+The server takes the run options the CLI shares (`--delay`, `--parallel`, `--no-cache`, `--contact`) and reads the same [configuration file](#configuration-file). Only names with status `available` are recommended; the agent is told that "available" means "not registered" and to confirm with a registrar before buying. Details in the [docs](https://pabloalaniz.github.io/find-amazing-domains/mcp/).
 
 ## Weekly report
 
@@ -134,7 +134,7 @@ Every Tuesday a [workflow](.github/workflows/weekly-report.yml) checks the 5,086
 
 ## How It Works
 
-The tool has **two modes** to generate candidate domains, and then checks their availability against the registrar.
+The tool has **three modes** to generate candidate domains, and then checks their availability against the registrar.
 
 ### Mode 1: Word list -- find domains that are real words
 
@@ -157,6 +157,16 @@ a.to, b.to, ..., z.to, aa.to, ab.to, ..., zz.to, aaa.to, ...
 ```
 
 This mode is useful for finding **short, available domains** regardless of whether they form real words.
+
+### Mode 3: Pattern -- short names you can pronounce
+
+Describe the shape of the name (`C` consonant, `V` vowel, `L` letter, `D` digit) and check only the names that fit.
+
+```
+CVCV  -->  baba.to, babe.to, babi.to, ..., zuzu.to
+```
+
+This mode finds **short, brandable domains** without wading through combinations like `qxzk`.
 
 ## Usage
 
@@ -194,6 +204,9 @@ domainhack --tld to,it check --file data/words_es.txt --limit 50
 
 # Check in word-list order instead
 domainhack --tld to check --file data/words_es.txt --order input
+
+# Most common words first: common words make the best hacks
+domainhack --tld to check --file data/words_es.txt --frequency-list data/wordlists/es-common.txt
 ```
 
 Taken names in their registry's redemption period or pending delete are "dropping": they may become free soon. They print as `TAKEN (dropping: pending delete, expires 2026-11-02): x.to` with `--show-taken` or `--show-dropping`, and the summary counts them (`12 taken (1 dropping)`). Statuses and expiry dates come from RDAP; for WHOIS TLDs they are read only when the reply uses EPP status codes and ISO dates (e.g. `.it`).
@@ -209,6 +222,7 @@ Only the known parts are shown. `parked:` names the parking or aftermarket servi
 Registries rightly limit how many automated lookups a client may make, so the best candidates are checked first. `--order` picks the order:
 
 - `score` (default): shortest SLD first, then shortest full word, then alphabetical. The order is deterministic.
+- `frequency`: most common words first. It needs `--frequency-list FILE`, a word list sorted most common first (the lists in [`data/wordlists/`](https://github.com/PabloAlaniz/find-amazing-domains/tree/main/data/wordlists) are); giving that option is enough to pick this order. Repeat it for several languages: a word takes its best rank. Words in no list are checked last, in `score` order.
 - `alpha`: alphabetical by domain name.
 - `input`: the order of the word list.
 
@@ -234,13 +248,40 @@ domainhack --tld to,io check --range-max 3 --limit 500
 
 Combinations are generated shortest first, lazily (`--range-max 6` is over 300 million names), so range mode is never sorted and `--order` only accepts `input` there.
 
-Before a brute-force run, domainhack prints the estimated number of queries and the minimum run time. The estimate accounts for TLDs that share a host and for each host's pacing:
+### Check availability -- pattern mode
+
+Most letter combinations are unpronounceable. A pattern keeps the ones that read like a name: `CVCV` is 11,025 names where four free letters are 456,976.
+
+```bash
+# Consonant-vowel-consonant-vowel: baba.to, babe.to, ..., zuzu.to
+domainhack --tld to check --pattern CVCV --limit 500
+
+# Fixed letters with free positions: goba.io, gobe.io, ...
+domainhack --tld io check --pattern goCV
+
+# Preview without checking
+domainhack --tld to check --pattern CVC --dry-run
+```
+
+A pattern has one character per position of the name:
+
+| Character | Stands for |
+|-----------|------------|
+| `C` | a consonant (`y` counts as one) |
+| `V` | a vowel (`a e i o u`) |
+| `L` | any letter |
+| `D` | a digit |
+| lowercase letter, digit or `-` | itself |
+
+Names come out in order, the first position changing slowest, and are never sorted (`--order` only accepts `input`). `--limit`, `--dry-run`, the estimate and the `--yes` threshold below work as in range mode.
+
+Before a range or pattern run, domainhack prints the estimated number of queries and the minimum run time. The estimate accounts for TLDs that share a host and for each host's pacing:
 
 ```
 Estimated 36,556 queries to 2 hosts (rdap.tonicregistry.to, rdap.identitydigital.services): at least 5 h 4 min at the current pacing.
 ```
 
-Runs over 10,000 queries are refused with exit status 2 unless you pass `--yes`. Narrow the run with `--range-end` or `--limit` instead where you can: registry terms of use forbid bulk querying. `--dry-run` never queries anything, so it is exempt.
+Runs over 10,000 queries are refused with exit status 2 unless you pass `--yes`. Narrow the run with `--limit`, `--range-end` or a tighter pattern instead where you can: registry terms of use forbid bulk querying. `--dry-run` never queries anything, so it is exempt.
 
 ### Multiple TLDs
 
@@ -292,7 +333,7 @@ domainhack --tld to,io,it check --file data/words_en.txt --keep-order
 - **Output order is completion order.** With `--parallel` above 1, results print (and are saved) as they come back, so domains from a fast host come out ahead of a slow one. Within one host they keep the check order. `--keep-order` holds results back to restore the check order (a slow host then delays the output, not the checks). `--parallel 1` checks in order, so output is in order too.
 - **What gets checked does not change.** `--order` and `--limit` pick the domains before they are dispatched, and each host gets its share in that order.
 - **Cache hits skip the queue.** Cached results are answered before dispatch and never wait for a host.
-- **Memory stays bounded in brute-force mode.** Candidates are generated lazily. Each host has a queue of at most 16 waiting domains; when it is full, generation pauses until that host catches up. At most `hosts x 16` candidates (plus their results) are in memory, however large `--range-max` is.
+- **Memory stays bounded in range and pattern modes.** Candidates are generated lazily. Each host has a queue of at most 16 waiting domains; when it is full, generation pauses until that host catches up. At most `hosts x 16` candidates (plus their results) are in memory, however large `--range-max` is.
 - **Ctrl-C** stops dispatching at once, gives checks in flight up to a second to finish (their results are kept), and exits with status 130 as before.
 
 ### Saving results
@@ -340,6 +381,38 @@ Word lists are read as UTF-8; use `--encoding latin-1` for older lists.
 
   `--cache-ttl HOURS` caps all of these (e.g. `--cache-ttl 1` rechecks anything older than an hour). Use `--no-cache` to skip the cache and `--cache-path PATH` to move it. Cache files from older versions are upgraded in place. The cache keeps registration details (statuses, dates, registrar, nameservers, parking hint) but never DNS evidence, which is looked up fresh.
 
+### Configuration file
+
+Options you would otherwise repeat can live in a TOML file. Every table and key is optional:
+
+```toml
+[run]                      # for check, name and domainhack-mcp
+delay = 2.0
+parallel = 8
+contact = "you@example.com"
+cache_path = "~/domains/cache.sqlite3"
+
+[presets]                  # your own presets for `name --tlds`
+mine = ["com", "dev", "com.ar"]
+
+[name]
+tlds = "mine,io"           # the default of --tlds
+prefixes = ["get", "try"]  # the default of --prefix
+suffixes = ["hq", "labs"]  # the default of --suffix
+
+[check]
+frequency_list = ["~/words/en-common.txt"]   # the default of --frequency-list
+```
+
+domainhack uses the first of these that applies: `--config FILE`, the `DOMAINHACK_CONFIG` environment variable, `./domainhack.toml`, then `$XDG_CONFIG_HOME/domainhack/config.toml` (`~/.config/domainhack/config.toml`). `--no-config` ignores them all.
+
+- A value on the command line always wins over the file, and `DOMAINHACK_CONTACT` wins over `contact`.
+- A preset in `[presets]` with the name of a bundled one (`startup`, `latam`, `classic`) replaces it.
+- `prefixes` and `suffixes` turn brand variants on for every `name` run, as `--prefix` and `--suffix` do.
+- `frequency_list` only says where the lists are; the order is still `score` until you pass `--order frequency`.
+- Relative paths are relative to the file, and `~` is your home directory.
+- An unknown table or key, or a value of the wrong type, is an error (exit status 2) that names the file and the key, so a typo never silently does nothing.
+
 ## Supported TLDs
 
 Availability is checked against the registry directly, with no captchas or API keys. Ask the tool what it covers; it answers offline:
@@ -374,7 +447,7 @@ Note: "available" means *not registered*. Premium or reserved names may still sh
 - The spacing adapts to each host (RFC 7480 §5.5). A 429, a 503, a timeout or WHOIS rate-limit text doubles that host's interval, up to 60 s. Each real answer shrinks it by 10%, back down to `--delay`.
 - RDAP retries a 429, a 5xx, a timeout or a dropped connection at most twice. It waits for `Retry-After` when the server sends one (a 429 asking for more than 30 s is not retried, but the host is still held back, for up to 60 s). Otherwise it waits a "full jitter" exponential backoff, `random(0, min(30, 2 × 2^n))` seconds. WHOIS retries a timeout or a rate-limited reply only once.
 - A check counts once, however many retries it takes: it slows its host down at most once and counts as at most one failure for the circuit breaker below.
-- Checks go best-first, `--limit` caps them per TLD, and large brute-force runs need `--yes` (see above).
+- Checks go best-first, `--limit` caps them per TLD, and large range or pattern runs need `--yes` (see above).
 - If a host stops responding (3 consecutive failures), its domains are skipped for 60 s instead of waiting on timeouts; skipped checks are reported as errors and re-checked on the next run.
 
 ### Exit codes
@@ -470,7 +543,10 @@ Bug reports, new TLDs and WHOIS pattern fixes are welcome. [CONTRIBUTING.md](CON
 | `tlds` command and live-verified registry data (170 of 248 ccTLDs) | Done |
 | Reference prices per TLD: a bundled, dated snapshot of public registrar price lists (registration and renewal), shown as a reference only; per-name premium pricing is out of scope | Planned |
 | Re-verify registries that did not answer during verification (e.g. .pt, .uy, .dk, .do) and the .my RDAP service | Planned |
-| Word-frequency scoring (`Scorer` hook) | Planned |
+| Word-frequency ordering (`--order frequency`) | Done |
+| Pattern mode (`--pattern CVCV`) | Done |
+| Your own prefixes and suffixes for `name`, subdomain hacks (`del.icio.us`) | Done |
+| Configuration file (`domainhack.toml`): run options, presets, defaults | Done |
 | Open zone files (.nu, .ch, .li) as an offline "registered" source | Planned |
 | Async HTTP (`httpx.AsyncClient`) | Planned |
 

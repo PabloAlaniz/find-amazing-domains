@@ -195,7 +195,7 @@ class TestBuildWriter:
         self._write_one(writer)
         assert (
             out.read_text(encoding="utf-8").splitlines()[1]
-            == "a.to,a.to,ato,a,to,taken,,,,,,,,,false"
+            == "a.to,a.to,ato,a,to,taken,,,,,,,,,false,"
         )
 
     def test_composite_with_json(self, tmp_path: Path) -> None:
@@ -229,8 +229,8 @@ class TestCmdCheckOutput:
         lines = out.read_text(encoding="utf-8").splitlines()
         assert lines[0] == ",".join(CSV_FIELDS)
         assert lines[1:] == [
-            "a.to,a.to,ato,a,to,available,,,,,,,,,false",
-            "b.to,b.to,bto,b,to,available,,,,,,,,,false",
+            "a.to,a.to,ato,a,to,available,,,,,,,,,false,",
+            "b.to,b.to,bto,b,to,available,,,,,,,,,false,",
         ]
         # Console output is still produced alongside the file.
         assert "AVAILABLE: a.to" in capsys.readouterr().out

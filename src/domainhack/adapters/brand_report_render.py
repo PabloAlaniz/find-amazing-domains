@@ -188,6 +188,7 @@ def _entry_json(entry: ReportEntry) -> dict[str, Any]:
             "nameservers": list(result.dns.nameservers),
             "has_address": result.dns.has_address,
             "error": result.dns.error,
+            "for_sale": result.dns.for_sale,
         }
     return data
 

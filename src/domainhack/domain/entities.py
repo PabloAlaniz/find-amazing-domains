@@ -223,6 +223,8 @@ class DnsEvidence:
 
     ``nameservers`` are the delegated NS hosts (lowercase, no trailing dot);
     ``has_address`` is True when the name resolves to an A or AAAA record.
+    ``for_sale`` is set when the holder publishes a ``_for-sale`` TXT record
+    (see ``domain/for_sale.py``): its content, or ``"listed"`` when it has none.
     ``error`` is set when the lookup itself failed (timeout, SERVFAIL...), in
     which case the other fields carry no information.
     """
@@ -230,6 +232,7 @@ class DnsEvidence:
     nameservers: tuple[str, ...] = ()
     has_address: bool = False
     error: str = ""
+    for_sale: str = ""
 
     @property
     def is_delegated(self) -> bool:

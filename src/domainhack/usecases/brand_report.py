@@ -27,8 +27,8 @@ Recommendation score (higher is better)::
 The tier always decides; length (of the name as displayed) only breaks ties
 within a tier, then alphabetical order. Only AVAILABLE names without a DNS
 conflict are recommended: taken, dropping, DNS-conflict and unverifiable names
-never are. Advice lines mention a taken exact ``.com`` (with its parking
-service, if any) and dropping names.
+never are. Advice lines mention a taken exact ``.com`` (listed for sale by its
+owner, or its parking service, if any) and dropping names.
 """
 
 from __future__ import annotations
@@ -136,6 +136,8 @@ def _taken_detail(result: DomainCheckResult) -> str:
         parts.append(f"registrar {result.registrar}")
     if result.parked_hint:
         parts.append(f"parked: {result.parked_hint}")
+    if result.dns is not None and result.dns.for_sale:
+        parts.append(f"for sale: {result.dns.for_sale}")
     if result.is_dropping:
         parts.append(f"dropping: {', '.join(result.dropping_statuses)}")
     if result.dns is not None and not result.dns.error and not result.dns.is_delegated:
@@ -211,7 +213,9 @@ def _advice(entries: Sequence[ReportEntry]) -> list[str]:
             line = f"{entry.name} is taken"
             if expires := _date(result, "expires_at"):
                 line += f" (expires {expires})"
-            if result.parked_hint:
+            if result.dns is not None and result.dns.for_sale:
+                line += "; the owner lists it for sale (_for-sale DNS record)"
+            elif result.parked_hint:
                 line += f"; parked at {result.parked_hint}: may be purchasable from the owner"
             lines.append(line)
     return lines

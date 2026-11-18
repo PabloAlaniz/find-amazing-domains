@@ -20,7 +20,9 @@ class JsonResultWriter(ResultWriter):
     details of a taken name, empty when unknown. ``dns_nameservers`` is the
     list of NS hosts public DNS returned (empty when DNS was not consulted)
     and ``dns_conflict`` is true when the registry said available but DNS
-    shows a delegation.
+    shows a delegation. ``for_sale`` is what the holder's ``_for-sale`` DNS
+    record says (``"listed"`` when it says nothing more), empty when there is
+    none or DNS was not consulted.
     """
 
     def __init__(self, target: TextTarget) -> None:
@@ -56,4 +58,5 @@ def result_record(result: DomainCheckResult) -> dict[str, Any]:
         "parked_hint": result.parked_hint,
         "dns_nameservers": list(result.dns.nameservers) if result.dns is not None else [],
         "dns_conflict": result.dns_conflict,
+        "for_sale": result.dns.for_sale if result.dns is not None else "",
     }

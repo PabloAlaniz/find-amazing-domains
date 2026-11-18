@@ -103,9 +103,9 @@ class TestInterrupt:
         assert registrar.closed
         assert out.read_text(encoding="utf-8").splitlines() == [
             "fqdn,display,word,sld,tld,availability,error_message,statuses,expires_at,"
-            "registered_at,registrar,nameservers,parked_hint,dns_nameservers,dns_conflict",
-            "a.to,a.to,ato,a,to,available,,,,,,,,,false",
-            "b.to,b.to,bto,b,to,taken,,,,,,,,,false",
+            "registered_at,registrar,nameservers,parked_hint,dns_nameservers,dns_conflict,for_sale",
+            "a.to,a.to,ato,a,to,available,,,,,,,,,false,",
+            "b.to,b.to,bto,b,to,taken,,,,,,,,,false,",
         ]
         captured = capsys.readouterr()
         assert "Done" not in captured.out + captured.err

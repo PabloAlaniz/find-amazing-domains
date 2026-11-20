@@ -268,6 +268,33 @@ class TestRdapCircuitBreaker:
         assert result.error_message == "skipped: rdap.example.test unresponsive (circuit open)"
         assert len(warnings) == 1
 
+    def test_403_counts_as_a_failure_without_retry_or_slow_down(self) -> None:
+        clock = FakeClock()
+        throttle = fake_throttle(clock)
+        handler, calls = self._counting(lambda r: httpx.Response(403))
+        warnings: list[str] = []
+        breaker = HostCircuitBreaker(threshold=3, clock=clock.time, on_open=warnings.append)
+        client, _ = _client(handler, clock=clock, throttle=throttle, breaker=breaker)
+        for sld in ("a", "b", "c"):
+            result = client.check_availability(hack(sld, "io"))
+            assert result.availability == Availability.ERROR
+            assert result.error_message == "Unexpected RDAP status 403"
+        assert len(calls) == 3
+        assert throttle.interval(HOST) == 0.0
+        assert len(warnings) == 1
+        assert "circuit open" in client.check_availability(hack("d", "io")).error_message
+        assert len(calls) == 3
+
+    def test_403_among_answers_does_not_open_the_circuit(self) -> None:
+        handler, _ = _scripted(
+            httpx.Response(403), httpx.Response(404), httpx.Response(403), httpx.Response(404)
+        )
+        warnings: list[str] = []
+        client, _ = self._breaker_client(handler, warnings)
+        for sld in ("a", "b", "c", "d", "e"):
+            client.check_availability(hack(sld, "io"))
+        assert warnings == []
+
     def test_non_failure_errors_do_not_count(self) -> None:
         handler, calls = self._counting(lambda r: httpx.Response(400))
         warnings: list[str] = []

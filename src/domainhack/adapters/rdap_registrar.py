@@ -35,6 +35,7 @@ from domainhack.ports.registrar import RegistrarClient
 
 _ACCEPT = {"Accept": "application/rdap+json, application/json"}
 _STATUS_TAKEN = 200
+_STATUS_FORBIDDEN = 403
 _STATUS_AVAILABLE = 404
 _STATUS_TOO_MANY = 429
 _STATUS_SERVER_ERROR = 500
@@ -83,7 +84,9 @@ class RdapRegistrarClient(RegistrarClient):
     breaker's half-open trial, which is a single attempt.
 
     A check that still fails after its retries counts as one failure for the
-    per-host circuit ``breaker`` (transport errors, 429, 5xx); while a host's
+    per-host circuit ``breaker`` (transport errors, 429, 5xx). A 403 also
+    counts as one, without a retry or a slow-down: a host that refuses every
+    request is then skipped like one that does not answer. While a host's
     circuit is open its domains get an ERROR without any network call.
     """
 
@@ -161,6 +164,11 @@ class RdapRegistrarClient(RegistrarClient):
                 return _error(domain, f"RDAP request failed: {e or type(e).__name__}")
 
             status = response.status_code
+            if status == _STATUS_FORBIDDEN:
+                # The host is refusing us, not answering about this name:
+                # a breaker failure, but not worth a retry or a slow-down.
+                self._breaker.record_failure(self._host)
+                return self._interpret(domain, response)
             if status != _STATUS_TOO_MANY and status < _STATUS_SERVER_ERROR:
                 self._throttle.record_success(self._host)
                 self._breaker.record_success(self._host)

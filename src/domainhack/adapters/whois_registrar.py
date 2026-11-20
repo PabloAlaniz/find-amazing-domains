@@ -11,7 +11,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Protocol
 
-from domainhack.adapters._circuit import HostCircuitBreaker
+from domainhack.adapters._circuit import Admission, HostCircuitBreaker
 from domainhack.adapters._registration import (
     normalize_nameservers,
     normalize_statuses,
@@ -212,7 +212,9 @@ class WhoisRegistrarClient(RegistrarClient):
     Queries to one host are spaced by max(``delay``, the server's
     ``min_interval``), adapted by the shared ``throttle``: timeouts and
     rate-limit text slow the host down and are retried at most once
-    (``max_retries`` is capped at 1) after a full-jitter backoff. Empty
+    (``max_retries`` is capped at 1) after a full-jitter backoff, unless the
+    host is already slowed down to at least ``timeout`` or the check is the
+    breaker's half-open trial. Empty
     answers, socket errors, timeouts and rate-limit text that persist count
     as one failure for the per-host circuit ``breaker``; while a host's
     circuit is open its domains get an ERROR without any network call.
@@ -259,20 +261,24 @@ class WhoisRegistrarClient(RegistrarClient):
         if server is None:
             return _error(domain, f"No WHOIS server configured for .{domain.tld.suffix}")
         title = f"whois {server.host}"
-        if not self._breaker.allow(server.host):
-            return _error(domain, self._breaker.skip_message(server.host), title)
-
         query = server.query_format.format(fqdn=domain.fqdn)
         try:
             check_query_name(domain.fqdn)
         except UnsafeWhoisQueryError as e:
             return _error(domain, f"Refused to send WHOIS query: {e}", title)
 
+        admission = self._breaker.admit(server.host)
+        if admission is Admission.DENIED:
+            return _error(domain, self._breaker.skip_message(server.host), title)
+        # The half-open trial is a single attempt (see RdapRegistrarClient).
+        max_retries = 0 if admission is Admission.TRIAL else self._max_retries
+
         # As for RDAP: one check slows the host down at most once and counts
         # at most once for the breaker, however many attempts it takes.
+        base_interval = max(self._delay, server.min_interval)
         attempt = 0
         while True:
-            self._throttle.wait(server.host, max(self._delay, server.min_interval))
+            self._throttle.wait(server.host, base_interval)
             result, outcome = self._query(domain, server, query, title)
             if outcome is _Outcome.ANSWERED:
                 self._throttle.record_success(server.host)
@@ -283,7 +289,12 @@ class WhoisRegistrarClient(RegistrarClient):
             if outcome is _Outcome.SLOW_DOWN:
                 if attempt == 0:
                     self._throttle.slow_down(server.host)
-                if attempt < self._max_retries:
+                # No retry once the host is slowed down to at least the
+                # timeout: the retry would first sleep that long, holding a
+                # worker that other hosts could use.
+                interval = self._throttle.interval(server.host)
+                slowed_down = interval > base_interval and interval >= self._timeout
+                if attempt < max_retries and not slowed_down:
                     self._throttle.defer(server.host, full_jitter_backoff(attempt, self._random))
                     attempt += 1
                     continue

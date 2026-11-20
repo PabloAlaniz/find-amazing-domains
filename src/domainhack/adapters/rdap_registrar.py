@@ -13,7 +13,7 @@ from urllib.parse import quote
 
 import httpx
 
-from domainhack.adapters._circuit import HostCircuitBreaker
+from domainhack.adapters._circuit import Admission, HostCircuitBreaker
 from domainhack.adapters._http import identity_headers
 from domainhack.adapters._registration import (
     normalize_name,
@@ -78,7 +78,9 @@ class RdapRegistrarClient(RegistrarClient):
     ``max_retry_after`` is not retried. Without the header the retry waits a
     full-jitter exponential backoff, ``random(0, min(backoff_cap,
     backoff_base * 2**n))``. A 429, a 503 or a timeout also slows the host's
-    throttle down; a real answer helps it recover.
+    throttle down; a real answer helps it recover. No retry is made once the
+    host is slowed down to an interval of at least ``timeout``, nor for the
+    breaker's half-open trial, which is a single attempt.
 
     A check that still fails after its retries counts as one failure for the
     per-host circuit ``breaker`` (transport errors, 429, 5xx); while a host's
@@ -130,8 +132,12 @@ class RdapRegistrarClient(RegistrarClient):
         return self._client
 
     def check_availability(self, domain: DomainHack) -> DomainCheckResult:
-        if not self._breaker.allow(self._host):
+        admission = self._breaker.admit(self._host)
+        if admission is Admission.DENIED:
             return _error(domain, self._breaker.skip_message(self._host))
+        # The half-open trial is a single attempt: a host that is still down
+        # must not hold a worker through the whole retry schedule.
+        max_retries = 0 if admission is Admission.TRIAL else self._max_retries
         # fqdn is already a validated ASCII name; quoting the path segment is
         # defence in depth so no name can add path segments or a query string.
         url = f"{self._base_url}domain/{quote(domain.fqdn, safe='')}"
@@ -147,7 +153,7 @@ class RdapRegistrarClient(RegistrarClient):
                 if isinstance(e, httpx.TimeoutException) and not slowed:
                     slowed = True
                     self._throttle.slow_down(self._host)
-                if isinstance(e, _RETRYABLE_ERRORS) and attempt < self._max_retries:
+                if isinstance(e, _RETRYABLE_ERRORS) and self._may_retry(attempt, max_retries):
                     self._backoff(attempt)
                     attempt += 1
                     continue
@@ -168,7 +174,7 @@ class RdapRegistrarClient(RegistrarClient):
                 # RFC 7480 §5.5: honor Retry-After, for every client of this host.
                 self._throttle.defer(self._host, min(retry_after, DEFAULT_MAX_INTERVAL))
             may_retry = retry_after is None or retry_after <= self._max_retry_after
-            if may_retry and attempt < self._max_retries:
+            if may_retry and self._may_retry(attempt, max_retries):
                 if retry_after is None:
                     self._backoff(attempt)
                 attempt += 1
@@ -177,6 +183,20 @@ class RdapRegistrarClient(RegistrarClient):
             if status == _STATUS_TOO_MANY:
                 return _error(domain, "RDAP rate limited (429)", status)
             return self._interpret(domain, response)
+
+    def _may_retry(self, attempt: int, max_retries: int) -> bool:
+        """True if retry number ``attempt`` is still worth it.
+
+        Not once the host is slowed down to an interval of at least the
+        request timeout: the retry would first sleep that long in the
+        throttle, holding a worker that other hosts could use. The name is
+        left as an ERROR for the next run instead.
+        """
+        if attempt >= max_retries:
+            return False
+        interval = self._throttle.interval(self._host)
+        slowed_down = interval > self._delay and interval >= self._timeout
+        return not slowed_down
 
     def _backoff(self, attempt: int) -> None:
         """Full-jitter exponential backoff before retry ``attempt`` (0-based).

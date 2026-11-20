@@ -73,6 +73,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   DNS-conflicting hacks in `reports/latest.md` on the `reports` branch. `tools/weekly_report.py`
   renders it from `check --format json` output.
 
+### Fixed
+- A registry host that stopped answering could hold a worker for the whole
+  run (#18). After a failed half-open trial the circuit breaker now waits a
+  full cooldown counted from the failure (it used to count from the start of
+  the trial, which a slow trial outlasted, so every later domain probed the
+  host again with the full retry schedule). The trial is now a single
+  request; after 3 failed trials in a row the host is skipped for the rest of
+  the run; and a check is no longer retried once its host is slowed down to
+  an interval of at least `--timeout`.
+
 ## [0.2.0] - 2026-10-31
 
 First release on PyPI: `pipx install domainhack`.

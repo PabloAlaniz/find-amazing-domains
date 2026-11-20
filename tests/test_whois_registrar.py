@@ -281,7 +281,9 @@ def _breaker_client(
     connector = FakeConnector(reply)
     client = WhoisRegistrarClient(
         delay=0.0,
-        timeout=5.0,
+        # Above every interval the three slow-downs reach (whois.nic.it is
+        # paced at 4 s: 8, 16, 32 s), so each check keeps its one retry.
+        timeout=40.0,
         connect=connector,
         throttle=fake_throttle(clock),
         breaker=HostCircuitBreaker(threshold=3, clock=clock.time, on_open=warnings.append),

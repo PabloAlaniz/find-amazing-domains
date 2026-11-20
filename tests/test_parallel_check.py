@@ -566,6 +566,59 @@ class TestAdaptiveSlowDownPerHost:
         assert throttle.interval("fast.example") == 0.0
 
 
+class TestUnresponsiveHost:
+    def test_dead_host_is_given_up_and_live_hosts_finish(self) -> None:
+        """#18: a host that never answers costs a bounded number of requests."""
+        from domainhack.adapters._circuit import HostCircuitBreaker
+        from domainhack.adapters._throttle import HostThrottle
+
+        class TickingClock:
+            """Every reading is 61 s after the last: each trial finds its cooldown over."""
+
+            def __init__(self) -> None:
+                self.now = 0.0
+                self._lock = threading.Lock()
+
+            def __call__(self) -> float:
+                with self._lock:
+                    self.now += 61.0
+                    return self.now
+
+        throttle = HostThrottle(clock=FakeClock().time, sleep=lambda s: None, random=lambda: 0.5)
+        breaker = HostCircuitBreaker(threshold=3, clock=TickingClock(), on_open=lambda _: None)
+        dead_calls: list[int] = []
+
+        def dead(request: httpx.Request) -> httpx.Response:
+            dead_calls.append(1)
+            raise httpx.ConnectTimeout("timed out", request=request)
+
+        def client(base: str, handler: object) -> RdapRegistrarClient:
+            http = httpx.Client(transport=httpx.MockTransport(handler))  # type: ignore[arg-type]
+            return RdapRegistrarClient(
+                base, delay=0.0, client=http, throttle=throttle, breaker=breaker
+            )
+
+        router = router_for(
+            {
+                "ar": client("https://rdap.dead.example/", dead),
+                "io": client("https://rdap.live.example/", lambda r: httpx.Response(404)),
+                "to": client("https://rdap.other.example/", lambda r: httpx.Response(404)),
+            }
+        )
+
+        def lane(d: DomainHack) -> Hashable:
+            return lane_for(router.client_for(d.tld), d.tld)
+
+        writer = CollectingWriter()
+        items = [hack(f"a{i}", s) for i in range(20) for s in ("ar", "io", "to")]
+        summary = CheckDomainsUseCase(router, writer, parallel=2, lane_key=lane).execute(items)
+        assert summary == CheckSummary(available=40, errors=20)
+        # Three checks of three attempts open the circuit, then three
+        # single-attempt trials; the other 14 domains cost nothing.
+        assert len(dead_calls) == 9 + 3
+        assert breaker.dead_hosts() == ("rdap.dead.example",)
+
+
 # ── CLI ──────────────────────────────────────────────────────────────────────
 
 

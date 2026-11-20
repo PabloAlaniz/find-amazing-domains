@@ -268,6 +268,33 @@ class TestRdapCircuitBreaker:
         assert result.error_message == "skipped: rdap.example.test unresponsive (circuit open)"
         assert len(warnings) == 1
 
+    def test_403_counts_as_a_failure_without_retry_or_slow_down(self) -> None:
+        clock = FakeClock()
+        throttle = fake_throttle(clock)
+        handler, calls = self._counting(lambda r: httpx.Response(403))
+        warnings: list[str] = []
+        breaker = HostCircuitBreaker(threshold=3, clock=clock.time, on_open=warnings.append)
+        client, _ = _client(handler, clock=clock, throttle=throttle, breaker=breaker)
+        for sld in ("a", "b", "c"):
+            result = client.check_availability(hack(sld, "io"))
+            assert result.availability == Availability.ERROR
+            assert result.error_message == "Unexpected RDAP status 403"
+        assert len(calls) == 3
+        assert throttle.interval(HOST) == 0.0
+        assert len(warnings) == 1
+        assert "circuit open" in client.check_availability(hack("d", "io")).error_message
+        assert len(calls) == 3
+
+    def test_403_among_answers_does_not_open_the_circuit(self) -> None:
+        handler, _ = _scripted(
+            httpx.Response(403), httpx.Response(404), httpx.Response(403), httpx.Response(404)
+        )
+        warnings: list[str] = []
+        client, _ = self._breaker_client(handler, warnings)
+        for sld in ("a", "b", "c", "d", "e"):
+            client.check_availability(hack(sld, "io"))
+        assert warnings == []
+
     def test_non_failure_errors_do_not_count(self) -> None:
         handler, calls = self._counting(lambda r: httpx.Response(400))
         warnings: list[str] = []
@@ -305,6 +332,69 @@ class TestRdapCircuitBreaker:
             a.check_availability(hack(sld, "io"))
         assert "circuit open" in b.check_availability(hack("x", "sh")).error_message
         assert len(calls) == 9
+
+    def test_half_open_trial_is_a_single_attempt(self) -> None:
+        handler, calls = self._counting(self._timeout)
+        client, clock = self._breaker_client(handler, [])
+        for sld in ("a", "b", "c"):
+            client.check_availability(hack(sld, "io"))
+        assert len(calls) == 9
+        clock.now += 60.0
+        assert client.check_availability(hack("d", "io")).availability == Availability.ERROR
+        assert len(calls) == 10  # no retries for the trial
+
+    def test_gives_up_on_a_dead_host_for_the_run(self) -> None:
+        # #18: a host that never answers costs its first three checks and
+        # three single-attempt trials, then nothing, however long the run.
+        handler, calls = self._counting(self._timeout)
+        warnings: list[str] = []
+        client, clock = self._breaker_client(handler, warnings)
+        for i in range(40):
+            client.check_availability(hack(f"d{i}", "io"))
+            clock.now += 61.0
+        assert len(calls) == 9 + 3
+        assert len(warnings) == 2
+        assert "rest of this run" in warnings[1]
+        result = client.check_availability(hack("late", "io"))
+        assert result.error_message == (
+            "skipped: rdap.example.test unresponsive (gave up for this run)"
+        )
+        assert len(calls) == 12
+
+    @pytest.mark.parametrize(
+        "response",
+        [_timeout, lambda r: httpx.Response(503)],
+    )
+    def test_no_retry_once_the_host_is_slowed_to_the_timeout(
+        self, response: Callable[[httpx.Request], httpx.Response]
+    ) -> None:
+        clock = FakeClock()
+        throttle = fake_throttle(clock)
+        while throttle.slow_down(HOST) < 10.0:
+            pass
+        handler, calls = self._counting(response)
+        breaker = HostCircuitBreaker(threshold=1, clock=clock.time, on_open=lambda _: None)
+        client, _ = _client(handler, clock=clock, throttle=throttle, breaker=breaker, timeout=10.0)
+        assert client.check_availability(hack("a", "io")).availability == Availability.ERROR
+        assert len(calls) == 1
+        assert breaker.is_open(HOST)
+
+    def test_retries_while_the_host_is_slowed_below_the_timeout(self) -> None:
+        clock = FakeClock()
+        throttle = fake_throttle(clock)
+        throttle.slow_down(HOST)  # 1 s
+        handler, calls = _scripted(httpx.Response(503), httpx.Response(404))
+        client, _ = _client(handler, clock=clock, throttle=throttle, timeout=10.0)
+        assert client.check_availability(hack("a", "io")).availability == Availability.AVAILABLE
+        assert len(calls) == 2
+
+    def test_a_long_base_delay_alone_does_not_block_retries(self) -> None:
+        # Only a slow-down blocks retries: --delay 15 with --timeout 10 is
+        # pacing the user asked for, and a 500 does not slow the host down.
+        handler, calls = _scripted(httpx.Response(500), httpx.Response(404))
+        client, _ = _client(handler, delay=15.0, timeout=10.0)
+        assert client.check_availability(hack("a", "io")).availability == Availability.AVAILABLE
+        assert len(calls) == 2
 
 
 def _scripted(*responses: httpx.Response | type[Exception]) -> tuple[Handler, list[int]]:

@@ -73,6 +73,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   DNS-conflicting hacks in `reports/latest.md` on the `reports` branch. `tools/weekly_report.py`
   renders it from `check --format json` output.
 
+### Changed
+- An RDAP 403 now counts as a failure for the per-host circuit breaker
+  (still without a retry or a slow-down), so a registry that refuses every
+  request is skipped like one that does not answer, instead of being queried
+  for each of its domains.
+
 ### Fixed
 - A registry host that stopped answering could hold a worker for the whole
   run (#18). After a failed half-open trial the circuit breaker now waits a

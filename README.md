@@ -510,7 +510,7 @@ Note: "available" means *not registered*. Premium or reserved names may still sh
 - A check counts once, however many retries it takes: it slows its host down at most once and counts as at most one failure for the circuit breaker below.
 - Checks go best-first, `--limit` caps them per TLD, and large range or pattern runs need `--yes` (see above).
 - Once a host is slowed down to an interval of at least `--timeout` (10 s by default), a failed check is not retried: the retry would first wait that long while other hosts could use the worker.
-- If a host stops responding (3 consecutive failures), its domains are skipped for 60 s instead of waiting on timeouts. Then one domain is tried with a single request; if that fails, the host is skipped for another 60 s. After 3 failed tries in a row the host is given up on for the rest of the run (`skipped: <host> unresponsive (gave up for this run)`). Skipped checks are reported as errors and re-checked on the next run.
+- If a host stops responding or refuses us (3 consecutive failures; an RDAP 403 counts as one, without a retry), its domains are skipped for 60 s instead of waiting on timeouts. Then one domain is tried with a single request; if that fails, the host is skipped for another 60 s. After 3 failed tries in a row the host is given up on for the rest of the run (`skipped: <host> unresponsive (gave up for this run)`). Skipped checks are reported as errors and re-checked on the next run.
 - So a host that never answers costs one worker about its first 3 checks (up to 3 requests each, with timeouts and backoff) plus 3 single requests, not the whole run.
 
 ### Exit codes

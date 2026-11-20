@@ -509,7 +509,9 @@ Note: "available" means *not registered*. Premium or reserved names may still sh
 - RDAP retries a 429, a 5xx, a timeout or a dropped connection at most twice. It waits for `Retry-After` when the server sends one (a 429 asking for more than 30 s is not retried, but the host is still held back, for up to 60 s). Otherwise it waits a "full jitter" exponential backoff, `random(0, min(30, 2 × 2^n))` seconds. WHOIS retries a timeout or a rate-limited reply only once.
 - A check counts once, however many retries it takes: it slows its host down at most once and counts as at most one failure for the circuit breaker below.
 - Checks go best-first, `--limit` caps them per TLD, and large range or pattern runs need `--yes` (see above).
-- If a host stops responding (3 consecutive failures), its domains are skipped for 60 s instead of waiting on timeouts; skipped checks are reported as errors and re-checked on the next run.
+- Once a host is slowed down to an interval of at least `--timeout` (10 s by default), a failed check is not retried: the retry would first wait that long while other hosts could use the worker.
+- If a host stops responding (3 consecutive failures), its domains are skipped for 60 s instead of waiting on timeouts. Then one domain is tried with a single request; if that fails, the host is skipped for another 60 s. After 3 failed tries in a row the host is given up on for the rest of the run (`skipped: <host> unresponsive (gave up for this run)`). Skipped checks are reported as errors and re-checked on the next run.
+- So a host that never answers costs one worker about its first 3 checks (up to 3 requests each, with timeouts and backoff) plus 3 single requests, not the whole run.
 
 ### Exit codes
 

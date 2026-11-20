@@ -136,3 +136,32 @@ def test_a_refused_query_is_neutral_for_throttle_and_breaker() -> None:
     assert connector.connects == 0
     assert not breaker.is_open(HOST)
     assert throttle.interval(HOST) == 1.0
+
+
+def test_half_open_trial_is_a_single_attempt() -> None:
+    rig = _rig(TimeoutError("timed out"), threshold=1)
+    rig.client.check_availability(_am("a"))
+    assert rig.connector.connects == 2
+    rig.clock.now += 60.0
+    assert rig.client.check_availability(_am("b")).availability == Availability.ERROR
+    assert rig.connector.connects == 3  # no retry for the trial
+
+
+@pytest.mark.parametrize("reply", [TimeoutError("timed out"), RATE_LIMITED])
+def test_no_retry_once_the_host_is_slowed_to_the_timeout(reply: Reply) -> None:
+    rig = _rig(reply)
+    while rig.throttle.slow_down(HOST) < 5.0:  # the rig's timeout
+        pass
+    assert rig.client.check_availability(_am()).availability == Availability.ERROR
+    assert rig.connector.connects == 1
+
+
+def test_gives_up_on_a_dead_host_for_the_run() -> None:
+    rig = _rig(ConnectionResetError("reset"))
+    for i in range(30):
+        rig.client.check_availability(_am(f"d{i}"))
+        rig.clock.now += 61.0
+    assert rig.connector.connects == 3 + 3  # three checks, then three trials
+    assert rig.breaker.dead_hosts() == (HOST,)
+    result = rig.client.check_availability(_am("late"))
+    assert result.error_message == "skipped: whois.amnic.net unresponsive (gave up for this run)"

@@ -2,19 +2,23 @@ import threading
 
 import pytest
 
-from domainhack.adapters._circuit import HostCircuitBreaker
+from domainhack.adapters._circuit import Admission, HostCircuitBreaker
 from tests.fakes import FakeClock
 
 HOST = "whois.nic.it"
 
 
 def _breaker(
-    threshold: int = 3, cooldown: float | None = 60.0
+    threshold: int = 3, cooldown: float | None = 60.0, max_trials: int = 3
 ) -> tuple[HostCircuitBreaker, FakeClock, list[str]]:
     clock = FakeClock()
     warnings: list[str] = []
     breaker = HostCircuitBreaker(
-        threshold=threshold, cooldown=cooldown, clock=clock, on_open=warnings.append
+        threshold=threshold,
+        cooldown=cooldown,
+        clock=clock,
+        on_open=warnings.append,
+        max_trials=max_trials,
     )
     return breaker, clock, warnings
 
@@ -100,6 +104,82 @@ def test_failed_trial_reopens_for_another_cooldown() -> None:
     assert len(warnings) == 1
 
 
+def test_failed_trial_waits_a_full_cooldown_from_the_failure() -> None:
+    # A trial against a dead host can outlast the cooldown (#18): the next
+    # trial must still wait a full cooldown after it fails, not go out at once.
+    breaker, clock, _ = _breaker()
+    _fail(breaker, 3)
+    clock.now = 60.0
+    assert breaker.admit(HOST) is Admission.TRIAL
+    clock.now = 210.0
+    breaker.record_failure(HOST)
+    clock.now = 269.9
+    assert breaker.admit(HOST) is Admission.DENIED
+    clock.now = 270.0
+    assert breaker.admit(HOST) is Admission.TRIAL
+
+
+def test_admit_reports_closed_trial_and_denied() -> None:
+    breaker, clock, _ = _breaker()
+    assert breaker.admit(HOST) is Admission.CLOSED
+    _fail(breaker, 3)
+    assert breaker.admit(HOST) is Admission.DENIED
+    clock.now = 60.0
+    assert breaker.admit(HOST) is Admission.TRIAL
+    assert breaker.admit(HOST) is Admission.DENIED  # one trial per cooldown
+    breaker.record_success(HOST)
+    assert breaker.admit(HOST) is Admission.CLOSED
+
+
+def _fail_trials(breaker: HostCircuitBreaker, clock: FakeClock, times: int) -> None:
+    for _ in range(times):
+        clock.now += 60.0
+        assert breaker.admit(HOST) is Admission.TRIAL
+        breaker.record_failure(HOST)
+
+
+def test_gives_up_after_max_failed_trials() -> None:
+    breaker, clock, warnings = _breaker()
+    _fail(breaker, 3)
+    _fail_trials(breaker, clock, 2)
+    assert breaker.dead_hosts() == ()
+    assert len(warnings) == 1
+    _fail_trials(breaker, clock, 1)
+    assert breaker.dead_hosts() == (HOST,)
+    assert len(warnings) == 2
+    assert warnings[1] == (
+        "warning: whois.nic.it still unresponsive after 3 retries; "
+        "skipping its remaining domains for the rest of this run"
+    )
+    clock.now = 1e9
+    assert breaker.admit(HOST) is Admission.DENIED
+    assert not breaker.allow(HOST)
+    assert breaker.skip_message(HOST) == "skipped: whois.nic.it unresponsive (gave up for this run)"
+    _fail(breaker, 5)  # late failures do not warn again
+    assert len(warnings) == 2
+
+
+def test_successful_trial_resets_the_trial_count() -> None:
+    breaker, clock, _ = _breaker()
+    _fail(breaker, 3)
+    _fail_trials(breaker, clock, 2)
+    clock.now += 60.0
+    assert breaker.admit(HOST) is Admission.TRIAL
+    breaker.record_success(HOST)
+    _fail(breaker, 3)
+    _fail_trials(breaker, clock, 2)
+    assert breaker.dead_hosts() == ()
+
+
+def test_failure_in_flight_when_the_circuit_opened_is_not_a_trial() -> None:
+    breaker, clock, warnings = _breaker(max_trials=1)
+    _fail(breaker, 4)  # the fourth was already in flight
+    assert breaker.dead_hosts() == ()
+    clock.now = 59.0
+    assert breaker.admit(HOST) is Admission.DENIED
+    assert len(warnings) == 1
+
+
 def test_no_cooldown_stays_open() -> None:
     breaker, clock, warnings = _breaker(cooldown=None)
     _fail(breaker, 3)
@@ -116,6 +196,11 @@ def test_skip_message() -> None:
 def test_invalid_threshold() -> None:
     with pytest.raises(ValueError):
         HostCircuitBreaker(threshold=0)
+
+
+def test_invalid_max_trials() -> None:
+    with pytest.raises(ValueError):
+        HostCircuitBreaker(max_trials=0)
 
 
 def test_default_warning_goes_to_stderr_once(capsys: pytest.CaptureFixture[str]) -> None:

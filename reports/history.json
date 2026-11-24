@@ -1,0 +1,20 @@
+[
+ {
+  "date": "2026-11-24",
+  "report": "2026-W48.md",
+  "checked": 1789,
+  "available": 349,
+  "dropping": 5,
+  "compared_with": null,
+  "new_available": null,
+  "registered": null,
+  "new_available_names": [],
+  "dropping_names": [
+   "cas.as",
+   "heig.ht",
+   "tonig.ht",
+   "reform.as",
+   "comentar.io"
+  ]
+ }
+]

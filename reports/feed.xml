@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>domainhack: available domain hacks, weekly</title>
+  <subtitle>Common English and Spanish words that spell a free domain name.</subtitle>
+  <id>https://github.com/PabloAlaniz/find-amazing-domains/blob/reports/reports/latest.md</id>
+  <link href="https://raw.githubusercontent.com/PabloAlaniz/find-amazing-domains/reports/reports/feed.xml" rel="self" type="application/atom+xml" />
+  <link href="https://github.com/PabloAlaniz/find-amazing-domains/blob/reports/reports/latest.md" rel="alternate" type="text/html" />
+  <updated>2026-11-24T00:00:00Z</updated>
+  <author>
+    <name>domainhack weekly report</name>
+  </author>
+  <entry>
+    <title>Domain hacks, week 48 of 2026: 349 available</title>
+    <id>https://github.com/PabloAlaniz/find-amazing-domains/blob/reports/reports/2026-W48.md</id>
+    <link href="https://github.com/PabloAlaniz/find-amazing-domains/blob/reports/reports/2026-W48.md" rel="alternate" type="text/html" />
+    <updated>2026-11-24T00:00:00Z</updated>
+    <summary>1,789 domain hacks checked at the registries: 349 available, 5 dropping soon. Dropping: cas.as, heig.ht, tonig.ht, reform.as, comentar.io.</summary>
+  </entry>
+</feed>

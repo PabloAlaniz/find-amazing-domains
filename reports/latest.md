@@ -1,16 +1,15 @@
-# Domain hacks: week 47 of 2026
+# Domain hacks: week 48 of 2026
 
-Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Spanish words, across 170 TLDs, asked directly at the registries. **372 available**, 1,334 taken (6 of them in redemption or pending delete, so they may be free soon), 0 reported available but delegated in DNS, 83 errors.
+Checked on 2026-11-24: 1,789 domain hacks spelled by 5,086 common English and Spanish words, across 170 TLDs, asked directly at the registries. **349 available**, 1,319 taken (5 of them in redemption or pending delete, so they may be free soon), 0 reported available but delegated in DNS, 121 errors.
 
 "Available" means the registry reported no registration when asked. Premium and reserved names can still show as available, and a registrar may price them differently: confirm there before buying. Several country-code registries accept registrations only from local residents or companies; a TLD where almost every name shows as available is usually one of them.
 
-## Available now (372)
+## Available now (349)
 
 | Domain | Word |
 |---|---|
 | a.ir | air |
 | a.mo | amo |
-| a.re | are |
 | a.si | asi |
 | b.ad | bad |
 | b.ag | bag |
@@ -21,7 +20,6 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | i.nc | inc |
 | l.uz | luz |
 | m.ad | mad |
-| p.re | pre |
 | s.ad | sad |
 | s.in | sin |
 | s.ir | sir |
@@ -29,21 +27,16 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | u.no | uno |
 | u.sa | usa |
 | w.in | win |
-| ab.re | abre |
-| ai.re | aire |
 | be.ar | bear |
 | bo.th | both |
 | ca.me | came |
-| ca.re | care |
 | co.mo | como |
-| co.re | core |
 | de.ad | dead |
 | de.ar | dear |
 | di.ga | diga |
 | dr.ug | drug |
 | ed.ad | edad |
 | fa.ir | fair |
-| fi.re | fire |
 | fi.ve | five |
 | ga.in | gain |
 | ga.ve | gave |
@@ -53,35 +46,32 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | ha.ir | hair |
 | ha.ve | have |
 | he.ad | head |
-| he.re | here |
 | hi.gh | high |
 | jo.in | join |
 | le.ad | lead |
 | li.ga | liga |
 | li.ve | live |
+| lo.ad | load |
 | lo.ve | love |
 | ma.in | main |
-| mo.re | more |
 | mo.ve | move |
 | ne.ar | near |
 | pa.ga | paga |
 | pa.in | pain |
 | pa.ir | pair |
-| pu.re | pure |
 | ra.in | rain |
-| ra.re | rare |
+| re.ad | read |
+| ro.ad | road |
 | sa.ve | save |
 | si.ga | siga |
 | si.gn | sign |
 | sk.in | skin |
 | st.ar | star |
-| su.re | sure |
 | to.mo | tomo |
 | tu.ve | tuve |
 | us.ar | usar |
 | vi.ve | vive |
 | wa.ve | wave |
-| we.re | were |
 | ye.ar | year |
 | abo.ve | above |
 | agu.as | aguas |
@@ -114,7 +104,6 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | mis.mo | mismo |
 | mon.th | month |
 | mou.th | mouth |
-| mue.re | muere |
 | nor.th | north |
 | nue.ve | nueve |
 | otr.as | otras |
@@ -155,6 +144,7 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | espo.so | esposo |
 | estu.ve | estuve |
 | evit.ar | evitar |
+| form.ar | formar |
 | four.th | fourth |
 | grow.th | growth |
 | habl.as | hablas |
@@ -171,11 +161,9 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | pren.sa | prensa |
 | pued.as | puedas |
 | qued.ar | quedar |
-| quie.re | quiere |
 | regl.as | reglas |
 | remo.ve | remove |
 | salv.ar | salvar |
-| sang.re | sangre |
 | segu.ir | seguir |
 | suje.to | sujeto |
 | tant.as | tantas |
@@ -183,6 +171,7 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | teng.as | tengas |
 | thou.gh | though |
 | trop.as | tropas |
+| unid.ad | unidad |
 | unli.ke | unlike |
 | vari.as | varias |
 | veci.no | vecino |
@@ -191,7 +180,7 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | acept.ar | aceptar |
 | achie.ve | achieve |
 | algun.as | algunas |
-| anima.ls | animals |
+| amist.ad | amistad |
 | antig.ua | antigua |
 | aquel.la | aquella |
 | aumen.to | aumento |
@@ -209,8 +198,8 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | defen.sa | defensa |
 | deser.ve | deserve |
 | empre.sa | empresa |
+| entid.ad | entidad |
 | entre.ga | entrega |
-| escue.la | escuela |
 | espec.ie | especie |
 | excep.to | excepto |
 | extre.mo | extremo |
@@ -232,6 +221,7 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | massi.ve | massive |
 | medid.as | medidas |
 | mensa.je | mensaje |
+| navid.ad | navidad |
 | ningu.no | ninguno |
 | olvid.ar | olvidar |
 | piedr.as | piedras |
@@ -245,7 +235,6 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | recei.ve | receive |
 | recib.ir | recibir |
 | reduc.ir | reducir |
-| refie.re | refiere |
 | regre.so | regreso |
 | reser.ve | reserve |
 | seman.as | semanas |
@@ -264,6 +253,7 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | asimis.mo | asimismo |
 | aument.ar | aumentar |
 | campai.gn | campaign |
+| cantid.ad | cantidad |
 | carrer.as | carreras |
 | concur.so | concurso |
 | congre.so | congreso |
@@ -281,6 +271,7 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | gobier.no | gobierno |
 | homena.je | homenaje |
 | infier.no | infierno |
+| intent.ar | intentar |
 | intere.sa | interesa |
 | lengua.je | lenguaje |
 | llamad.as | llamadas |
@@ -297,7 +288,6 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | progre.so | progreso |
 | quedar.se | quedarse |
 | regres.ar | regresar |
-| requie.re | requiere |
 | respec.to | respecto |
 | sistem.as | sistemas |
 | soldie.rs | soldiers |
@@ -306,13 +296,10 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | supues.to | supuesto |
 | termin.ar | terminar |
 | utiliz.ar | utilizar |
-| accordi.ng | according |
 | asesina.to | asesinato |
 | ciudada.no | ciudadano |
 | consegu.ir | conseguir |
-| costumb.re | costumbre |
 | demostr.ar | demostrar |
-| dependi.ng | depending |
 | dispues.to | dispuesto |
 | distint.as | distintas |
 | effecti.ve | effective |
@@ -330,20 +317,14 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | pregunt.as | preguntas |
 | present.ar | presentar |
 | problem.as | problemas |
-| providi.ng | providing |
-| regardi.ng | regarding |
 | religio.sa | religiosa |
-| remaini.ng | remaining |
-| viviend.as | viviendas |
 | aeropuer.to | aeropuerto |
 | attracti.ve | attractive |
 | castella.no | castellano |
 | compromi.so | compromiso |
 | consider.ar | considerar |
 | determin.ar | determinar |
-| increasi.ng | increasing |
 | nacimien.to | nacimiento |
-| performi.ng | performing |
 | porcenta.je | porcentaje |
 | propuest.as | propuestas |
 | provinci.as | provincias |
@@ -352,7 +333,6 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | venezola.no | venezolano |
 | alternati.ve | alternative |
 | competiti.ve | competitive |
-| consideri.ng | considering |
 | convertir.se | convertirse |
 | diferenci.as | diferencias |
 | individua.ls | individuals |
@@ -360,7 +340,6 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | lanzamien.to | lanzamiento |
 | pensamien.to | pensamiento |
 | periodist.as | periodistas |
-| perspecti.ve | perspective |
 | presupues.to | presupuesto |
 | sentimien.to | sentimiento |
 | ayuntamien.to | ayuntamiento |
@@ -370,7 +349,6 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | experienci.as | experiencias |
 | consecuenci.as | consecuencias |
 | entrenamien.to | entrenamiento |
-| manufacturi.ng | manufacturing |
 | procedimien.to | procedimiento |
 | significant.ly | significantly |
 | circunstanci.as | circunstancias |
@@ -379,9 +357,8 @@ Checked on 2026-11-17: 1,789 domain hacks spelled by 5,086 common English and Sp
 | funcionamien.to | funcionamiento |
 | reconocimien.to | reconocimiento |
 | representati.ve | representative |
-| responsabilid.ad | responsabilidad |
 
-## Dropping soon (6)
+## Dropping soon (5)
 
 Registered names in redemption period or pending delete. The holder can still restore a name in redemption; pending delete usually frees it within five days.
 
@@ -389,10 +366,9 @@ Registered names in redemption period or pending delete. The holder can still re
 |---|---|---|---|
 | reform.as | reformas | pending delete | 2026-08-21 |
 | comentar.io | comentario | pending delete | 2026-08-30 |
-| payi.ng | paying | redemption period | 2026-09-10 |
 | cas.as | casas | redemption period | 2026-10-01 |
-| tonig.ht | tonight | redemption period | 2026-10-06 |
-| heig.ht | height | redemption period | 2026-10-06 |
+| tonig.ht | tonight | pending delete | 2026-10-06 |
+| heig.ht | height | pending delete | 2026-10-06 |
 
 ## Available at the registry, but delegated in DNS (0)
 
@@ -402,27 +378,25 @@ None this week.
 
 | TLD | Checked | Available | Taken | Dropping | Errors |
 |---|---|---|---|---|---|
-| .as | 134 | 69 | 65 | 2 | 0 |
-| .ve | 49 | 47 | 2 | 0 | 0 |
-| .ar | 120 | 33 | 87 | 0 | 0 |
+| .as | 134 | 68 | 65 | 2 | 1 |
+| .ve | 49 | 46 | 3 | 0 | 0 |
+| .ar | 120 | 35 | 85 | 0 | 0 |
 | .to | 112 | 28 | 84 | 0 | 0 |
 | .th | 25 | 21 | 2 | 0 | 2 |
-| .re | 74 | 19 | 55 | 0 | 0 |
+| .ad | 57 | 18 | 15 | 0 | 24 |
 | .sa | 25 | 16 | 9 | 0 | 0 |
 | .ga | 15 | 12 | 3 | 0 | 0 |
-| .ad | 57 | 11 | 14 | 0 | 32 |
 | .so | 35 | 11 | 24 | 0 | 0 |
 | .ir | 33 | 11 | 22 | 0 | 0 |
 | .mo | 11 | 11 | 0 | 0 | 0 |
-| .ng | 173 | 9 | 164 | 1 | 0 |
 | .no | 38 | 9 | 29 | 0 | 0 |
 | .in | 28 | 9 | 19 | 0 | 0 |
-| .ls | 21 | 7 | 14 | 0 | 0 |
 | .gh | 7 | 7 | 0 | 0 | 0 |
 | .se | 62 | 6 | 56 | 0 | 0 |
+| .ls | 21 | 6 | 15 | 0 | 0 |
 | .je | 8 | 5 | 3 | 0 | 0 |
-| .la | 25 | 4 | 21 | 0 | 0 |
 | .ht | 19 | 4 | 15 | 2 | 0 |
+| .la | 25 | 3 | 22 | 0 | 0 |
 | .ie | 9 | 3 | 6 | 0 | 0 |
 | .gn | 4 | 3 | 1 | 0 | 0 |
 | .ly | 82 | 2 | 80 | 0 | 0 |
@@ -438,6 +412,8 @@ None this week.
 | .uz | 2 | 1 | 1 | 0 | 0 |
 | .nc | 1 | 1 | 0 | 0 | 0 |
 | .ug | 1 | 1 | 0 | 0 | 0 |
+| .ng | 173 | 0 | 147 | 0 | 26 |
+| .re | 74 | 0 | 55 | 0 | 19 |
 | .st | 43 | 0 | 43 | 0 | 0 |
 | .de | 41 | 0 | 41 | 0 | 0 |
 | .na | 41 | 0 | 0 | 0 | 41 |
@@ -474,15 +450,18 @@ None this week.
 | .mn | 1 | 0 | 1 | 0 | 0 |
 | .tc | 1 | 0 | 1 | 0 | 0 |
 
-## Errors (83)
+## Errors (121)
 
 Lookups that did not complete (registry down, rate limit reached, circuit breaker open). They are retried next week.
 
 | TLD | Domains | Example |
 |---|---|---|
-| .ad | 32 | RDAP rate limited (429) |
+| .ad | 24 | RDAP rate limited (429) |
+| .as | 1 | RDAP rate limited (429) |
 | .ma | 5 | WHOIS query failed: timed out |
 | .na | 41 | Unexpected RDAP status 403 |
+| .ng | 26 | RDAP request failed: The read operation timed out |
+| .re | 19 | Unexpected RDAP status 403 |
 | .th | 2 | RDAP rate limited (429) |
 | .ye | 3 | RDAP request failed: _ssl.c:994: The handshake operation timed out |
 
